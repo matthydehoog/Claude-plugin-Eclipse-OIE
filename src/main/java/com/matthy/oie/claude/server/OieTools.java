@@ -147,7 +147,7 @@ public class OieTools {
     public String run(String name, JsonNode input) throws Exception {
         ReadTool tool = readTools.get(name);
         if (tool == null) {
-            throw new IllegalArgumentException("Onbekende tool: " + name);
+            throw new IllegalArgumentException("Unknown tool: " + name);
         }
         return clip(masker.mask(tool.run(input)));
     }
@@ -155,7 +155,7 @@ public class OieTools {
     public PreparedAction prepare(String name, JsonNode input) throws Exception {
         ActionTool tool = actionTools.get(name);
         if (tool == null) {
-            throw new IllegalArgumentException("Onbekende actie: " + name);
+            throw new IllegalArgumentException("Unknown action: " + name);
         }
         return tool.prepare(input);
     }
@@ -167,83 +167,83 @@ public class OieTools {
         if (text.length() <= MAX_RESULT_CHARS) {
             return text;
         }
-        return text.substring(0, MAX_RESULT_CHARS) + "\n\n[... afgekapt: " + (text.length() - MAX_RESULT_CHARS) + " tekens weggelaten. Verfijn de vraag.]";
+        return text.substring(0, MAX_RESULT_CHARS) + "\n\n[... truncated: " + (text.length() - MAX_RESULT_CHARS) + " characters omitted. Narrow the query.]";
     }
 
     // ------------------------------------------------------------------ read tools
 
     private void registerReadTools() {
-        read("oie_server_info", "Versie, status, JVM/OS-info, geheugen en schijfruimte van de OIE-server.", props(), in -> serverInfo());
+        read("oie_server_info", "Version, status, JVM/OS info, memory and disk space of the OIE server.", props(), in -> serverInfo());
 
-        read("oie_list_channels", "Tabel van alle channels met deploy-status (STARTED/STOPPED/PAUSED/UNDEPLOYED) en tellers (received/filtered/sent/queued/error), channels met fouten bovenaan. Begin hier.", props(
-                "includeUndeployed", bool("Ook niet-gedeployde channels tonen (standaard true)"),
-                "includeConnectors", bool("Ook tellers per source/destination tonen (standaard false)")), in -> listChannels(in.path("includeUndeployed").asBoolean(true), in.path("includeConnectors").asBoolean(false)));
+        read("oie_list_channels", "Table of all channels with deploy state (STARTED/STOPPED/PAUSED/UNDEPLOYED) and counters (received/filtered/sent/queued/error), channels with errors first. Start here.", props(
+                "includeUndeployed", bool("Also show undeployed channels (default true)"),
+                "includeConnectors", bool("Also show counters per source/destination (default false)")), in -> listChannels(in.path("includeUndeployed").asBoolean(true), in.path("includeConnectors").asBoolean(false)));
 
-        read("oie_get_channel", "Volledige channelconfiguratie als OIE-export-XML: connectors, filters, transformers (JavaScript), data type properties en deploy/undeploy/pre/postprocessor-scripts.", props(
-                "channel", str("Channel ID (UUID) of channelnaam")), in -> ObjectXMLSerializer.getInstance().serialize(channel(in)), "channel");
+        read("oie_get_channel", "Full channel configuration as OIE export XML: connectors, filters, transformers (JavaScript), data type properties and deploy/undeploy/pre/postprocessor scripts.", props(
+                "channel", str("Channel ID (UUID) or channel name")), in -> ObjectXMLSerializer.getInstance().serialize(channel(in)), "channel");
 
-        read("oie_channel_scripts", "Overzicht van alle scripts in een channel met hun plaats (connector-metaDataId en index), zodat je weet wat oie_update_channel_script moet aanpassen.", props(
-                "channel", str("Channel ID (UUID) of channelnaam")), in -> channelScripts(channel(in)), "channel");
+        read("oie_channel_scripts", "Overview of all scripts in a channel with their location (connector metaDataId and index), so you know what oie_update_channel_script should change.", props(
+                "channel", str("Channel ID (UUID) or channel name")), in -> channelScripts(channel(in)), "channel");
 
-        read("oie_channel_statistics", "Tellers per connector (source = metaDataId 0, destinations 1..n) voor één channel.", props(
-                "channel", str("Channel ID (UUID) of channelnaam")), in -> channelStatistics(channel(in)), "channel");
+        read("oie_channel_statistics", "Counters per connector (source = metaDataId 0, destinations 1..n) for one channel.", props(
+                "channel", str("Channel ID (UUID) or channel name")), in -> channelStatistics(channel(in)), "channel");
 
-        read("oie_search_messages", "Zoekt berichten in een channel op status, periode of tekst. Geeft per bericht ID, datum, status per connector en foutmelding. Met includeContent ook de inhoud (gemaskeerd).", props(
-                "channel", str("Channel ID (UUID) of channelnaam"),
-                "statuses", arr(enumStr("Berichtstatus", MESSAGE_STATUSES), "Bijv. [\"ERROR\"] of [\"QUEUED\"]"),
-                "startDate", str("ISO-datum/tijd, bijv. 2026-09-23T00:00:00+02:00"),
-                "endDate", str("ISO-datum/tijd"),
-                "textSearch", str("Zoekt in de inhoud (kan traag zijn)"),
-                "onlyWithErrors", bool("Alleen berichten met een fout"),
-                "includeContent", bool("Ook de inhoud meesturen (standaard false)"),
-                "limit", integer("Maximaal aantal berichten, 1-50 (standaard 20)"),
-                "offset", integer("Aantal over te slaan berichten (standaard 0)")), this::searchMessages, "channel");
+        read("oie_search_messages", "Searches messages in a channel by status, period or text. Returns per message the ID, date, status per connector and error. With includeContent also the content (masked).", props(
+                "channel", str("Channel ID (UUID) or channel name"),
+                "statuses", arr(enumStr("Message status", MESSAGE_STATUSES), "Bijv. [\"ERROR\"] of [\"QUEUED\"]"),
+                "startDate", str("ISO date/time, e.g. 2026-09-23T00:00:00+02:00"),
+                "endDate", str("ISO date/time"),
+                "textSearch", str("Searches the content (can be slow)"),
+                "onlyWithErrors", bool("Only messages with an error"),
+                "includeContent", bool("Also return the content (default false)"),
+                "limit", integer("Maximum number of messages, 1-50 (default 20)"),
+                "offset", integer("Number of messages to skip (default 0)")), this::searchMessages, "channel");
 
-        read("oie_get_message", "Eén bericht met alle connectorberichten: raw, transformed, encoded, sent, response, maps en foutmeldingen (patiëntgegevens gemaskeerd).", props(
-                "channel", str("Channel ID (UUID) of channelnaam"),
-                "messageId", integer("Bericht-ID"),
-                "metaDataIds", arr(integer("Connector"), "Beperk tot deze connectors (0 = source)")), this::getMessage, "channel", "messageId");
+        read("oie_get_message", "One message with all connector messages: raw, transformed, encoded, sent, response, maps and errors (patient data masked).", props(
+                "channel", str("Channel ID (UUID) or channel name"),
+                "messageId", integer("Message ID"),
+                "metaDataIds", arr(integer("Connector"), "Limit to these connectors (0 = source)")), this::getMessage, "channel", "messageId");
 
-        read("oie_events", "Audit-/server-events (deploys, fouten, logins), nieuwste eerst. Filter op level, naam en periode.", props(
+        read("oie_events", "Audit/server events (deploys, errors, logins), newest first. Filter by level, name and period.", props(
                 "level", enumStr("Level", "INFORMATION", "WARNING", "ERROR"),
-                "name", str("Filter op (deel van) de eventnaam"),
-                "startDate", str("ISO-datum/tijd"),
-                "endDate", str("ISO-datum/tijd"),
-                "limit", integer("Maximaal aantal events, 1-200 (standaard 50)")), this::events);
+                "name", str("Filter by (part of) the event name"),
+                "startDate", str("ISO date/time"),
+                "endDate", str("ISO date/time"),
+                "limit", integer("Maximum number of events, 1-200 (default 50)")), this::events);
 
-        read("oie_server_log", "Meest recente regels uit het OIE-serverlog. Handig bij deploy- en scriptfouten.", props(
-                "fetchSize", integer("Aantal regels, 1-500 (standaard 100)")), in -> serverLog(in.path("fetchSize").asInt(100)));
+        read("oie_server_log", "Most recent lines from the OIE server log. Useful for deploy and script errors.", props(
+                "fetchSize", integer("Number of lines, 1-500 (default 100)")), in -> serverLog(in.path("fetchSize").asInt(100)));
 
-        read("oie_list_code_templates", "Code template libraries met hun templates (gedeelde functies) en aan welke channels ze gekoppeld zijn.", props(
-                "includeCode", bool("Ook de code meesturen (standaard false)")), in -> codeTemplates(in.path("includeCode").asBoolean(false)));
+        read("oie_list_code_templates", "Code template libraries with their templates (shared functions) and the channels they are linked to.", props(
+                "includeCode", bool("Also return the code (default false)")), in -> codeTemplates(in.path("includeCode").asBoolean(false)));
 
-        read("oie_get_code_template", "Eén code template inclusief code.", props(
-                "codeTemplateId", str("ID van de code template")), in -> ObjectXMLSerializer.getInstance().serialize(codeTemplateController.getCodeTemplateById(text(in, "codeTemplateId"))), "codeTemplateId");
+        read("oie_get_code_template", "One code template including its code.", props(
+                "codeTemplateId", str("ID of the code template")), in -> ObjectXMLSerializer.getInstance().serialize(codeTemplateController.getCodeTemplateById(text(in, "codeTemplateId"))), "codeTemplateId");
 
-        read("oie_configuration_map", "Sleutels uit de Configuration Map. Waarden worden nooit teruggegeven omdat ze vaak wachtwoorden of paden bevatten.", props(), in -> String.join("\n", new TreeMap<>(configurationController.getConfigurationMap()).keySet()));
+        read("oie_configuration_map", "Keys of the Configuration Map. Values are never returned because they often contain passwords or paths.", props(), in -> String.join("\n", new TreeMap<>(configurationController.getConfigurationMap()).keySet()));
     }
 
     private String serverInfo() {
         Runtime rt = Runtime.getRuntime();
         StringBuilder sb = new StringBuilder();
-        sb.append("Versie: ").append(configurationController.getServerVersion()).append(" (build ").append(configurationController.getBuildDate()).append(")\n");
+        sb.append("Version: ").append(configurationController.getServerVersion()).append(" (build ").append(configurationController.getBuildDate()).append(")\n");
         sb.append("Server-ID: ").append(configurationController.getServerId()).append('\n');
-        sb.append("Status: ").append(configurationController.getStatus()).append(" (0 = draait)\n");
+        sb.append("Status: ").append(configurationController.getStatus()).append(" (0 = running)\n");
         sb.append("Java: ").append(System.getProperty("java.version")).append(" (").append(System.getProperty("java.vendor")).append(")\n");
         sb.append("OS: ").append(System.getProperty("os.name")).append(' ').append(System.getProperty("os.version")).append(' ').append(System.getProperty("os.arch")).append('\n');
-        sb.append("CPU's: ").append(rt.availableProcessors()).append('\n');
+        sb.append("CPUs: ").append(rt.availableProcessors()).append('\n');
         long used = rt.totalMemory() - rt.freeMemory();
-        sb.append(String.format(Locale.ROOT, "Heap: %d MB in gebruik, %d MB gealloceerd, %d MB max%n", used >> 20, rt.totalMemory() >> 20, rt.maxMemory() >> 20));
+        sb.append(String.format(Locale.ROOT, "Heap: %d MB used, %d MB allocated, %d MB max%n", used >> 20, rt.totalMemory() >> 20, rt.maxMemory() >> 20));
         File appDir = new File(System.getProperty("user.dir"));
-        sb.append(String.format(Locale.ROOT, "Schijf (%s): %d GB vrij van %d GB%n", appDir.getAbsolutePath(), appDir.getUsableSpace() >> 30, appDir.getTotalSpace() >> 30));
-        sb.append("Gedeployde channels: ").append(engineController.getDeployedIds().size()).append(" van ").append(channelController.getChannelIds().size()).append('\n');
+        sb.append(String.format(Locale.ROOT, "Disk (%s): %d GB free of %d GB%n", appDir.getAbsolutePath(), appDir.getUsableSpace() >> 30, appDir.getTotalSpace() >> 30));
+        sb.append("Deployed channels: ").append(engineController.getDeployedIds().size()).append(" of ").append(channelController.getChannelIds().size()).append('\n');
         return sb.toString();
     }
 
     private String listChannels(boolean includeUndeployed, boolean includeConnectors) {
         List<DashboardStatus> statuses = new ArrayList<>(engineController.getChannelStatusList(null, includeUndeployed));
         if (statuses.isEmpty()) {
-            return "Geen channels gevonden.";
+            return "No channels found.";
         }
         statuses.sort((a, b) -> {
             int byErrors = Long.compare(count(b, Status.ERROR), count(a, Status.ERROR));
@@ -266,8 +266,8 @@ public class OieTools {
             }
         }
         long started = statuses.stream().filter(s -> s.getState() == DeployedState.STARTED).count();
-        sb.append('\n').append(statuses.size()).append(" channels, ").append(started).append(" gestart, ").append(totalErrors).append(" fouten in ").append(withErrors).append(" channel(s).\n");
-        sb.append("Tellers zijn sinds de laatste reset van de statistieken. 'Sent' telt per destination.");
+        sb.append('\n').append(statuses.size()).append(" channels, ").append(started).append(" started, ").append(totalErrors).append(" errors in ").append(withErrors).append(" channel(s).\n");
+        sb.append("Counters are since the last statistics reset. 'Sent' counts per destination.");
         return sb.toString();
     }
 
@@ -285,7 +285,7 @@ public class OieTools {
     private String channelStatistics(Channel channel) {
         DashboardStatus status = engineController.getChannelStatus(channel.getId());
         if (status == null) {
-            return "Channel '" + channel.getName() + "' is niet gedeployd; er zijn geen actuele tellers.";
+            return "Channel '" + channel.getName() + "' is not deployed; there are no current counters.";
         }
         StringBuilder sb = new StringBuilder("Channel '" + channel.getName() + "' (" + status.getState() + ")\n\n| Connector | metaDataId | Status | Received | Filtered | Sent | Queued | Errors |\n|---|---:|---|---:|---:|---:|---:|---:|\n");
         List<DashboardStatus> rows = new ArrayList<>();
@@ -294,13 +294,13 @@ public class OieTools {
             rows.addAll(status.getChildStatuses());
         }
         for (DashboardStatus s : rows) {
-            sb.append("| ").append(s == status ? "(channel totaal)" : s.getName()).append(" | ").append(s.getMetaDataId() == null ? "" : s.getMetaDataId()).append(" | ").append(s.getState()).append(" | ").append(count(s, Status.RECEIVED)).append(" | ").append(count(s, Status.FILTERED)).append(" | ").append(count(s, Status.SENT)).append(" | ").append(s.getQueued() == null ? 0 : s.getQueued()).append(" | ").append(count(s, Status.ERROR)).append(" |\n");
+            sb.append("| ").append(s == status ? "(channel total)" : s.getName()).append(" | ").append(s.getMetaDataId() == null ? "" : s.getMetaDataId()).append(" | ").append(s.getState()).append(" | ").append(count(s, Status.RECEIVED)).append(" | ").append(count(s, Status.FILTERED)).append(" | ").append(count(s, Status.SENT)).append(" | ").append(s.getQueued() == null ? 0 : s.getQueued()).append(" | ").append(count(s, Status.ERROR)).append(" |\n");
         }
         return sb.toString();
     }
 
     private String channelScripts(Channel channel) throws Exception {
-        StringBuilder sb = new StringBuilder("Scripts in channel '" + channel.getName() + "' (revisie " + channel.getRevision() + ")\n\n");
+        StringBuilder sb = new StringBuilder("Scripts in channel '" + channel.getName() + "' (revision " + channel.getRevision() + ")\n\n");
         sb.append("- deploy: ").append(lines(channel.getDeployScript())).append('\n');
         sb.append("- undeploy: ").append(lines(channel.getUndeployScript())).append('\n');
         sb.append("- preprocessor: ").append(lines(channel.getPreprocessingScript())).append('\n');
@@ -313,7 +313,7 @@ public class OieTools {
                 listElements(sb, "response_transformer_step", c.getResponseTransformer() == null ? null : c.getResponseTransformer().getElements());
             }
         }
-        sb.append("\nAlleen elementen van type JavaScript kunnen met oie_update_channel_script worden aangepast.");
+        sb.append("\nOnly elements of type JavaScript can be changed with oie_update_channel_script.");
         return sb.toString();
     }
 
@@ -329,9 +329,9 @@ public class OieTools {
 
     private static String lines(String script) {
         if (script == null || script.isBlank()) {
-            return "(leeg)";
+            return "(empty)";
         }
-        return script.split("\n", -1).length + " regels";
+        return script.split("\n", -1).length + " lines";
     }
 
     private String searchMessages(JsonNode in) throws Exception {
@@ -359,17 +359,17 @@ public class OieTools {
         long total = messageController.getMessageCount(filter, channel.getId());
         List<Message> messages = messageController.getMessages(filter, channel.getId(), includeContent, offset, limit);
         if (includeContent) {
-            return total + " bericht(en) gevonden, " + messages.size() + " getoond (offset " + offset + ").\n\n" + ObjectXMLSerializer.getInstance().serialize(messages);
+            return total + " message(s) found, " + messages.size() + " shown (offset " + offset + ").\n\n" + ObjectXMLSerializer.getInstance().serialize(messages);
         }
-        StringBuilder sb = new StringBuilder(total + " bericht(en) gevonden, " + messages.size() + " getoond (offset " + offset + ").\n\n");
+        StringBuilder sb = new StringBuilder(total + " message(s) found, " + messages.size() + " shown (offset " + offset + ").\n\n");
         for (Message m : messages) {
-            sb.append("Bericht ").append(m.getMessageId()).append(" — ontvangen ").append(format(m.getReceivedDate())).append('\n');
+            sb.append("Message ").append(m.getMessageId()).append(" — received ").append(format(m.getReceivedDate())).append('\n');
             for (Map.Entry<Integer, ConnectorMessage> e : new TreeMap<>(m.getConnectorMessages()).entrySet()) {
                 ConnectorMessage cm = e.getValue();
                 sb.append("  [").append(e.getKey()).append("] ").append(cm.getConnectorName()).append(": ").append(cm.getStatus());
                 String error = cm.getProcessingError() != null ? cm.getProcessingError() : cm.getResponseError();
                 if (error != null && !error.isBlank()) {
-                    sb.append(" — fout: ").append(firstLines(error, 6));
+                    sb.append(" — error: ").append(firstLines(error, 6));
                 }
                 sb.append('\n');
             }
@@ -389,7 +389,7 @@ public class OieTools {
         }
         Message message = messageController.getMessageContent(channel.getId(), messageId, metaDataIds);
         if (message == null) {
-            return "Bericht " + messageId + " niet gevonden in channel '" + channel.getName() + "'.";
+            return "Message " + messageId + " not found in channel '" + channel.getName() + "'.";
         }
         return ObjectXMLSerializer.getInstance().serialize(message);
     }
@@ -408,11 +408,11 @@ public class OieTools {
         int limit = Math.max(1, Math.min(200, in.path("limit").asInt(50)));
         List<ServerEvent> events = eventController.getEvents(filter, 0, limit);
         if (events.isEmpty()) {
-            return "Geen events gevonden.";
+            return "No events found.";
         }
         StringBuilder sb = new StringBuilder();
         for (ServerEvent e : events) {
-            sb.append(format(e.getEventTime())).append("  ").append(e.getLevel()).append("  ").append(e.getName()).append("  (").append(e.getOutcome()).append(", gebruiker ").append(e.getUserId()).append(")\n");
+            sb.append(format(e.getEventTime())).append("  ").append(e.getLevel()).append("  ").append(e.getName()).append("  (").append(e.getOutcome()).append(", user ").append(e.getUserId()).append(")\n");
             if (e.getAttributes() != null) {
                 for (Map.Entry<String, String> a : e.getAttributes().entrySet()) {
                     sb.append("    ").append(a.getKey()).append(": ").append(firstLines(a.getValue(), 15)).append('\n');
@@ -425,7 +425,7 @@ public class OieTools {
     private String serverLog(int fetchSize) throws Exception {
         ServicePlugin provider = extensionController.getServicePlugins().get("Server Log");
         if (provider == null) {
-            return "De Server Log-extensie is niet geïnstalleerd of niet gestart.";
+            return "The Server Log extension is not installed or not started.";
         }
         // The serverlog extension lives in its own jar, so call it reflectively.
         Method getLogs = provider.getClass().getMethod("getServerLogs", int.class, Long.class);
@@ -438,7 +438,7 @@ public class OieTools {
                 sb.append("    ").append(firstLines(String.valueOf(throwable), 12)).append('\n');
             }
         }
-        return sb.length() == 0 ? "Het serverlog is leeg." : sb.toString();
+        return sb.length() == 0 ? "The server log is empty." : sb.toString();
     }
 
     private static Object getter(Object target, String name) {
@@ -467,47 +467,47 @@ public class OieTools {
                     enabled.add(channelNames.getOrDefault(id, id));
                 }
             }
-            sb.append(lib.isIncludeNewChannels() ? " — ook voor nieuwe channels" : "").append("\n  gekoppeld aan: ").append(enabled.isEmpty() ? "(geen channels)" : String.join(", ", enabled)).append('\n');
+            sb.append(lib.isIncludeNewChannels() ? " — also for new channels" : "").append("\n  linked to: ").append(enabled.isEmpty() ? "(no channels)" : String.join(", ", enabled)).append('\n');
             if (lib.getCodeTemplates() != null) {
                 for (CodeTemplate t : lib.getCodeTemplates()) {
                     sb.append("  - ").append(t.getName()).append(" (").append(t.getId()).append(")\n");
                 }
             }
         }
-        return sb.length() == 0 ? "Geen code template libraries." : sb.toString();
+        return sb.length() == 0 ? "No code template libraries." : sb.toString();
     }
 
     // ------------------------------------------------------------------ action tools
 
     private void registerActionTools() {
-        Map<String, Object> channelOnly = props("channel", str("Channel ID (UUID) of channelnaam"));
+        Map<String, Object> channelOnly = props("channel", str("Channel ID (UUID) or channel name"));
 
-        action("oie_deploy_channel", "Deployt (of herdeployt) een channel. Vereist bevestiging door de gebruiker.", channelOnly, in -> {
+        action("oie_deploy_channel", "Deploys (or redeploys) a channel. Requires approval by the user.", channelOnly, in -> {
             Channel c = channel(in);
-            return new PreparedAction("Channel deployen", "Channel '" + c.getName() + "' (" + c.getId() + ") deployen" + (engineController.isDeployed(c.getId()) ? " (is al gedeployd: wordt opnieuw gedeployd)" : "") + ".", ctx -> {
+            return new PreparedAction("Deploy channel", "Deploy channel '" + c.getName() + "' (" + c.getId() + ")" + (engineController.isDeployed(c.getId()) ? " (already deployed: it will be redeployed)" : "") + ".", ctx -> {
                 ErrorTaskHandler handler = new ErrorTaskHandler();
                 engineController.deployChannels(Collections.singleton(c.getId()), ctx, handler, new DebugOptions());
-                return handled(handler, "Channel '" + c.getName() + "' is gedeployd.");
+                return handled(handler, "Channel '" + c.getName() + "' has been deployed.");
             });
         }, "channel");
 
-        action("oie_undeploy_channel", "Undeployt een channel. Vereist bevestiging door de gebruiker.", channelOnly, in -> {
+        action("oie_undeploy_channel", "Undeploys a channel. Requires approval by the user.", channelOnly, in -> {
             Channel c = channel(in);
-            return new PreparedAction("Channel undeployen", "Channel '" + c.getName() + "' (" + c.getId() + ") undeployen. De channel verwerkt daarna geen berichten meer.", ctx -> {
+            return new PreparedAction("Undeploy channel", "Undeploy channel '" + c.getName() + "' (" + c.getId() + "). The channel will no longer process messages.", ctx -> {
                 ErrorTaskHandler handler = new ErrorTaskHandler();
                 engineController.undeployChannels(Collections.singleton(c.getId()), ctx, handler);
-                return handled(handler, "Channel '" + c.getName() + "' is ge-undeployd.");
+                return handled(handler, "Channel '" + c.getName() + "' has been undeployed.");
             });
         }, "channel");
 
-        channelStateAction("oie_start_channel", "Start een gedeployde channel.", "Channel starten", "gestart", (ids, h) -> engineController.startChannels(ids, h));
-        channelStateAction("oie_stop_channel", "Stopt een gedeployde channel.", "Channel stoppen", "gestopt", (ids, h) -> engineController.stopChannels(ids, h));
-        channelStateAction("oie_pause_channel", "Pauzeert een gedeployde channel (de source stopt, de destinations werken hun queue af).", "Channel pauzeren", "gepauzeerd", (ids, h) -> engineController.pauseChannels(ids, h));
-        channelStateAction("oie_resume_channel", "Hervat een gepauzeerde channel.", "Channel hervatten", "hervat", (ids, h) -> engineController.resumeChannels(ids, h));
+        channelStateAction("oie_start_channel", "Starts a deployed channel.", "Start channel", "started", (ids, h) -> engineController.startChannels(ids, h));
+        channelStateAction("oie_stop_channel", "Stops a deployed channel.", "Stop channel", "stopped", (ids, h) -> engineController.stopChannels(ids, h));
+        channelStateAction("oie_pause_channel", "Pauses a deployed channel (the source stops, the destinations work off their queues).", "Pause channel", "paused", (ids, h) -> engineController.pauseChannels(ids, h));
+        channelStateAction("oie_resume_channel", "Resumes a paused channel.", "Resume channel", "resumed", (ids, h) -> engineController.resumeChannels(ids, h));
 
-        action("oie_reset_statistics", "Zet de tellers (received/filtered/sent/error) van een channel op nul. Vereist bevestiging.", channelOnly, in -> {
+        action("oie_reset_statistics", "Resets the counters (received/filtered/sent/error) of a channel to zero. Requires approval.", channelOnly, in -> {
             Channel c = channel(in);
-            return new PreparedAction("Statistieken resetten", "Tellers van channel '" + c.getName() + "' op nul zetten (received, filtered, sent en error). Berichten zelf blijven bewaard.", ctx -> {
+            return new PreparedAction("Reset statistics", "Reset the counters of channel '" + c.getName() + "' to zero (received, filtered, sent and error). The messages themselves are kept.", ctx -> {
                 List<Integer> metaDataIds = new ArrayList<>();
                 metaDataIds.add(null);
                 for (Connector connector : connectors(c)) {
@@ -516,43 +516,43 @@ public class OieTools {
                 Map<String, List<Integer>> map = new HashMap<>();
                 map.put(c.getId(), metaDataIds);
                 channelController.resetStatistics(map, new HashSet<>(Arrays.asList(Status.RECEIVED, Status.FILTERED, Status.SENT, Status.ERROR)));
-                return "Statistieken van '" + c.getName() + "' zijn gereset.";
+                return "Statistics of '" + c.getName() + "' have been reset.";
             });
         }, "channel");
 
-        action("oie_reprocess_message", "Verwerkt een bestaand bericht opnieuw door de channel. Vereist bevestiging.", props(
-                "channel", str("Channel ID (UUID) of channelnaam"),
-                "messageId", integer("Bericht-ID"),
-                "replace", bool("Het bestaande bericht overschrijven in plaats van een nieuw bericht te maken (standaard false)")), in -> {
+        action("oie_reprocess_message", "Reprocesses an existing message through the channel. Requires approval.", props(
+                "channel", str("Channel ID (UUID) or channel name"),
+                "messageId", integer("Message ID"),
+                "replace", bool("Overwrite the existing message instead of creating a new one (default false)")), in -> {
             Channel c = channel(in);
             long messageId = in.path("messageId").asLong();
             boolean replace = in.path("replace").asBoolean(false);
-            return new PreparedAction("Bericht opnieuw verwerken", "Bericht " + messageId + " in channel '" + c.getName() + "' opnieuw verwerken" + (replace ? ", het bestaande bericht wordt overschreven." : " als nieuw bericht."), ctx -> {
+            return new PreparedAction("Reprocess message", "Reprocess message " + messageId + " in channel '" + c.getName() + "'" + (replace ? ", overwriting the existing message." : " as a new message."), ctx -> {
                 MessageFilter filter = new MessageFilter();
                 filter.setMinMessageId(messageId);
                 filter.setMaxMessageId(messageId);
                 messageController.reprocessMessages(c.getId(), filter, replace, null);
-                return "Bericht " + messageId + " is opnieuw verwerkt. Zoek met oie_search_messages naar het resultaat.";
+                return "Message " + messageId + " has been reprocessed. Use oie_search_messages to find the result.";
             });
         }, "channel", "messageId");
 
-        action("oie_send_message", "Stuurt een raw bericht naar de source van een gedeployde channel, bijvoorbeeld om een fix te testen. Vereist bevestiging.", props(
-                "channel", str("Channel ID (UUID) of channelnaam"),
-                "message", str("Raw bericht in het inbound data type van de channel (GDT, HL7 ER7, XML, ...)")), in -> {
+        action("oie_send_message", "Sends a raw message to the source of a deployed channel, for example to test a fix. Requires approval.", props(
+                "channel", str("Channel ID (UUID) or channel name"),
+                "message", str("Raw message in the channel's inbound data type (GDT, HL7 ER7, XML, ...)")), in -> {
             Channel c = channel(in);
             String raw = text(in, "message");
-            return new PreparedAction("Bericht versturen", "Dit bericht naar channel '" + c.getName() + "' sturen:\n\n" + raw, ctx -> {
+            return new PreparedAction("Send message", "Send this message to channel '" + c.getName() + "':\n\n" + raw, ctx -> {
                 DispatchResult result = engineController.dispatchRawMessage(c.getId(), new RawMessage(raw), false, true);
-                return result == null ? "Het bericht is niet verwerkt; is de channel gestart?" : "Bericht verwerkt als bericht-ID " + result.getMessageId() + ".";
+                return result == null ? "The message was not processed; is the channel started?" : "Message processed as message ID " + result.getMessageId() + ".";
             });
         }, "channel", "message");
 
-        action("oie_update_channel_script", "Vervangt één JavaScript-script in een channel: het deploy-, undeploy-, preprocessor- of postprocessorscript, of een JavaScript-filterregel of -transformerstap (zie oie_channel_scripts voor metaDataId en index). Slaat de channel op maar deployt niet. Vereist bevestiging.", props(
-                "channel", str("Channel ID (UUID) of channelnaam"),
-                "scriptType", enumStr("Soort script", SCRIPT_TYPES),
-                "metaDataId", integer("Connector (0 = source), alleen voor filter_rule/transformer_step/response_transformer_step"),
-                "index", integer("Positie van de regel/stap (vanaf 0), alleen voor filter_rule/transformer_step/response_transformer_step"),
-                "script", str("Het volledige nieuwe script")), this::prepareScriptUpdate, "channel", "scriptType", "script");
+        action("oie_update_channel_script", "Replaces one JavaScript script in a channel: the deploy, undeploy, preprocessor or postprocessor script, or a JavaScript filter rule or transformer step (see oie_channel_scripts for metaDataId and index). Saves the channel but does not deploy it. Requires approval.", props(
+                "channel", str("Channel ID (UUID) or channel name"),
+                "scriptType", enumStr("Kind of script", SCRIPT_TYPES),
+                "metaDataId", integer("Connector (0 = source), only for filter_rule/transformer_step/response_transformer_step"),
+                "index", integer("Position of the rule/step (from 0), only for filter_rule/transformer_step/response_transformer_step"),
+                "script", str("The complete new script")), this::prepareScriptUpdate, "channel", "scriptType", "script");
     }
 
     private interface ChannelTask {
@@ -560,10 +560,10 @@ public class OieTools {
     }
 
     private void channelStateAction(String name, String description, String title, String done, ChannelTask task) {
-        action(name, description + " Vereist bevestiging door de gebruiker.", props("channel", str("Channel ID (UUID) of channelnaam")), in -> {
+        action(name, description + " Requires approval by the user.", props("channel", str("Channel ID (UUID) or channel name")), in -> {
             Channel c = channel(in);
             if (!engineController.isDeployed(c.getId())) {
-                throw new IllegalStateException("Channel '" + c.getName() + "' is niet gedeployd.");
+                throw new IllegalStateException("Channel '" + c.getName() + "' is not deployed.");
             }
             return new PreparedAction(title, title + ": '" + c.getName() + "' (" + c.getId() + ").", ctx -> {
                 ErrorTaskHandler handler = new ErrorTaskHandler();
@@ -576,7 +576,7 @@ public class OieTools {
     private static String handled(ErrorTaskHandler handler, String success) {
         if (handler.isErrored()) {
             Exception e = handler.getError();
-            return "Mislukt: " + (e == null ? "onbekende fout" : e.getMessage());
+            return "Failed: " + (e == null ? "unknown error" : e.getMessage());
         }
         return success;
     }
@@ -597,12 +597,12 @@ public class OieTools {
         Function<Channel, Void> apply;
         switch (type) {
             case "deploy":
-                location = "deployscript";
+                location = "deploy script";
                 oldScript = copy.getDeployScript();
                 apply = ch -> { ch.setDeployScript(script); return null; };
                 break;
             case "undeploy":
-                location = "undeployscript";
+                location = "undeploy script";
                 oldScript = copy.getUndeployScript();
                 apply = ch -> { ch.setUndeployScript(script); return null; };
                 break;
@@ -619,7 +619,7 @@ public class OieTools {
             case "filter_rule":
             case "transformer_step":
             case "response_transformer_step": {
-                Connector connector = connectors(copy).stream().filter(c -> c.getMetaDataId() == metaDataId).findFirst().orElseThrow(() -> new IllegalArgumentException("Connector met metaDataId " + metaDataId + " bestaat niet in '" + current.getName() + "'."));
+                Connector connector = connectors(copy).stream().filter(c -> c.getMetaDataId() == metaDataId).findFirst().orElseThrow(() -> new IllegalArgumentException("Connector with metaDataId " + metaDataId + " does not exist in '" + current.getName() + "'."));
                 List<? extends FilterTransformerElement> elements;
                 if (type.equals("filter_rule")) {
                     elements = connector.getFilter().getElements();
@@ -629,16 +629,16 @@ public class OieTools {
                     elements = connector.getResponseTransformer() == null ? Collections.emptyList() : connector.getResponseTransformer().getElements();
                 }
                 if (index < 0 || index >= elements.size()) {
-                    throw new IllegalArgumentException("Index " + index + " bestaat niet; connector '" + connector.getName() + "' heeft " + elements.size() + " " + type + "-element(en).");
+                    throw new IllegalArgumentException("Index " + index + " does not exist; connector '" + connector.getName() + "' has " + elements.size() + " " + type + " element(s).");
                 }
                 FilterTransformerElement element = elements.get(index);
                 Method setScript;
                 try {
                     setScript = element.getClass().getMethod("setScript", String.class);
                 } catch (NoSuchMethodException e) {
-                    throw new IllegalArgumentException("Element '" + element.getName() + "' is van type " + element.getType() + " en heeft geen bewerkbaar script. Alleen JavaScript-elementen kunnen worden aangepast.");
+                    throw new IllegalArgumentException("Element '" + element.getName() + "' is of type " + element.getType() + " and has no editable script. Only JavaScript elements can be changed.");
                 }
-                location = type + " " + index + " '" + element.getName() + "' van connector " + metaDataId + " '" + connector.getName() + "'";
+                location = type + " " + index + " '" + element.getName() + "' of connector " + metaDataId + " '" + connector.getName() + "'";
                 oldScript = element.getScript(false);
                 apply = ch -> {
                     try {
@@ -651,24 +651,24 @@ public class OieTools {
                 break;
             }
             default:
-                throw new IllegalArgumentException("Onbekend scriptType '" + type + "'. Kies uit: " + String.join(", ", SCRIPT_TYPES));
+                throw new IllegalArgumentException("Unknown scriptType '" + type + "'. Choose from: " + String.join(", ", SCRIPT_TYPES));
         }
 
         // Claude only ever saw the masked script, so a "***" it copied back would overwrite real content.
         boolean suspicious = script.contains(Masker.MASK) && (oldScript == null || !oldScript.contains(Masker.MASK));
         String detail = "Channel '" + current.getName() + "', " + location + ".\n"
-                + (suspicious ? "LET OP: het nieuwe script bevat '" + Masker.MASK + "'. Claude zag het script gemaskeerd; controleer of daar geen echte waarde (bijv. een nummer of HL7-voorbeeld) verloren gaat.\n" : "")
-                + "De channel wordt opgeslagen (nieuwe revisie) maar niet gedeployd. Heb je deze channel open in de editor, laad hem daarna opnieuw.\n\n"
-                + "--- huidig script\n" + (oldScript == null ? "" : oldScript) + "\n\n+++ nieuw script\n" + script;
+                + (suspicious ? "WARNING: the new script contains '" + Masker.MASK + "'. Claude saw the script masked; check that no real value (e.g. a number or HL7 sample) is lost.\n" : "")
+                + "The channel is saved (new revision) but not deployed. If you have this channel open in the editor, reload it afterwards.\n\n"
+                + "--- current script\n" + (oldScript == null ? "" : oldScript) + "\n\n+++ new script\n" + script;
         int revision = current.getRevision();
-        return new PreparedAction("Script aanpassen", detail, ctx -> {
+        return new PreparedAction("Change script", detail, ctx -> {
             Channel latest = channelController.getChannelById(current.getId());
             if (latest == null || latest.getRevision() != revision) {
-                return "Niet opgeslagen: de channel is intussen gewijzigd (revisie " + (latest == null ? "?" : latest.getRevision()) + " in plaats van " + revision + "). Haal de channel opnieuw op.";
+                return "Not saved: the channel has changed in the meantime (revision " + (latest == null ? "?" : latest.getRevision()) + " instead of " + revision + "). Fetch the channel again.";
             }
             apply.apply(copy);
             boolean saved = channelController.updateChannel(copy, ctx, false, Calendar.getInstance());
-            return saved ? "Script opgeslagen in channel '" + current.getName() + "' (nieuwe revisie). Deploy de channel om de wijziging actief te maken." : "Niet opgeslagen: de channel is intussen door iemand anders gewijzigd.";
+            return saved ? "Script saved in channel '" + current.getName() + "' (new revision). Deploy the channel to activate the change." : "Not saved: someone else changed the channel in the meantime.";
         });
     }
 
@@ -702,7 +702,7 @@ public class OieTools {
             names.add(c.getName());
         }
         Collections.sort(names, String.CASE_INSENSITIVE_ORDER);
-        throw new IllegalArgumentException("Channel '" + idOrName + "' niet gevonden. Beschikbaar: " + String.join(", ", names));
+        throw new IllegalArgumentException("Channel '" + idOrName + "' not found. Available: " + String.join(", ", names));
     }
 
     private static List<Connector> connectors(Channel channel) {
@@ -715,7 +715,7 @@ public class OieTools {
     static String text(JsonNode in, String field) {
         JsonNode node = in.get(field);
         if (node == null || node.isNull() || node.asText().isEmpty()) {
-            throw new IllegalArgumentException("Parameter '" + field + "' ontbreekt.");
+            throw new IllegalArgumentException("Parameter '" + field + "' is missing.");
         }
         return node.asText();
     }
@@ -733,7 +733,7 @@ public class OieTools {
             try {
                 zdt = LocalDate.parse(value).atStartOfDay(ZoneId.systemDefault());
             } catch (DateTimeParseException e2) {
-                throw new IllegalArgumentException("Ongeldige datum in '" + field + "': " + value + ". Gebruik ISO, bijv. 2026-09-23T00:00:00+02:00.");
+                throw new IllegalArgumentException("Invalid date in '" + field + "': " + value + ". Use ISO, e.g. 2026-09-23T00:00:00+02:00.");
             }
         }
         return GregorianCalendar.from(zdt);
@@ -751,7 +751,7 @@ public class OieTools {
         if (lines.length <= max) {
             return text.trim();
         }
-        return String.join("\n", Arrays.copyOf(lines, max)).trim() + "\n    [... " + (lines.length - max) + " regels]";
+        return String.join("\n", Arrays.copyOf(lines, max)).trim() + "\n    [... " + (lines.length - max) + " lines]";
     }
 
     // JSON schema builders

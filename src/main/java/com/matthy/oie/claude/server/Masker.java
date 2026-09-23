@@ -46,7 +46,7 @@ public class Masker {
                     try {
                         this.extraPatterns.add(Pattern.compile(p));
                     } catch (PatternSyntaxException e) {
-                        throw new IllegalArgumentException("Ongeldig maskeerpatroon '" + p + "': " + e.getDescription());
+                        throw new IllegalArgumentException("Invalid mask pattern '" + p + "': " + e.getDescription());
                     }
                 }
             }

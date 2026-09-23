@@ -43,10 +43,10 @@ class ChatDialog extends JDialog {
     private final JTextArea input = new JTextArea(4, 60);
     private final JLabel contextLabel = new JLabel();
     private final JLabel statusLabel = new JLabel(" ");
-    private final JButton sendButton = new JButton("Verstuur");
+    private final JButton sendButton = new JButton("Send");
     private final JButton stopButton = new JButton("Stop");
-    private final JButton newButton = new JButton("Nieuw gesprek");
-    private final JButton clearContextButton = new JButton("Context wissen");
+    private final JButton newButton = new JButton("New conversation");
+    private final JButton clearContextButton = new JButton("Clear context");
     private final Timer pollTimer = new Timer(POLL_MS, e -> poll());
 
     /** HTML fragments of the transcript, in order. */
@@ -60,7 +60,7 @@ class ChatDialog extends JDialog {
     private String shownActionId;
 
     ChatDialog(JFrame owner) {
-        super(owner, "Claude-assistent", false);
+        super(owner, "Claude Assistant", false);
         setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
         buildUi();
         setSize(new Dimension(900, 720));
@@ -122,7 +122,7 @@ class ChatDialog extends JDialog {
         getContentPane().add(new JScrollPane(transcript), BorderLayout.CENTER);
         getContentPane().add(bottom, BorderLayout.SOUTH);
 
-        sendButton.setToolTipText("Verstuur (Ctrl+Enter)");
+        sendButton.setToolTipText("Send (Ctrl+Enter)");
         sendButton.addActionListener(e -> send());
         stopButton.addActionListener(e -> stop());
         newButton.addActionListener(e -> newConversation());
@@ -147,14 +147,14 @@ class ChatDialog extends JDialog {
 
     private void setContext(String newContext) {
         context = newContext;
-        contextLabel.setText(newContext == null ? "Geen context: Claude kijkt naar de hele server." : "<html><b>Context:</b> " + Markdown.escape(newContext) + "</html>");
+        contextLabel.setText(newContext == null ? "No context: Claude looks at the whole server." : "<html><b>Context:</b> " + Markdown.escape(newContext) + "</html>");
         clearContextButton.setEnabled(newContext != null);
     }
 
     private void showWelcome() {
         entries.clear();
-        entries.add("<div class=\"info\">Stel een vraag over je OIE-server, bijvoorbeeld <i>Welke channels hebben fouten?</i> of <i>Waarom faalt dit bericht?</i><br>"
-                + "Berichtinhoud wordt gemaskeerd voordat die naar Claude gaat. Acties zoals deployen voert Claude pas uit nadat jij ze bevestigt.</div>");
+        entries.add("<div class=\"info\">Ask a question about your OIE server, for example <i>Which channels have errors?</i> or <i>Why does this message fail?</i><br>"
+                + "Message content is masked before it is sent to Claude. Actions such as deploying only run after you approve them.</div>");
         render();
     }
 
@@ -173,16 +173,16 @@ class ChatDialog extends JDialog {
             return;
         }
         String sentContext = context;
-        add("<div class=\"user\"><b>Jij:</b> " + Markdown.escape(text).replace("\n", "<br>") + "</div>");
+        add("<div class=\"user\"><b>You:</b> " + Markdown.escape(text).replace("\n", "<br>") + "</div>");
         input.setText("");
         setBusy(true);
-        statusLabel.setText("Versturen…");
+        statusLabel.setText("Sending…");
         background(() -> ClaudeApi.chat(conversationId, text, sentContext), result -> {
             conversationId = result.path("conversationId").asText();
             jobId = result.path("jobId").asText();
             lastSeq = 0;
             shownActionId = null;
-            statusLabel.setText("Claude denkt na…");
+            statusLabel.setText("Claude is thinking…");
             pollTimer.start();
         }, error -> {
             add("<div class=\"error\">" + Markdown.escape(error) + "</div>");
@@ -198,7 +198,7 @@ class ChatDialog extends JDialog {
         pollTimer.stop();
         jobId = null;
         setBusy(false);
-        add("<div class=\"info\">Gestopt.</div>");
+        add("<div class=\"info\">Stopped.</div>");
         background(() -> {
             ClaudeApi.cancel(id);
             return null;
@@ -222,7 +222,7 @@ class ChatDialog extends JDialog {
             pollTimer.stop();
             jobId = null;
             setBusy(false);
-            add("<div class=\"error\">Verbinding met de server verloren: " + Markdown.escape(error) + "</div>");
+            add("<div class=\"error\">Lost connection to the server: " + Markdown.escape(error) + "</div>");
         });
     }
 
@@ -235,11 +235,11 @@ class ChatDialog extends JDialog {
                     add("<div class=\"claude\">" + Markdown.toHtml(text) + "</div>");
                     break;
                 case "tool":
-                    add("<div class=\"tool\">&#9881; " + Markdown.escape(text) + "</div>");
-                    statusLabel.setText("Claude raadpleegt de server…");
+                    add("<div class=\"tool\">&#8594; " + Markdown.escape(text) + "</div>");
+                    statusLabel.setText("Claude is querying the server…");
                     break;
                 case "action":
-                    add("<div class=\"action\">&#10004; " + Markdown.escape(text) + "</div>");
+                    add("<div class=\"action\"><b>Done:</b> " + Markdown.escape(text) + "</div>");
                     break;
                 case "error":
                     add("<div class=\"error\">" + Markdown.escape(text) + "</div>");
@@ -252,7 +252,7 @@ class ChatDialog extends JDialog {
         JsonNode pending = job.path("pendingAction");
         if ("WAITING".equals(state) && pending.isObject() && !pending.path("id").asText().equals(shownActionId)) {
             shownActionId = pending.path("id").asText();
-            statusLabel.setText("Wacht op jouw bevestiging…");
+            statusLabel.setText("Waiting for your approval…");
             SwingUtilities.invokeLater(() -> askConfirmation(pending));
         }
         if ("DONE".equals(state) || "ERROR".equals(state) || "CANCELLED".equals(state)) {
@@ -273,13 +273,13 @@ class ChatDialog extends JDialog {
         detail.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         detail.setCaretPosition(0);
         JPanel panel = new JPanel(new BorderLayout(0, 8));
-        panel.add(new JLabel("<html>Claude wil de volgende actie uitvoeren op de server <b>" + Markdown.escape(String.valueOf(PlatformUI.SERVER_NAME)) + "</b>:</html>"), BorderLayout.NORTH);
+        panel.add(new JLabel("<html>Claude wants to run the following action on server <b>" + Markdown.escape(String.valueOf(PlatformUI.SERVER_NAME)) + "</b>:</html>"), BorderLayout.NORTH);
         panel.add(new JScrollPane(detail), BorderLayout.CENTER);
-        Object[] options = { "Uitvoeren", "Weigeren" };
-        int choice = JOptionPane.showOptionDialog(this, panel, "Bevestigen: " + pending.path("title").asText(), JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[1]);
+        Object[] options = { "Run", "Reject" };
+        int choice = JOptionPane.showOptionDialog(this, panel, "Approve: " + pending.path("title").asText(), JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[1]);
         boolean approved = choice == 0;
-        statusLabel.setText(approved ? "Actie wordt uitgevoerd…" : "Claude gaat verder…");
-        background(() -> ClaudeApi.confirm(id, actionId, approved), r -> statusLabel.setText("Claude gaat verder…"), error -> add("<div class=\"error\">Bevestigen mislukt: " + Markdown.escape(error) + "</div>"));
+        statusLabel.setText(approved ? "Running action…" : "Claude continues…");
+        background(() -> ClaudeApi.confirm(id, actionId, approved), r -> statusLabel.setText("Claude continues…"), error -> add("<div class=\"error\">Approval failed: " + Markdown.escape(error) + "</div>"));
     }
 
     private void setBusy(boolean busy) {

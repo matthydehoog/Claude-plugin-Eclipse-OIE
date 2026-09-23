@@ -113,7 +113,7 @@ public class ChatJob {
             f = future;
         }
         if (p != null) {
-            p.decision.complete("De gebruiker heeft het gesprek afgebroken; de actie is niet uitgevoerd.");
+            p.decision.complete("The user stopped the conversation; the action was not run.");
         }
         if (f != null) {
             f.cancel(true);

@@ -26,11 +26,11 @@ public class ClaudeServlet extends MirthServlet implements ClaudeServletInterfac
         JsonNode in = parse(body);
         String message = in.path("message").asText("");
         if (message.isBlank()) {
-            throw new MirthApiException(Response.status(Response.Status.BAD_REQUEST).entity("Leeg bericht.").build());
+            throw new MirthApiException(Response.status(Response.Status.BAD_REQUEST).entity("Empty message.").build());
         }
         if (doesUserHaveChannelRestrictions()) {
             // Claude's tools see every channel, so users limited to some channels cannot use it.
-            throw new MirthApiException(Response.status(Response.Status.FORBIDDEN).entity("De Claude-assistent is niet beschikbaar voor gebruikers met channel-beperkingen.").build());
+            throw new MirthApiException(Response.status(Response.Status.FORBIDDEN).entity("The Claude assistant is not available to users with channel restrictions.").build());
         }
         try {
             ChatJob job = service().startChat(getCurrentUserId(), in.path("conversationId").asText(null), message, in.path("context").asText(null));
@@ -101,7 +101,7 @@ public class ClaudeServlet extends MirthServlet implements ClaudeServletInterfac
             JsonNode node = MAPPER.readTree(body == null ? "{}" : body);
             return node == null ? MAPPER.createObjectNode() : node;
         } catch (Exception e) {
-            throw new MirthApiException(Response.status(Response.Status.BAD_REQUEST).entity("Ongeldige JSON: " + e.getMessage()).build());
+            throw new MirthApiException(Response.status(Response.Status.BAD_REQUEST).entity("Invalid JSON: " + e.getMessage()).build());
         }
     }
 

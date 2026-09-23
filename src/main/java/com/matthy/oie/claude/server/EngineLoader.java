@@ -28,7 +28,7 @@ final class EngineLoader {
         File libDir = libDir();
         File[] jars = libDir.listFiles((dir, name) -> name.endsWith(".jar"));
         if (jars == null || jars.length == 0) {
-            throw new IOException("Geen engine-bibliotheken gevonden in " + libDir.getAbsolutePath());
+            throw new IOException("No engine libraries found in " + libDir.getAbsolutePath());
         }
         List<URL> urls = new ArrayList<>();
         for (File jar : jars) {
@@ -49,7 +49,7 @@ final class EngineLoader {
             File jar = new File(EngineLoader.class.getProtectionDomain().getCodeSource().getLocation().toURI());
             return new File(jar.getParentFile(), "lib");
         } catch (Exception e) {
-            throw new IOException("Kan de map van de Claude Assistant-extensie niet bepalen", e);
+            throw new IOException("Cannot determine the folder of the Claude Assistant extension", e);
         }
     }
 

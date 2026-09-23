@@ -1,90 +1,94 @@
-# Claude Assistant voor Open Integration Engine
+# Claude Assistant for Open Integration Engine
 
-Een extensie voor de OIE Administrator waarmee je vanuit de GUI met Claude praat over je server:
-channels, berichten, fouten, scripts, code templates en serverstatus. Claude haalt de feiten zelf op
-via dezelfde gereedschappen als de `oie-mcp-server`, en kan acties voorstellen die pas na jouw
-bevestiging worden uitgevoerd.
+An extension for the OIE Administrator that lets you talk to Claude about your server from inside
+the GUI: channels, messages, errors, scripts, code templates and server status. Claude looks the
+facts up itself through the same tools as `oie-mcp-server`, and can propose actions that only run
+after you approve them.
 
-## Waar vind je Claude in de Administrator?
+## Where to find Claude in the Administrator
 
-| Plek | Taak | Context die meegaat |
+| Place | Task | Context sent along |
 |---|---|---|
-| Linkermenu, **Other** | *Claude-assistent* | geen: vragen over de hele server |
-| **Dashboard** (taak + rechtermuisknop) | *Vraag Claude* | geselecteerde channel(s)/connectors |
-| **Message browser** (taak + rechtermuisknop) | *Vraag Claude* | geselecteerd bericht (channel, bericht-ID, connector) |
-| **Channel-editor** (taak + rechtermuisknop) | *Vraag Claude* | channel die open staat (opgeslagen versie) |
+| Left menu, **Other** | *Claude Assistant* | none: questions about the whole server |
+| **Dashboard** (task + right-click) | *Ask Claude* | selected channel(s)/connectors |
+| **Message browser** (task + right-click) | *Ask Claude* | selected message (channel, message ID, connector) |
+| **Channel editor** (task + right-click) | *Ask Claude* | the channel that is open (saved version) |
 
-Het chatvenster blijft open naast de Administrator. Ctrl+Enter verstuurt; *Nieuw gesprek* begint
-opnieuw; *Stop* breekt een lopende vraag af.
+The chat window stays open next to the Administrator. Ctrl+Enter sends; *New conversation* starts
+over; *Stop* aborts a running question.
 
-## Wat Claude kan
+## What Claude can do
 
-**Lezen** (direct): serverinfo, channels met status en tellers, channelconfiguratie en scripts,
-statistieken per connector, berichten zoeken en bekijken, events, serverlog, code templates en de
-sleutels van de Configuration Map (nooit de waarden).
+**Read** (immediately): server info, channels with status and counters, channel configuration and
+scripts, statistics per connector, searching and viewing messages, events, the server log, code
+templates and the keys of the Configuration Map (never the values).
 
-**Acties** (pas na klik op *Uitvoeren* in een bevestigingsvenster): channel deployen/undeployen,
-starten/stoppen/pauzeren/hervatten, statistieken resetten, bericht opnieuw verwerken, bericht naar
-een channel sturen en een JavaScript-script aanpassen (deploy/undeploy/pre/postprocessor, filterregel
-of transformerstap). Een scriptwijziging slaat de channel op met een nieuwe revisie maar deployt niet;
-als de channel intussen gewijzigd is, wordt er niets opgeslagen. Elke uitgevoerde actie komt als
-event `Claude Assistant: …` in de audit log, op naam van de gebruiker die bevestigde.
+**Actions** (only after clicking *Run* in an approval dialog): deploy/undeploy a channel,
+start/stop/pause/resume, reset statistics, reprocess a message, send a message to a channel and
+change a JavaScript script (deploy/undeploy/pre/postprocessor, filter rule or transformer step).
+A script change saves the channel with a new revision but does not deploy it; if the channel
+changed in the meantime, nothing is saved. Every executed action is written to the audit log as
+event `Claude Assistant: …`, in the name of the user who approved it.
 
 ## Privacy
 
-Alles wat naar de Anthropic API gaat (jouw vragen, context, berichtinhoud, logs, foutmeldingen,
-channelconfiguratie) gaat eerst door een masker, dezelfde regels als `mask.ts` in de oie-mcp-server:
+Everything sent to the Anthropic API (your questions, context, message content, logs, errors,
+channel configuration) first goes through a masker with the same rules as `mask.ts` in
+oie-mcp-server:
 
-- HL7 v2 PID-velden 2-7, 9, 11, 13, 14, 19 (ER7 en XML)
-- GDT-patiëntvelden 3000-3107 (raw en XML van de GDT data type plugin)
-- 9-cijferige nummers die de elfproef halen (BSN)
-- eigen patronen via *Settings > Claude Assistant*
+- HL7 v2 PID fields 2-7, 9, 11, 13, 14, 19 (ER7 and XML)
+- GDT patient fields 3000-3107 (raw and XML from the GDT data type plugin)
+- 9-digit numbers that pass the eleven-test (Dutch BSN)
+- your own patterns under *Settings > Claude Assistant*
 
-Dit is een vangnet, geen anonimisering. Stuur alleen echte patiëntdata door als daar een grondslag
-en een verwerkersovereenkomst met Anthropic voor zijn. Gesprekken staan alleen in het geheugen van
-de server (4 uur na laatste gebruik opgeruimd) en zijn alleen zichtbaar voor de gebruiker die ze startte.
+This is a safety net, not anonymisation. Only send real patient data through it if you have a legal
+basis and a data processing agreement with Anthropic. Conversations live only in the server's memory
+(cleared 4 hours after last use) and are only visible to the user who started them.
 
-## Rechten
+## Permissions
 
-De extensie voegt drie rechten toe (zichtbaar in de RBAC-extensie):
+The extension adds three permissions (visible in the RBAC extension):
 
-- **Use Claude Assistant**: chatten (alleen lezen)
-- **Run Claude Assistant actions**: voorgestelde acties bevestigen
-- **Manage Claude Assistant settings**: API-key, model en maskeerpatronen wijzigen
+- **Use Claude Assistant**: chat (read only)
+- **Run Claude Assistant actions**: approve proposed actions
+- **Manage Claude Assistant settings**: change the API key, model and mask patterns
 
-Gebruikers met channel-beperkingen kunnen de assistent niet gebruiken, omdat de tools alle channels zien.
+Users with channel restrictions cannot use the assistant, because the tools see all channels.
 
-## Instellen
+## Setup
 
-1. Installeer `claude-assistant-<versie>.zip` via *Settings > Extensions > Install Extension* (of pak
-   hem uit in `<OIE_HOME>/extensions/`) en herstart de OIE-service.
-2. Ga naar *Settings > Claude Assistant*, vul de Anthropic API-key in en klik *Save*. De key wordt
-   versleuteld opgeslagen en nooit naar de Administrator teruggestuurd.
-3. Standaard: model `claude-opus-5`, effort `high`, maximaal 25 tool-aanroepen per vraag.
+1. Install `claude-assistant-<version>.zip` via *Settings > Extensions > Install Extension* (or unzip
+   it into `<OIE_HOME>/extensions/`) and restart the OIE service. Check that
+   `extensions/claude-assistant/lib/` contains the engine jars.
+2. Go to *Settings > Claude Assistant*, enter an Anthropic API key (from
+   [console.anthropic.com](https://console.anthropic.com)) and click *Save*. The key is stored
+   encrypted and never sent back to the Administrator; the field is emptied after saving and the
+   line below it shows *Set: sk-ant-…xxxx*.
+3. Defaults: model `claude-opus-5`, effort `high`, at most 25 tool calls per question.
 
-De OIE-server moet `https://api.anthropic.com` kunnen bereiken. Via een gateway of proxy? Zet dan
-in `conf/custom.vmoptions` bijvoorbeeld `-Doie.claude.baseUrl=https://gateway.example/anthropic`.
+The OIE server must be able to reach `https://api.anthropic.com`. Behind a gateway or proxy? Add for
+example `-Doie.claude.baseUrl=https://gateway.example/anthropic` to `conf/custom.vmoptions`.
 
-## Bouwen
+## Building
 
-JDK 11+ en Maven; de engine-jars worden uit een OIE-installatie gehaald (`-Doie.home=...`, standaard
+JDK 11+ and Maven; the engine jars are taken from an OIE installation (`-Doie.home=...`, default
 `C:/Program Files/OpenIntegrationEngine`).
 
 ```bash
 mvn package
 ```
 
-Resultaat: `target/claude-assistant-<versie>.zip`.
+Result: `target/claude-assistant-<version>.zip`.
 
-### Opbouw
+### Structure
 
-- `shared` – de REST-interface (`/api/extensions/claude`); JSON als tekst, zodat er geen plugin-klassen
-  door de XStream-serializer van OIE hoeven.
-- `server` – serviceplugin, servlet, tools, masker, gesprekken en jobs. Draait op de classpath van OIE.
-- `engine` – de lus met de Anthropic Java SDK. Staat met de SDK, Jackson 2.19, Kotlin en OkHttp in
-  `lib/` en wordt in een eigen child-first class loader geladen: OIE levert Jackson 2.14, en de
-  Kotlin-reflectie van de SDK werkt niet na relocatie (shading).
-- `client` – Swing: chatvenster, taken in dashboard/message browser/channel-editor, instellingenscherm.
+- `shared` – the REST interface (`/api/extensions/claude`); JSON as text, so no plugin classes have
+  to pass through OIE's XStream serializer.
+- `server` – service plugin, servlet, tools, masker, conversations and jobs. Runs on the OIE classpath.
+- `engine` – the loop on the Anthropic Java SDK. It sits in `lib/` together with the SDK, Jackson
+  2.19, Kotlin and OkHttp and is loaded in its own child-first class loader: OIE ships Jackson 2.14,
+  and the SDK's Kotlin reflection does not work after relocation (shading).
+- `client` – Swing: chat window, tasks in dashboard/message browser/channel editor, settings screen.
 
-De client vraagt elke 0,8 s de voortgang op (`GET /jobs/{id}`), zodat lange antwoorden niet tegen de
-HTTP-timeout van de Administrator lopen.
+The client polls for progress every 0.8 s (`GET /jobs/{id}`), so long answers do not run into the
+Administrator's HTTP timeout.

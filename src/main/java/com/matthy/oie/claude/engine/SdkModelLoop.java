@@ -114,7 +114,7 @@ public class SdkModelLoop implements ModelLoop {
             BetaStopReason stop = response.stopReason().orElse(null);
             if (BetaStopReason.REFUSAL.equals(stop)) {
                 String why = response.stopDetails().flatMap(d -> d.explanation()).orElse("");
-                job.emit("error", "Claude heeft deze vraag geweigerd." + (why.isEmpty() ? "" : " " + why));
+                job.emit("error", "Claude declined this question." + (why.isEmpty() ? "" : " " + why));
                 job.finish(ChatJob.State.ERROR);
                 return;
             }
@@ -134,7 +134,7 @@ public class SdkModelLoop implements ModelLoop {
                     history.add(response.toParam());
                 }
                 if (BetaStopReason.MAX_TOKENS.equals(stop)) {
-                    job.emit("info", "Het antwoord is afgekapt omdat het te lang werd. Vraag eventueel om een vervolg.");
+                    job.emit("info", "The answer was cut off because it got too long. Ask for a continuation if needed.");
                 }
                 job.finish(ChatJob.State.DONE);
                 return;
@@ -146,7 +146,7 @@ public class SdkModelLoop implements ModelLoop {
                 String result;
                 boolean isError = false;
                 if (limitReached || job.isCancelled()) {
-                    result = "Niet uitgevoerd: de limiet van " + maxToolCalls + " tool-aanroepen per vraag is bereikt. Geef nu een antwoord met de informatie die je hebt.";
+                    result = "Not run: the limit of " + maxToolCalls + " tool calls per question has been reached. Answer now with the information you have.";
                     isError = true;
                 } else {
                     toolCalls++;
@@ -164,7 +164,7 @@ public class SdkModelLoop implements ModelLoop {
                 history.add(BetaMessageParam.builder().role(BetaMessageParam.Role.USER).contentOfBetaContentBlockParams(results).build());
             }
             if (limitReached) {
-                job.emit("info", "Gestopt na " + maxToolCalls + " tool-aanroepen. Stel een vervolgvraag om verder te gaan.");
+                job.emit("info", "Stopped after " + maxToolCalls + " tool calls. Ask a follow-up question to continue.");
                 job.finish(ChatJob.State.DONE);
                 return;
             }
@@ -214,20 +214,20 @@ public class SdkModelLoop implements ModelLoop {
 
     private static String describe(Throwable t) {
         if (t instanceof UnauthorizedException) {
-            return "De Anthropic API-key is ongeldig of ingetrokken. Pas hem aan via Settings > Claude Assistant.";
+            return "The Anthropic API key is invalid or revoked. Change it under Settings > Claude Assistant.";
         }
         if (t instanceof PermissionDeniedException) {
-            return "De API-key heeft geen toegang tot dit model of deze functie: " + t.getMessage();
+            return "The API key has no access to this model or feature: " + t.getMessage();
         }
         if (t instanceof RateLimitException) {
-            return "Te veel aanvragen of tokens bij Anthropic (rate limit). Probeer het over een minuut opnieuw.";
+            return "Too many requests or tokens at Anthropic (rate limit). Try again in a minute.";
         }
         if (t instanceof AnthropicServiceException) {
-            return "Fout van de Anthropic API (HTTP " + ((AnthropicServiceException) t).statusCode() + "): " + t.getMessage();
+            return "Anthropic API error (HTTP " + ((AnthropicServiceException) t).statusCode() + "): " + t.getMessage();
         }
         if (t instanceof AnthropicIoException) {
-            return "Kan de Anthropic API niet bereiken vanaf de OIE-server: " + t.getMessage() + ". Controleer internettoegang/proxy van de server.";
+            return "Cannot reach the Anthropic API from the OIE server: " + t.getMessage() + ". Check the server's internet access/proxy.";
         }
-        return "Onverwachte fout: " + t;
+        return "Unexpected error: " + t;
     }
 }

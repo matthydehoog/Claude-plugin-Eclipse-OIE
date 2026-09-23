@@ -35,24 +35,24 @@ public class AssistantService {
     private static final long ACTION_TIMEOUT_MINUTES = 15;
 
     static final String SYSTEM_PROMPT = String.join("\n",
-            "Je bent de Claude-assistent binnen de Administrator van Open Integration Engine (OIE, een fork van Mirth Connect).",
-            "Je helpt integratiespecialisten met hun OIE-server: channels, berichten, fouten, scripts, code templates en serverstatus.",
-            "Antwoord in de taal van de gebruiker (meestal Nederlands), beknopt en concreet.",
+            "You are the Claude assistant inside the Administrator of Open Integration Engine (OIE, a fork of Mirth Connect).",
+            "You help integration specialists with their OIE server: channels, messages, errors, scripts, code templates and server status.",
+            "Answer in the user's language, concisely and concretely.",
             "",
-            "Werkwijze:",
-            "- Gebruik de oie_-tools om feiten op te halen in plaats van te gokken. Begin bij een algemene vraag met oie_list_channels.",
-            "- Bij fouten: zoek de berichten met status ERROR, groepeer ze op foutmelding, lees de channelconfiguratie en wijs het filter, de transformerstap of de connector aan die faalt. Geef een concrete oplossing, met code als het een script betreft.",
-            "- Channel-JavaScript draait in Rhino (ES5 met enkele ES6-uitbreidingen) met de Mirth-API: msg, tmp, channelMap, globalMap, logger, router, enzovoort.",
+            "How to work:",
+            "- Use the oie_ tools to look facts up instead of guessing. For a general question, start with oie_list_channels.",
+            "- For errors: find the messages with status ERROR, group them by error message, read the channel configuration and point out the filter, transformer step or connector that fails. Give a concrete fix, with code when a script is involved.",
+            "- Channel JavaScript runs in Rhino (ES5 with some ES6 extensions) with the Mirth API: msg, tmp, channelMap, globalMap, logger, router and so on.",
             "",
-            "Acties (deployen, starten/stoppen, statistieken resetten, bericht opnieuw verwerken, bericht versturen, script aanpassen):",
-            "- Elke actie-tool legt je voorstel eerst ter bevestiging voor aan de gebruiker. Leg in één zin uit waarom je de actie voorstelt voordat je de tool aanroept.",
-            "- Stel een actie alleen voor als die nodig is voor de vraag van de gebruiker. Een geweigerde actie probeer je niet opnieuw.",
-            "- Wees extra voorzichtig met productie-channels (namen met PROD of van ziekenhuizen); stel liever eerst een test voor.",
+            "Actions (deploy, start/stop, reset statistics, reprocess a message, send a message, change a script):",
+            "- Every action tool first puts your proposal to the user for approval. Explain in one sentence why you propose the action before you call the tool.",
+            "- Only propose an action when the user's question needs it. Do not retry a rejected action.",
+            "- Be extra careful with production channels (names containing PROD or a hospital); prefer proposing a test first.",
             "",
-            "Privacy: berichtinhoud, logs en foutmeldingen worden vóór verzending gemaskeerd; patiëntvelden (HL7 PID, GDT 3000-3107, BSN) zie je als ***.",
-            "Probeer gemaskeerde gegevens niet te achterhalen en vraag de gebruiker niet om patiëntgegevens.",
+            "Privacy: message content, logs and error messages are masked before they are sent; patient fields (HL7 PID, GDT 3000-3107, Dutch BSN) appear as ***.",
+            "Do not try to recover masked data and do not ask the user for patient data.",
             "",
-            "Opmaak: de chat toont Markdown (koppen, vet, cursief, lijsten, tabellen en codeblokken). Houd tabellen smal.");
+            "Formatting: the chat renders Markdown (headings, bold, italics, lists, tables and code blocks). Keep tables narrow.");
 
     private final ExecutorService executor = Executors.newCachedThreadPool(daemonThreads("Claude Assistant job"));
     private final ScheduledExecutorService housekeeping = Executors.newSingleThreadScheduledExecutor(daemonThreads("Claude Assistant housekeeping"));
@@ -88,7 +88,7 @@ public class AssistantService {
             for (OieTools.Spec spec : newTools.specs()) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("name", spec.name);
-                m.put("description", spec.description + (spec.action ? " (ACTIE: de gebruiker moet dit eerst bevestigen.)" : ""));
+                m.put("description", spec.description + (spec.action ? " (ACTION: the user must approve this first.)" : ""));
                 m.put("properties", spec.properties);
                 m.put("required", spec.required);
                 specs.add(m);
@@ -97,7 +97,7 @@ public class AssistantService {
                 newLoop = engine.create(settings, SYSTEM_PROMPT, specs, this::callTool);
             } catch (Exception e) {
                 logger.error("Claude Assistant: could not create the model client", e);
-                engineError = "Kan de Claude-client niet starten: " + e;
+                engineError = "Cannot start the Claude client: " + e;
             }
         }
         ModelLoop old = this.loop;
@@ -133,9 +133,9 @@ public class AssistantService {
         ModelLoop l = loop;
         if (l == null) {
             if (engineError != null) {
-                throw new IllegalStateException("De Claude-assistent kan niet starten: " + engineError);
+                throw new IllegalStateException("The Claude assistant cannot start: " + engineError);
             }
-            throw new IllegalStateException("Er is nog geen Anthropic API-key ingesteld. Vul die in via Settings > Claude Assistant.");
+            throw new IllegalStateException("No Anthropic API key is set yet. Enter one under Settings > Claude Assistant.");
         }
         Conversation conversation;
         if (conversationId == null || conversationId.isBlank()) {
@@ -144,13 +144,13 @@ public class AssistantService {
         } else {
             conversation = conversations.get(conversationId);
             if (conversation == null || conversation.userId != userId) {
-                throw new IllegalArgumentException("Gesprek niet gevonden of verlopen. Begin een nieuw gesprek.");
+                throw new IllegalArgumentException("Conversation not found or expired. Start a new conversation.");
             }
         }
         ChatJob job;
         synchronized (conversation) {
             if (conversation.activeJob != null && !isFinished(conversation.activeJob)) {
-                throw new IllegalStateException("Claude is nog bezig met je vorige vraag.");
+                throw new IllegalStateException("Claude is still working on your previous question.");
             }
             job = new ChatJob(conversation);
             conversation.activeJob = job;
@@ -172,7 +172,7 @@ public class AssistantService {
     public ChatJob job(String jobId, int userId) {
         ChatJob job = jobs.get(jobId);
         if (job == null || job.conversation.userId != userId) {
-            throw new IllegalArgumentException("Job niet gevonden of verlopen.");
+            throw new IllegalArgumentException("Job not found or expired.");
         }
         return job;
     }
@@ -181,12 +181,12 @@ public class AssistantService {
     public String decide(ChatJob job, String actionId, boolean approved, ServerEventContext context) {
         ChatJob.PendingAction pending = job.pending();
         if (pending == null || !pending.id.equals(actionId)) {
-            throw new IllegalStateException("Deze actie wacht niet (meer) op een beslissing.");
+            throw new IllegalStateException("This action is no longer waiting for a decision.");
         }
         String result;
         if (!approved) {
-            result = "De gebruiker heeft deze actie geweigerd. Voer haar niet uit en stel haar niet opnieuw voor, tenzij de gebruiker erom vraagt.";
-            job.emit("info", "Actie geweigerd: " + pending.prepared.title);
+            result = "The user rejected this action. Do not run it and do not propose it again unless the user asks for it.";
+            job.emit("info", "Action rejected: " + pending.prepared.title);
         } else {
             try {
                 result = pending.prepared.runner.run(context);
@@ -194,8 +194,8 @@ public class AssistantService {
                 audit(context, pending, ServerEvent.Outcome.SUCCESS, result);
             } catch (Exception e) {
                 logger.warn("Claude Assistant action " + pending.toolName + " failed", e);
-                result = "Mislukt: " + e.getMessage();
-                job.emit("error", pending.prepared.title + " mislukt: " + e.getMessage());
+                result = "Failed: " + e.getMessage();
+                job.emit("error", pending.prepared.title + " failed: " + e.getMessage());
                 audit(context, pending, ServerEvent.Outcome.FAILURE, String.valueOf(e.getMessage()));
             }
         }
@@ -224,8 +224,8 @@ public class AssistantService {
             return pending.decision.get(ACTION_TIMEOUT_MINUTES, TimeUnit.MINUTES);
         } catch (TimeoutException e) {
             job.resumed();
-            job.emit("info", "Geen beslissing binnen " + ACTION_TIMEOUT_MINUTES + " minuten; de actie is niet uitgevoerd.");
-            return "De gebruiker heeft niet op tijd beslist; de actie is niet uitgevoerd.";
+            job.emit("info", "No decision within " + ACTION_TIMEOUT_MINUTES + " minutes; the action was not run.");
+            return "The user did not decide in time; the action was not run.";
         }
     }
 
@@ -233,9 +233,9 @@ public class AssistantService {
 
     private String buildUserText(String message, String context) {
         StringBuilder sb = new StringBuilder();
-        sb.append("[Servertijd: ").append(ZonedDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z"))).append("]\n");
+        sb.append("[Server time: ").append(ZonedDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z"))).append("]\n");
         if (context != null && !context.isBlank()) {
-            sb.append("[Context uit de Administrator: ").append(context.trim()).append("]\n");
+            sb.append("[Context from the Administrator: ").append(context.trim()).append("]\n");
         }
         sb.append('\n').append(message);
         return masker.mask(sb.toString());

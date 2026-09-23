@@ -45,7 +45,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
 
         JPanel form = new JPanel(new MigLayout("insets 0, novisualpadding, hidemode 3", "[right][grow,fill]"));
         form.setBackground(Color.WHITE);
-        form.add(new JLabel("Anthropic API-key:"));
+        form.add(new JLabel("Anthropic API key:"));
         form.add(apiKeyField, "wrap, growx");
         form.add(new JLabel(""));
         form.add(apiKeyStatus, "wrap");
@@ -53,14 +53,14 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         form.add(modelBox, "wrap, w 260!");
         form.add(new JLabel("Effort:"));
         form.add(effortBox, "wrap, w 120!");
-        form.add(new JLabel("Max. tool-aanroepen per vraag:"));
+        form.add(new JLabel("Max. tool calls per question:"));
         form.add(maxToolCalls, "wrap, w 80!");
-        form.add(new JLabel("Extra maskeerpatronen:"), "top");
+        form.add(new JLabel("Extra mask patterns:"), "top");
         form.add(new JScrollPane(maskPatterns), "wrap, growx, h 80!");
         form.add(new JLabel(""));
-        form.add(new JLabel("<html>Reguliere expressies, gescheiden door <code>;;</code>. Ze worden gemaskeerd naast de vaste regels "
-                + "(HL7 PID, GDT 3000-3107, BSN).<br>De API-key wordt versleuteld op de server bewaard en nooit naar de Administrator teruggestuurd. "
-                + "Laat het veld leeg om de huidige key te houden.</html>"), "wrap, w 600!");
+        form.add(new JLabel("<html>Regular expressions, separated by <code>;;</code>. They are masked in addition to the built-in rules "
+                + "(HL7 PID, GDT 3000-3107, BSN).<br>The API key is stored encrypted on the server and never sent back to the Administrator. "
+                + "Leave the field empty to keep the current key.</html>"), "wrap, w 600!");
         add(form, "growx, top");
 
         DocumentListener changed = new DocumentListener() {
@@ -98,7 +98,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
                 try {
                     show(get());
                 } catch (Exception e) {
-                    getFrame().alertError(getFrame(), "Instellingen laden mislukt: " + ClaudeApi.message(e));
+                    getFrame().alertError(getFrame(), "Loading settings failed: " + ClaudeApi.message(e));
                 } finally {
                     getFrame().stopWorking(workingId);
                 }
@@ -127,7 +127,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
                 try {
                     show(get());
                 } catch (Exception e) {
-                    getFrame().alertError(getFrame(), "Opslaan mislukt: " + ClaudeApi.message(e));
+                    getFrame().alertError(getFrame(), "Saving failed: " + ClaudeApi.message(e));
                     setSaveEnabled(true);
                 } finally {
                     getFrame().stopWorking(workingId);
@@ -141,7 +141,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         loading = true;
         try {
             apiKeyField.setText("");
-            apiKeyStatus.setText(s.path("apiKeySet").asBoolean() ? "Ingesteld: " + s.path("apiKeyHint").asText() : "Nog geen API-key ingesteld.");
+            apiKeyStatus.setText(s.path("apiKeySet").asBoolean() ? "Set: " + s.path("apiKeyHint").asText() : "No API key set yet.");
             modelBox.setSelectedItem(s.path("model").asText(MODELS[0]));
             effortBox.setSelectedItem(s.path("effort").asText("high"));
             maxToolCalls.setValue(s.path("maxToolCalls").asInt(25));

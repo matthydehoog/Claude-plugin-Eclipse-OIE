@@ -34,10 +34,10 @@ public class ClaudeClientPlugin extends ClientPlugin {
     public void start() {
         parent = PlatformUI.MIRTH_FRAME;
         ImageIcon icon = new ImageIcon(Frame.class.getResource("images/help.png"));
-        parent.addTask("claudeOpen", "Claude-assistent", "Stel Claude een vraag over deze OIE-server.", "", icon, parent.otherPane, null, this);
-        parent.addTask("claudeDashboard", "Vraag Claude", "Laat Claude de geselecteerde channel(s) analyseren.", "", icon, parent.dashboardTasks, parent.dashboardPopupMenu, this);
-        parent.addTask("claudeMessage", "Vraag Claude", "Laat Claude uitzoeken wat er met het geselecteerde bericht gebeurde.", "", icon, parent.messageTasks, parent.messagePopupMenu, this);
-        parent.addTask("claudeChannelEdit", "Vraag Claude", "Laat Claude deze channel en zijn scripts uitleggen of verbeteren.", "", icon, parent.channelEditTasks, parent.channelEditPopupMenu, this);
+        parent.addTask("claudeOpen", "Claude Assistant", "Ask Claude a question about this OIE server.", "", icon, parent.otherPane, null, this);
+        parent.addTask("claudeDashboard", "Ask Claude", "Let Claude analyze the selected channel(s).", "", icon, parent.dashboardTasks, parent.dashboardPopupMenu, this);
+        parent.addTask("claudeMessage", "Ask Claude", "Let Claude find out what happened to the selected message.", "", icon, parent.messageTasks, parent.messagePopupMenu, this);
+        parent.addTask("claudeChannelEdit", "Ask Claude", "Let Claude explain or improve this channel and its scripts.", "", icon, parent.channelEditTasks, parent.channelEditPopupMenu, this);
     }
 
     @Override
@@ -63,7 +63,7 @@ public class ClaudeClientPlugin extends ClientPlugin {
     public void claudeDashboard() {
         List<DashboardStatus> selected = parent.dashboardPanel == null ? null : parent.dashboardPanel.getSelectedStatuses();
         if (selected == null || selected.isEmpty()) {
-            dialog().open(null, "Welke channels hebben fouten, en wat is de oorzaak?");
+            dialog().open(null, "Which channels have errors, and what is the cause?");
             return;
         }
         List<String> parts = new ArrayList<>();
@@ -74,21 +74,21 @@ public class ClaudeClientPlugin extends ClientPlugin {
             }
             parts.add(part);
         }
-        dialog().open("Geselecteerd in het dashboard: " + String.join(", ", parts), "Analyseer de status en de fouten van " + (selected.size() == 1 ? "deze channel." : "deze channels."));
+        dialog().open("Selected in the dashboard: " + String.join(", ", parts), "Analyze the status and errors of " + (selected.size() == 1 ? "this channel." : "these channels."));
     }
 
     public void claudeMessage() {
         MessageBrowser browser = parent.activeBrowser != null ? parent.activeBrowser : parent.messageBrowser;
         if (browser == null || browser.getSelectedMessageId() == null) {
-            parent.alertInformation(parent, "Selecteer eerst een bericht.");
+            parent.alertInformation(parent, "Select a message first.");
             return;
         }
         String channelId = browser.getSelectedMessageChannelId() != null ? browser.getSelectedMessageChannelId() : browser.getChannelId();
-        String context = "Geselecteerd bericht in de message browser: channel-ID " + channelId + ", bericht-ID " + browser.getSelectedMessageId();
+        String context = "Selected message in the message browser: channel ID " + channelId + ", message ID " + browser.getSelectedMessageId();
         if (browser.getSelectedMetaDataId() != null) {
             context += ", connector (metaDataId) " + browser.getSelectedMetaDataId();
         }
-        dialog().open(context, "Wat is er met dit bericht gebeurd? Als het mislukt is: waarom, en hoe los ik het op?");
+        dialog().open(context, "What happened to this message? If it failed: why, and how do I fix it?");
     }
 
     public void claudeChannelEdit() {
@@ -97,9 +97,9 @@ public class ClaudeClientPlugin extends ClientPlugin {
             claudeOpen();
             return;
         }
-        String context = "Channel open in de editor: '" + channel.getName() + "' (" + channel.getId() + ", revisie " + channel.getRevision() + ")."
-                + " Claude ziet de opgeslagen versie; niet-opgeslagen wijzigingen in de editor zijn niet zichtbaar.";
-        dialog().open(context, "Leg uit wat deze channel doet en wijs zwakke plekken in de scripts aan.");
+        String context = "Channel open in the editor: '" + channel.getName() + "' (" + channel.getId() + ", revision " + channel.getRevision() + ")."
+                + " Claude sees the saved version; unsaved changes in the editor are not visible.";
+        dialog().open(context, "Explain what this channel does and point out weak spots in its scripts.");
     }
 
     private ChatDialog dialog() {
