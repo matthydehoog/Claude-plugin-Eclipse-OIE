@@ -1,0 +1,46 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.1.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.1.0 http://maven.apache.org/xsd/assembly-2.1.0.xsd">
+  <id>extension</id>
+  <formats>
+    <format>zip</format>
+  </formats>
+  <includeBaseDirectory>true</includeBaseDirectory>
+  <!-- Must equal the path attribute in plugin.xml. -->
+  <baseDirectory>claude-assistant</baseDirectory>
+
+  <files>
+    <file>
+      <source>src/main/resources/plugin.xml</source>
+      <outputDirectory>/</outputDirectory>
+    </file>
+    <file>
+      <source>${project.build.directory}/${project.build.finalName}-shared.jar</source>
+      <outputDirectory>/</outputDirectory>
+      <destName>claude-assistant-shared.jar</destName>
+    </file>
+    <file>
+      <source>${project.build.directory}/${project.build.finalName}-server.jar</source>
+      <outputDirectory>/</outputDirectory>
+      <destName>claude-assistant-server.jar</destName>
+    </file>
+    <file>
+      <source>${project.build.directory}/${project.build.finalName}-client.jar</source>
+      <outputDirectory>/</outputDirectory>
+      <destName>claude-assistant-client.jar</destName>
+    </file>
+    <!-- Not listed in plugin.xml: loaded by the plugin's own class loader (see EngineLoader). -->
+    <file>
+      <source>${project.build.directory}/${project.build.finalName}-engine.jar</source>
+      <outputDirectory>/lib</outputDirectory>
+      <destName>claude-assistant-engine.jar</destName>
+    </file>
+  </files>
+
+  <fileSets>
+    <fileSet>
+      <directory>${project.build.directory}/lib</directory>
+      <outputDirectory>/lib</outputDirectory>
+    </fileSet>
+  </fileSets>
+</assembly>

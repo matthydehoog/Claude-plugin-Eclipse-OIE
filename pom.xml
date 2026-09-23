@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.matthy.oie</groupId>
+  <artifactId>claude-assistant</artifactId>
+  <version>0.1.0</version>
+  <packaging>jar</packaging>
+
+  <name>OIE Claude Assistant</name>
+  <description>Claude chat assistant inside the Open Integration Engine Administrator.</description>
+
+  <properties>
+    <maven.compiler.release>11</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Engine install to compile against. Override with -Doie.home=... -->
+    <oie.home>C:/Program Files/OpenIntegrationEngine</oie.home>
+    <oie.version>4.6.0</oie.version>
+    <anthropic.version>2.65.0</anthropic.version>
+  </properties>
+
+  <dependencies>
+    <!-- Copied into lib/ and loaded in an isolated class loader: the engine ships Jackson 2.14, the SDK needs a newer one. -->
+    <dependency>
+      <groupId>com.anthropic</groupId>
+      <artifactId>anthropic-java</artifactId>
+      <version>${anthropic.version}</version>
+    </dependency>
+
+    <!-- Engine jars, installed into the local repository from <OIE_HOME>. -->
+    <dependency>
+      <groupId>com.mirth.connect</groupId>
+      <artifactId>server-api</artifactId>
+      <version>${oie.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.mirth.connect</groupId>
+      <artifactId>donkey-server</artifactId>
+      <version>${oie.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.mirth.connect</groupId>
+      <artifactId>donkey-model</artifactId>
+      <version>${oie.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.mirth.connect</groupId>
+      <artifactId>client</artifactId>
+      <version>${oie.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.mirth.connect</groupId>
+      <artifactId>client-core</artifactId>
+      <version>${oie.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- Already on the engine's classpath; referenced straight from the install. -->
+    <dependency>
+      <groupId>oie</groupId>
+      <artifactId>mirth-crypto</artifactId>
+      <version>${oie.version}</version>
+      <scope>system</scope>
+      <systemPath>${oie.home}/server-lib/mirth-crypto.jar</systemPath>
+    </dependency>
+    <dependency>
+      <groupId>oie</groupId>
+      <artifactId>javax.ws.rs-api</artifactId>
+      <version>2.0.1</version>
+      <scope>system</scope>
+      <systemPath>${oie.home}/server-lib/javax/javax.ws.rs-api-2.0.1.jar</systemPath>
+    </dependency>
+    <dependency>
+      <groupId>oie</groupId>
+      <artifactId>javax.servlet-api</artifactId>
+      <version>3.1.0</version>
+      <scope>system</scope>
+      <systemPath>${oie.home}/server-lib/javax/javax.servlet-api-3.1.0.jar</systemPath>
+    </dependency>
+    <dependency>
+      <groupId>oie</groupId>
+      <artifactId>swagger-annotations</artifactId>
+      <version>2.0.10</version>
+      <scope>system</scope>
+      <systemPath>${oie.home}/server-lib/swagger/swagger-annotations-2.0.10.jar</systemPath>
+    </dependency>
+    <dependency>
+      <groupId>oie</groupId>
+      <artifactId>swingx-core</artifactId>
+      <version>1.6.2</version>
+      <scope>system</scope>
+      <systemPath>${oie.home}/client-lib/swingx-core-1.6.2.jar</systemPath>
+    </dependency>
+    <dependency>
+      <groupId>oie</groupId>
+      <artifactId>miglayout-swing</artifactId>
+      <version>4.2</version>
+      <scope>system</scope>
+      <systemPath>${oie.home}/client-lib/miglayout-swing-4.2.jar</systemPath>
+    </dependency>
+    <dependency>
+      <groupId>oie</groupId>
+      <artifactId>miglayout-core</artifactId>
+      <version>4.2</version>
+      <scope>system</scope>
+      <systemPath>${oie.home}/client-lib/miglayout-core-4.2.jar</systemPath>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-api</artifactId>
+      <version>2.20.0</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.2</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>${project.artifactId}-${project.version}</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+      </plugin>
+
+      <!--
+        The engine wants three jars (shared, server, client). The fourth, the engine jar, holds the
+        code that uses the Anthropic SDK; it sits in lib/ with the SDK and is loaded in isolation.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.1</version>
+        <executions>
+          <execution>
+            <id>default-jar</id>
+            <phase>none</phase>
+          </execution>
+          <execution>
+            <id>shared-jar</id>
+            <phase>package</phase>
+            <goals><goal>jar</goal></goals>
+            <configuration>
+              <classifier>shared</classifier>
+              <includes><include>com/matthy/oie/claude/shared/**</include></includes>
+            </configuration>
+          </execution>
+          <execution>
+            <id>server-jar</id>
+            <phase>package</phase>
+            <goals><goal>jar</goal></goals>
+            <configuration>
+              <classifier>server</classifier>
+              <includes><include>com/matthy/oie/claude/server/**</include></includes>
+            </configuration>
+          </execution>
+          <execution>
+            <id>engine-jar</id>
+            <phase>package</phase>
+            <goals><goal>jar</goal></goals>
+            <configuration>
+              <classifier>engine</classifier>
+              <includes><include>com/matthy/oie/claude/engine/**</include></includes>
+            </configuration>
+          </execution>
+          <execution>
+            <id>client-jar</id>
+            <phase>package</phase>
+            <goals><goal>jar</goal></goals>
+            <configuration>
+              <classifier>client</classifier>
+              <includes><include>com/matthy/oie/claude/client/**</include></includes>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- The SDK and its dependencies go unmodified into lib/, loaded by the plugin's own class loader. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.7.0</version>
+        <executions>
+          <execution>
+            <id>engine-libs</id>
+            <phase>package</phase>
+            <goals><goal>copy-dependencies</goal></goals>
+            <configuration>
+              <includeScope>runtime</includeScope>
+              <outputDirectory>${project.build.directory}/lib</outputDirectory>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>3.7.1</version>
+        <configuration>
+          <descriptors>
+            <descriptor>assembly.xml</descriptor>
+          </descriptors>
+          <appendAssemblyId>false</appendAssemblyId>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>single</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
