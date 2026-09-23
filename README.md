@@ -1,1 +1,1 @@
-# claude-plugin-Eclipse-OIE
+# Claude-plugin-Eclipse-OIE
