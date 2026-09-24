@@ -5,18 +5,24 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.core.JsonValue;
 import com.anthropic.errors.AnthropicIoException;
 import com.anthropic.errors.AnthropicServiceException;
+import com.anthropic.errors.BadRequestException;
 import com.anthropic.errors.PermissionDeniedException;
 import com.anthropic.errors.RateLimitException;
 import com.anthropic.errors.UnauthorizedException;
 import com.anthropic.models.beta.messages.BetaCacheControlEphemeral;
 import com.anthropic.models.beta.messages.BetaContentBlock;
 import com.anthropic.models.beta.messages.BetaContentBlockParam;
+import com.anthropic.models.beta.messages.BetaDiagnosticsParam;
 import com.anthropic.models.beta.messages.BetaMessage;
 import com.anthropic.models.beta.messages.BetaMessageParam;
 import com.anthropic.models.beta.messages.BetaOutputConfig;
@@ -26,6 +32,7 @@ import com.anthropic.models.beta.messages.BetaThinkingConfigAdaptive;
 import com.anthropic.models.beta.messages.BetaTool;
 import com.anthropic.models.beta.messages.BetaToolResultBlockParam;
 import com.anthropic.models.beta.messages.BetaToolUseBlock;
+import com.anthropic.models.beta.messages.BetaUsage;
 import com.anthropic.models.beta.messages.MessageCreateParams;
 import com.matthy.oie.claude.server.ChatJob;
 import com.matthy.oie.claude.server.Conversation;
@@ -38,6 +45,10 @@ import com.matthy.oie.claude.server.ModelLoop;
 public class SdkModelLoop implements ModelLoop {
 
     private static final long MAX_TOKENS = 16_000;
+    private static final Logger LOG = LogManager.getLogger(SdkModelLoop.class);
+
+    /** Cleared when the API rejects the cache-diagnostics beta, so it is not sent again. */
+    private volatile boolean diagnostics = true;
 
     private final AnthropicClient client;
     private final String model;
@@ -90,7 +101,7 @@ public class SdkModelLoop implements ModelLoop {
             loop(job, userText);
         } catch (Throwable t) {
             if (!job.isCancelled()) {
-                org.apache.logging.log4j.LogManager.getLogger(SdkModelLoop.class).warn("Claude Assistant job failed", t);
+                LOG.warn("Claude Assistant job failed", t);
                 job.emit("error", describe(t));
                 job.finish(ChatJob.State.ERROR);
             }
@@ -100,14 +111,18 @@ public class SdkModelLoop implements ModelLoop {
     }
 
     private void loop(ChatJob job, String userText) throws Exception {
-        List<BetaMessageParam> history = history(job.conversation());
+        State state = state(job.conversation());
+        List<BetaMessageParam> history = state.messages;
         synchronized (history) {
             history.add(BetaMessageParam.builder().role(BetaMessageParam.Role.USER).content(userText).build());
         }
         int toolCalls = 0;
+        int call = 0;
         boolean limitReached = false;
         while (!job.isCancelled()) {
-            BetaMessage response = client.beta().messages().create(params(snapshot(history)));
+            BetaMessage response = create(snapshot(history), state.lastMessageId);
+            state.lastMessageId = response.id();
+            logUsage(state, ++call, response);
             if (job.isCancelled()) {
                 return;
             }
@@ -175,14 +190,32 @@ public class SdkModelLoop implements ModelLoop {
         }
     }
 
-    private MessageCreateParams params(List<BetaMessageParam> history) {
+    private BetaMessage create(List<BetaMessageParam> history, String previousMessageId) {
+        if (diagnostics) {
+            try {
+                return client.beta().messages().create(params(history, previousMessageId, true));
+            } catch (BadRequestException e) {
+                if (String.valueOf(e.getMessage()).toLowerCase().contains("diagnos")) {
+                    // Cache diagnostics is a beta; if this account rejects it, carry on without it.
+                    diagnostics = false;
+                    LOG.warn("Claude Assistant: cache diagnostics not available, continuing without it: " + e.getMessage());
+                } else {
+                    throw e;
+                }
+            }
+        }
+        return client.beta().messages().create(params(history, previousMessageId, false));
+    }
+
+    private MessageCreateParams params(List<BetaMessageParam> history, String previousMessageId, boolean withDiagnostics) {
         MessageCreateParams.Builder b = MessageCreateParams.builder()
                 .model(model)
                 .maxTokens(MAX_TOKENS)
-                .systemOfBetaTextBlockParams(Collections.singletonList(BetaTextBlockParam.builder().text(systemPrompt).build()))
+                // Explicit breakpoint after tools + system: the fixed prefix always has a read point...
+                .systemOfBetaTextBlockParams(Collections.singletonList(BetaTextBlockParam.builder().text(systemPrompt).cacheControl(BetaCacheControlEphemeral.builder().build()).build()))
                 .thinking(BetaThinkingConfigAdaptive.builder().build())
                 .outputConfig(BetaOutputConfig.builder().effort(BetaOutputConfig.Effort.of(effort)).build())
-                // Caches tools + system + history up to the last message, so follow-up turns are cheap.
+                // ...and automatic caching moves a second breakpoint along the growing conversation.
                 .cacheControl(BetaCacheControlEphemeral.builder().build())
                 .messages(history);
         for (BetaTool tool : tools) {
@@ -192,17 +225,43 @@ public class SdkModelLoop implements ModelLoop {
             // Server-side fallback: if a safety classifier declines, the API retries on a suitable model.
             b.addBeta("server-side-fallback-2026-07-01").putAdditionalBodyProperty("fallbacks", JsonValue.from("default"));
         }
+        if (withDiagnostics) {
+            // The API compares this request with the previous one and reports why the cache missed.
+            b.addBeta("cache-diagnosis-2026-04-07").diagnostics(BetaDiagnosticsParam.builder().previousMessageId(Optional.ofNullable(previousMessageId)).build());
+        }
         return b.build();
     }
 
-    /** The conversation history lives on the host-side Conversation, typed only as Object there. */
-    @SuppressWarnings("unchecked")
-    private static List<BetaMessageParam> history(Conversation conversation) {
+    /** One line per API call in the server log, so cache behaviour and cost can be checked. */
+    private void logUsage(State state, int call, BetaMessage response) {
+        BetaUsage usage = response.usage();
+        long read = usage.cacheReadInputTokens().orElse(0L);
+        long written = usage.cacheCreationInputTokens().orElse(0L);
+        StringBuilder sb = new StringBuilder("Claude Assistant usage: conversation ").append(state.id)
+                .append(" call ").append(call)
+                .append(", model ").append(response.model().asString())
+                .append(", input ").append(usage.inputTokens())
+                .append(", cache read ").append(read)
+                .append(", cache write ").append(written)
+                .append(", output ").append(usage.outputTokens())
+                .append(", stop ").append(response.stopReason().map(Object::toString).orElse("?"));
+        response.diagnostics().flatMap(d -> d.cacheMissReason()).ifPresent(reason -> sb.append(", cache miss: ").append(reason));
+        LOG.info(sb.toString());
+    }
+
+    /** Engine-side state of a conversation, kept on the host-side Conversation as an opaque Object. */
+    private static final class State {
+        final String id = Long.toHexString(System.nanoTime() & 0xffffffL);
+        final List<BetaMessageParam> messages = new ArrayList<>();
+        volatile String lastMessageId;
+    }
+
+    private static State state(Conversation conversation) {
         synchronized (conversation) {
-            if (conversation.history() == null) {
-                conversation.setHistory(new ArrayList<BetaMessageParam>());
+            if (!(conversation.history() instanceof State)) {
+                conversation.setHistory(new State());
             }
-            return (List<BetaMessageParam>) conversation.history();
+            return (State) conversation.history();
         }
     }
 

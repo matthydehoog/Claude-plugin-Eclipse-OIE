@@ -7,8 +7,10 @@ import static com.matthy.oie.claude.shared.ClaudeServletInterface.PLUGIN_POINT;
 
 import java.util.Properties;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.config.Configurator;
 
 import com.matthy.oie.claude.shared.ClaudeServletInterface;
 import com.mirth.commons.encryption.Encryptor;
@@ -31,6 +33,9 @@ public class ClaudeServicePlugin implements ServicePlugin {
 
     @Override
     public void init(Properties properties) {
+        // OIE's root logger is at ERROR; raise only this plugin to INFO so the per-call usage
+        // lines (tokens, cache reads/writes) show up in Dashboard > Server Log.
+        Configurator.setLevel("com.matthy.oie.claude", Level.INFO);
         service = new AssistantService(load(properties));
     }
 
