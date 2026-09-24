@@ -10,14 +10,16 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Loads the engine (our SDK-facing code plus the Anthropic SDK, Jackson, Kotlin and OkHttp) from the
- * plugin's lib folder in its own child-first class loader. The engine ships a newer Jackson than
+ * Loads the engine (our SDK-facing code: the model loop and the spend reader, plus the Anthropic SDK,
+ * Jackson, Kotlin and OkHttp) from the plugin's lib folder in its own child-first class loader. The
+ * engine ships a newer Jackson than
  * the one on the OIE classpath, and the SDK's Kotlin reflection cannot be relocated, so isolation
  * is the only way to keep both working.
  */
 final class EngineLoader {
 
     private static final String ENGINE_CLASS = "com.matthy.oie.claude.engine.SdkModelLoop";
+    private static final String SPEND_CLASS = "com.matthy.oie.claude.engine.SdkSpendReader";
 
     /** Always from the engine's parent: the JDK, the host side of this plugin and the OIE APIs it uses. */
     private static final String[] PARENT_FIRST = { "java.", "javax.", "jdk.", "sun.", "com.sun.", "org.w3c.", "org.xml.", "com.matthy.oie.claude.server.", "com.matthy.oie.claude.shared.", "com.mirth.", "org.apache.logging.", "org.slf4j." };
@@ -41,6 +43,10 @@ final class EngineLoader {
         Class<?> engine = Class.forName(ENGINE_CLASS, true, loader);
         return (ModelLoop) engine.getConstructor(String.class, String.class, String.class, int.class, String.class, List.class, ModelLoop.ToolCaller.class)
                 .newInstance(settings.apiKey, settings.model, settings.effort, settings.maxToolCalls, systemPrompt, tools, caller);
+    }
+
+    SpendReader createSpendReader() throws Exception {
+        return (SpendReader) Class.forName(SPEND_CLASS, true, loader).getConstructor().newInstance();
     }
 
     /** extensions/claude-assistant/lib, next to the server jar this class was loaded from. */

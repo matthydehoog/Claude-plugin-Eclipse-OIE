@@ -75,6 +75,17 @@ public class ClaudeServlet extends MirthServlet implements ClaudeServletInterfac
     }
 
     @Override
+    public String getSpend(boolean refresh) {
+        try {
+            return service().spend(refresh);
+        } catch (IllegalStateException e) {
+            throw new MirthApiException(Response.status(Response.Status.CONFLICT).entity(e.getMessage()).build());
+        } catch (Exception e) {
+            throw new MirthApiException(Response.status(Response.Status.BAD_GATEWAY).entity("Could not read the cost report: " + (e.getMessage() != null ? e.getMessage() : e.toString())).build());
+        }
+    }
+
+    @Override
     public String setSettings(String body) {
         try {
             Settings updated = service().settings().merge(parse(body));

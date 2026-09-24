@@ -72,6 +72,12 @@ public interface ClaudeServletInterface extends BaseServletInterface {
     @MirthOperation(name = "claudeGetSettings", display = "Get Claude settings", permission = PERMISSION_USE, auditable = false)
     String getSettings() throws ClientException;
 
+    @GET
+    @Path("/spend")
+    @Operation(summary = "Returns the organization's spend this month from the Anthropic Cost API. Needs an Admin API key in the settings.")
+    @MirthOperation(name = "claudeGetSpend", display = "Get Claude spend", permission = PERMISSION_SETTINGS, auditable = false)
+    String getSpend(@Param("refresh") @Parameter(description = "Bypass the one-minute cache.") @QueryParam("refresh") boolean refresh) throws ClientException;
+
     @PUT
     @Path("/settings")
     @Operation(summary = "Updates the plugin settings. An absent or empty apiKey keeps the current key.")

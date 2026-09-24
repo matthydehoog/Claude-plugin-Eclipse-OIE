@@ -67,6 +67,13 @@ public class AssistantService {
     private volatile OieTools tools;
     private volatile ModelLoop loop;
 
+    /** Anthropic asks to poll the cost report at most about once a minute. */
+    private static final long SPEND_CACHE_MS = TimeUnit.SECONDS.toMillis(60);
+    private SpendReader spendReader;
+    private String cachedSpend;
+    private String cachedSpendKey;
+    private long cachedSpendAt;
+
     public AssistantService(Settings settings) {
         try {
             engine = new EngineLoader();
@@ -113,6 +120,33 @@ public class AssistantService {
 
     public Settings settings() {
         return settings;
+    }
+
+    /**
+     * Month-to-date spend as JSON text (see {@link SpendReader}), cached for a minute.
+     *
+     * @param refresh bypass the cache
+     */
+    public synchronized String spend(boolean refresh) throws Exception {
+        Settings s = settings;
+        if (s.adminApiKey.isEmpty()) {
+            throw new IllegalStateException("No Admin API key is set. Spend this month needs an Admin API key (sk-ant-admin...).");
+        }
+        if (engine == null) {
+            throw new IllegalStateException("The Claude assistant cannot start: " + engineError);
+        }
+        String cacheKey = s.adminApiKey + '\n' + s.apiKey;
+        long now = System.currentTimeMillis();
+        if (!refresh && cachedSpend != null && cacheKey.equals(cachedSpendKey) && now - cachedSpendAt < SPEND_CACHE_MS) {
+            return cachedSpend;
+        }
+        if (spendReader == null) {
+            spendReader = engine.createSpendReader();
+        }
+        cachedSpend = spendReader.read(s.adminApiKey, s.apiKey);
+        cachedSpendKey = cacheKey;
+        cachedSpendAt = now;
+        return cachedSpend;
     }
 
     public void shutdown() {

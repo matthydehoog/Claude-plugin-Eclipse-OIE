@@ -66,6 +66,19 @@ Users with channel restrictions cannot use the assistant, because the tools see 
    line below it shows *Set: sk-ant-…xxxx*.
 3. Defaults: model `claude-opus-5`, effort `high`, at most 25 tool calls per question.
 
+### Usage: spend and credits
+
+The *Usage* section of *Settings > Claude Assistant* shows **Spend this month** for the whole
+organization and, separately, for the workspace the plugin's API key belongs to. It comes from the
+Anthropic [Cost API](https://platform.claude.com/docs/en/manage-claude/usage-cost-api) and needs an
+optional **Admin API key** (`sk-ant-admin01-…`), which only an organization admin can create in the
+Console (not available for individual accounts). Amounts are in USD since the 1st of the month (UTC),
+run up to about 5 minutes behind and are cached for a minute; *Refresh* fetches them again.
+Viewing spend requires the *Manage Claude Assistant settings* permission.
+
+The organization's **credit balance** is not available through any Anthropic API, so the tab offers
+an *Open Billing in Console* button instead.
+
 The OIE server must be able to reach `https://api.anthropic.com`. Behind a gateway or proxy? Add for
 example `-Doie.claude.baseUrl=https://gateway.example/anthropic` to `conf/custom.vmoptions`.
 

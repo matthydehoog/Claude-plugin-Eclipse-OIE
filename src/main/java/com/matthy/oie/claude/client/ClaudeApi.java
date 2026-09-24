@@ -49,6 +49,10 @@ final class ClaudeApi {
         return MAPPER.readTree(servlet().getSettings());
     }
 
+    static JsonNode spend(boolean refresh) throws Exception {
+        return MAPPER.readTree(servlet().getSpend(refresh));
+    }
+
     static JsonNode saveSettings(ObjectNode settings) throws Exception {
         return MAPPER.readTree(servlet().setSettings(settings.toString()));
     }
