@@ -31,7 +31,8 @@ The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It
 | **Channels** view, right-click | *Ask Claude* about the selected channel |
 | **Message browser**, right-click | *Ask Claude* about the selected message (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask Claude* about the selected code template |
-| **Command palette** | *Claude Assistant*, and *Ask Claude about Global Scripts* (the web admin has no hook on the Global Scripts view itself) |
+| **Claude page**, button **Global Scripts** | the global scripts as context (the web admin has no hook on the Global Scripts view itself) |
+| **Command palette** (Ctrl+K) | *Claude Assistant*, and *Ask Claude about Global Scripts* |
 | **Settings**, tab **Claude Assistant** | the same settings and usage as in Swing, using the settings page's own Save |
 
 Both UIs use the same REST API, so masking, permissions, action approval and the audit log are

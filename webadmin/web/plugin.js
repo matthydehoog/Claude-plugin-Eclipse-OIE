@@ -5,6 +5,9 @@
 
 const EXT = "/extensions/claude";
 const STYLE_ID = "claude-assistant-style";
+// The web admin has no plugin hook on the Global Scripts view, so the Claude page offers this context itself.
+const GLOBAL_SCRIPTS_CONTEXT = "Global Scripts (deploy, undeploy, preprocessor and postprocessor). Claude sees the saved version; unsaved changes in the Global Scripts editor are not visible.";
+const GLOBAL_SCRIPTS_SUGGESTION = "Explain what the global scripts do and point out weak spots.";
 const POLL_MS = 800;
 const BILLING_URL = "https://platform.claude.com/settings/billing";
 const MODELS = ["claude-opus-5", "claude-opus-5-5", "claude-sonnet-5", "claude-fable-5-1", "claude-haiku-4-5"];
@@ -22,8 +25,9 @@ const CSS = `
 .claude-page { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 12px 16px; box-sizing: border-box; gap: 8px; }
 .claude-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 8px; }
 .claude-embedded { height: 100%; min-height: 420px; padding: 8px 0; box-sizing: border-box; }
-.claude-contextbar { display: flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: 12px; }
-.claude-contextbar .claude-context { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.claude-contextbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--text-dim); font-size: 12px; }
+.claude-contextbar .claude-context { flex: 1 1 240px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.claude-contextbar .btn { flex: none; white-space: nowrap; }
 .claude-transcript { flex: 1; min-height: 160px; overflow: auto; background: var(--bg1); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
 .claude-transcript > div { margin: 6px 0; }
 .claude-user { background: var(--bg3); border-radius: var(--radius); padding: 6px 10px; white-space: pre-wrap; margin-top: 14px !important; }
@@ -403,6 +407,12 @@ function ChatPanel() {
         e("div", { className: "claude-contextbar" },
             e("span", { className: "claude-context", title: c.context || "" },
                 c.context ? [e("b", { key: "l" }, "Context: "), c.context] : "No context: Claude looks at the whole server."),
+            e("button", {
+                className: "btn",
+                title: "Ask about the global deploy, undeploy, preprocessor and postprocessor scripts",
+                disabled: c.context === GLOBAL_SCRIPTS_CONTEXT,
+                onClick: () => c.open(GLOBAL_SCRIPTS_CONTEXT, GLOBAL_SCRIPTS_SUGGESTION)
+            }, "Global Scripts"),
             e("button", { className: "btn", disabled: !c.context, onClick: () => c.clearContext() }, "Clear context"),
             e("button", { className: "btn", onClick: () => c.newConversation() }, "New conversation")),
         e("div", { className: "claude-transcript", ref: transcriptRef },
@@ -610,8 +620,7 @@ export function register(platform) {
             icon: "claude",
             section: "Plugins",
             keywords: ["claude", "global scripts", "deploy", "preprocessor", "postprocessor"],
-            run: () => openWith("Global Scripts (deploy, undeploy, preprocessor and postprocessor). Claude sees the saved version; unsaved changes in the Global Scripts editor are not visible.",
-                "Explain what the global scripts do and point out weak spots.")
+            run: () => openWith(GLOBAL_SCRIPTS_CONTEXT, GLOBAL_SCRIPTS_SUGGESTION)
         });
     }
 
