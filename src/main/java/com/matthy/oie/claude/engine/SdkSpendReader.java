@@ -14,6 +14,8 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
+import org.apache.logging.log4j.LogManager;
+
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.errors.AnthropicIoException;
@@ -92,7 +94,12 @@ public class SdkSpendReader implements SpendReader {
         BigDecimal orgCents = BigDecimal.ZERO;
         BigDecimal workspaceCents = BigDecimal.ZERO;
         String startingAt = monthStart.atStartOfDay(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT);
-        String endingAt = LocalDate.now(ZoneOffset.UTC).plusDays(1).atStartOfDay(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT);
+        // ending_at only returns buckets that end *before* it. Today's bucket ends at tomorrow 00:00 UTC,
+        // so ending_at must be later than that or today's spend is left out.
+        String endingAt = LocalDate.now(ZoneOffset.UTC).plusDays(2).atStartOfDay(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT);
+        String firstBucket = null;
+        String lastBucket = null;
+        int buckets = 0;
         String page = null;
         do {
             String query = "starting_at=" + encode(startingAt) + "&ending_at=" + encode(endingAt) + "&" + encode("group_by[]") + "=workspace_id&limit=31" + (page == null ? "" : "&page=" + encode(page));
@@ -109,6 +116,11 @@ public class SdkSpendReader implements SpendReader {
             }
             JsonNode body = MAPPER.readTree(response.body());
             for (JsonNode bucket : body.path("data")) {
+                buckets++;
+                if (firstBucket == null) {
+                    firstBucket = bucket.path("starting_at").asText();
+                }
+                lastBucket = bucket.path("starting_at").asText();
                 for (JsonNode result : bucket.path("results")) {
                     BigDecimal amount = new BigDecimal(result.path("amount").asText("0"));
                     orgCents = orgCents.add(amount);
@@ -121,6 +133,9 @@ public class SdkSpendReader implements SpendReader {
             }
             page = body.path("has_more").asBoolean(false) ? body.path("next_page").asText(null) : null;
         } while (page != null);
+
+        LogManager.getLogger(SdkSpendReader.class).info("Claude Assistant spend: " + buckets + " daily buckets from " + firstBucket + " to " + lastBucket
+                + ", organization " + orgCents + " cents" + (workspaceId == null ? "" : ", workspace " + workspaceCents + " cents"));
 
         // Amounts are cents as decimal strings; report dollars.
         out.put("organizationUsd", orgCents.movePointLeft(2).setScale(2, RoundingMode.HALF_UP).toPlainString());
