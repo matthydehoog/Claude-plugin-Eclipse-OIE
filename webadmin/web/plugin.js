@@ -9,6 +9,12 @@ const POLL_MS = 800;
 const BILLING_URL = "https://platform.claude.com/settings/billing";
 const MODELS = ["claude-opus-5", "claude-opus-5-5", "claude-sonnet-5", "claude-fable-5-1", "claude-haiku-4-5"];
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
+// Stored value (English name, used in the system prompt) and the label shown in the dropdown.
+const LANGUAGES = [
+    ["Automatic", "Automatic (language of the question)"], ["English", "English"], ["Dutch", "Nederlands (Dutch)"], ["German", "Deutsch (German)"],
+    ["French", "Français (French)"], ["Spanish", "Español (Spanish)"], ["Italian", "Italiano (Italian)"], ["Portuguese", "Português (Portuguese)"],
+    ["Polish", "Polski (Polish)"], ["Swedish", "Svenska (Swedish)"], ["Danish", "Dansk (Danish)"], ["Norwegian", "Norsk (Norwegian)"], ["Finnish", "Suomi (Finnish)"]
+];
 // Stroke-only 24x24 path, same format as the built-in icons: an eight-point burst.
 const ICON_PATH = "M12 3v5M12 16v5M3 12h5M16 12h5M5.6 5.6l3.5 3.5M14.9 14.9l3.5 3.5M5.6 18.4l3.5-3.5M14.9 9.1l3.5-3.5";
 
@@ -461,7 +467,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
 
     const show = React.useCallback((s) => {
         setStatus(s);
-        setForm({ apiKey: "", adminApiKey: "", clearAdminApiKey: false, model: s.model || MODELS[0], effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "" });
+        setForm({ apiKey: "", adminApiKey: "", clearAdminApiKey: false, model: s.model || MODELS[0], effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic" });
         clean();
         if (s.adminApiKeySet) loadSpend(false);
         else setSpend({ state: "idle" });
@@ -544,6 +550,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
             e("input", { type: "text", list: "claude-models", value: form.model, onChange: set("model"), style: { width: 260 } }),
             e("datalist", { id: "claude-models" }, MODELS.map((m) => e("option", { key: m, value: m }))))),
         row("Effort:", e("select", { value: form.effort, onChange: set("effort") }, EFFORTS.map((x) => e("option", { key: x, value: x }, x)))),
+        row("Response language:", e("select", { value: form.responseLanguage, onChange: set("responseLanguage") }, LANGUAGES.map(([value, label]) => e("option", { key: value, value }, label)))),
         row("Max. tool calls per question:", e("input", { type: "number", min: 1, max: 100, value: form.maxToolCalls, onChange: set("maxToolCalls"), style: { width: 80 } })),
         row("Extra mask patterns:", e("textarea", { rows: 4, value: form.maskPatterns, onChange: set("maskPatterns") }),
             "Regular expressions, separated by ;; . They are masked in addition to the built-in rules (HL7 PID, GDT 3000-3107, BSN). The API keys are stored encrypted on the server and never sent back to the Administrator. Leave a key field empty to keep the current key."),

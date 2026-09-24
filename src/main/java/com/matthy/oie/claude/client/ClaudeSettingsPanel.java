@@ -38,6 +38,10 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
 
     private static final String[] MODELS = { "claude-opus-5", "claude-opus-5-5", "claude-sonnet-5", "claude-fable-5-1", "claude-haiku-4-5" };
     private static final String[] EFFORTS = { "low", "medium", "high", "xhigh", "max" };
+    /** Stored values (English names, used in the system prompt), shown with their own name. */
+    private static final String[] LANGUAGES = { "Automatic", "English", "Dutch", "German", "French", "Spanish", "Italian", "Portuguese", "Polish", "Swedish", "Danish", "Norwegian", "Finnish" };
+    private static final String[] LANGUAGE_LABELS = { "Automatic (language of the question)", "English", "Nederlands (Dutch)", "Deutsch (German)", "Français (French)", "Español (Spanish)",
+            "Italiano (Italian)", "Português (Portuguese)", "Polski (Polish)", "Svenska (Swedish)", "Dansk (Danish)", "Norsk (Norwegian)", "Suomi (Finnish)" };
     /** The credit balance has no API, so the tab links to the Console's billing page instead. */
     private static final String BILLING_URL = "https://platform.claude.com/settings/billing";
 
@@ -45,6 +49,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     private final JLabel apiKeyStatus = new JLabel();
     private final JComboBox<String> modelBox = new JComboBox<>(MODELS);
     private final JComboBox<String> effortBox = new JComboBox<>(EFFORTS);
+    private final JComboBox<String> languageBox = new JComboBox<>(LANGUAGE_LABELS);
     private final JSpinner maxToolCalls = new JSpinner(new SpinnerNumberModel(25, 1, 100, 1));
     private final JTextArea maskPatterns = new JTextArea(4, 50);
 
@@ -80,6 +85,8 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         form.add(modelBox, "wrap, w 260!");
         form.add(new JLabel("Effort:"));
         form.add(effortBox, "wrap, w 120!");
+        form.add(new JLabel("Response language:"));
+        form.add(languageBox, "wrap, w 260!");
         form.add(new JLabel("Max. tool calls per question:"));
         form.add(maxToolCalls, "wrap, w 80!");
         form.add(new JLabel("Extra mask patterns:"), "top");
@@ -121,6 +128,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         maskPatterns.getDocument().addDocumentListener(changed);
         modelBox.addActionListener(e -> markChanged());
         effortBox.addActionListener(e -> markChanged());
+        languageBox.addActionListener(e -> markChanged());
         maxToolCalls.addChangeListener(e -> markChanged());
         clearAdminKey.addActionListener(e -> markChanged());
         refreshSpend.addActionListener(e -> loadSpend(true));
@@ -166,6 +174,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         body.put("clearAdminApiKey", clearAdminKey.isSelected());
         body.put("model", String.valueOf(modelBox.getSelectedItem()).trim());
         body.put("effort", String.valueOf(effortBox.getSelectedItem()));
+        body.put("responseLanguage", LANGUAGES[Math.max(0, languageBox.getSelectedIndex())]);
         body.put("maxToolCalls", (Integer) maxToolCalls.getValue());
         body.put("maskPatterns", maskPatterns.getText().trim());
 
@@ -203,6 +212,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
             clearAdminKey.setVisible(adminSet);
             modelBox.setSelectedItem(s.path("model").asText(MODELS[0]));
             effortBox.setSelectedItem(s.path("effort").asText("high"));
+            languageBox.setSelectedIndex(Math.max(0, java.util.Arrays.asList(LANGUAGES).indexOf(s.path("responseLanguage").asText("Automatic"))));
             maxToolCalls.setValue(s.path("maxToolCalls").asInt(25));
             maskPatterns.setText(s.path("maskPatterns").asText(""));
             setSaveEnabled(false);

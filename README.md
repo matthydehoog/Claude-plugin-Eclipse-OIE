@@ -80,7 +80,10 @@ Users with channel restrictions cannot use the assistant, because the tools see 
    [console.anthropic.com](https://console.anthropic.com)) and click *Save*. The key is stored
    encrypted and never sent back to the Administrator; the field is emptied after saving and the
    line below it shows *Set: sk-ant-…xxxx*.
-3. Defaults: model `claude-opus-5`, effort `high`, at most 25 tool calls per question.
+3. Defaults: model `claude-opus-5`, effort `high`, at most 25 tool calls per question, response
+   language *Automatic* (Claude answers in the language of the question). Pick a fixed language in
+   **Response language** to have Claude always answer in that language, whatever language the
+   question or the server data is in.
 
 ### Usage: spend and credits
 

@@ -1,7 +1,7 @@
 <pluginMetaData path="claude-assistant">
 	<name>Claude Assistant</name>
 	<author>X Connections</author>
-	<pluginVersion>0.2.0</pluginVersion>
+	<pluginVersion>0.2.1</pluginVersion>
 	<mirthVersion>4.6.0</mirthVersion>
 	<url>https://x-connections.info</url>
 	<description>Chat with Claude inside the Administrator about channels, messages, errors and scripts. Message content is masked before it leaves the server, and actions such as deploying or changing scripts only run after the user approves them.</description>

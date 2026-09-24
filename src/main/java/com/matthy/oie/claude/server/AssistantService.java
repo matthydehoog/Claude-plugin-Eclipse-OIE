@@ -34,10 +34,12 @@ public class AssistantService {
     private static final long CONVERSATION_TTL_MS = TimeUnit.HOURS.toMillis(4);
     private static final long ACTION_TIMEOUT_MINUTES = 15;
 
-    static final String SYSTEM_PROMPT = String.join("\n",
+    private static final String LANGUAGE_LINE = "{language}";
+
+    private static final String SYSTEM_PROMPT = String.join("\n",
             "You are the Claude assistant inside the Administrator of Open Integration Engine (OIE, a fork of Mirth Connect).",
             "You help integration specialists with their OIE server: channels, messages, errors, scripts, code templates and server status.",
-            "Answer in the user's language, concisely and concretely.",
+            LANGUAGE_LINE,
             "",
             "How to work:",
             "- Use the oie_ tools to look facts up instead of guessing. For a general question, start with oie_list_channels.",
@@ -101,7 +103,7 @@ public class AssistantService {
                 specs.add(m);
             }
             try {
-                newLoop = engine.create(settings, SYSTEM_PROMPT, specs, this::callTool);
+                newLoop = engine.create(settings, systemPrompt(settings), specs, this::callTool);
             } catch (Exception e) {
                 logger.error("Claude Assistant: could not create the model client", e);
                 engineError = "Cannot start the Claude client: " + e;
@@ -120,6 +122,17 @@ public class AssistantService {
 
     public Settings settings() {
         return settings;
+    }
+
+    /**
+     * The system prompt for these settings. It only changes with the settings, so it stays
+     * byte-identical within a conversation and the prompt cache keeps working.
+     */
+    static String systemPrompt(Settings settings) {
+        String language = settings.automaticLanguage()
+                ? "Answer in the user's language, concisely and concretely."
+                : "Always answer in " + settings.responseLanguage + ", concisely and concretely, whatever language the question, the server data or earlier messages are in. Keep code, identifiers and quoted error messages as they are.";
+        return SYSTEM_PROMPT.replace(LANGUAGE_LINE, language);
     }
 
     /**
