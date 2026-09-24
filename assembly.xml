@@ -42,5 +42,10 @@
       <directory>${project.build.directory}/lib</directory>
       <outputDirectory>/lib</outputDirectory>
     </fileSet>
+    <!-- Web administrator UI, served by the engine (needs the Web Support extension). -->
+    <fileSet>
+      <directory>webadmin</directory>
+      <outputDirectory>/webadmin</outputDirectory>
+    </fileSet>
   </fileSets>
 </assembly>

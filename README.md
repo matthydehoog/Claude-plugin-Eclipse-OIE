@@ -17,6 +17,22 @@ after you approve them.
 The chat window stays open next to the Administrator. Ctrl+Enter sends; *New conversation* starts
 over; *Stop* aborts a running question.
 
+### Web administrator
+
+The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It needs the
+**Web Support** (`websupport`) extension on the engine, which serves the plugin's `webadmin/` folder.
+
+| Place | What |
+|---|---|
+| Left rail, **Plugins > Claude Assistant** | the chat as a full page |
+| **Channel editor**, tab **Claude** | the chat with the open channel as context |
+| **Channels** view, right-click | *Ask Claude* about the selected channel |
+| **Message browser**, right-click | *Ask Claude* about the selected message (web admin API 4.7+) |
+| **Settings**, tab **Claude Assistant** | the same settings and usage as in Swing, using the settings page's own Save |
+
+Both UIs use the same REST API, so masking, permissions, action approval and the audit log are
+identical; a conversation stays open while you move between the Claude page and other views.
+
 ## What Claude can do
 
 **Read** (immediately): server info, channels with status and counters, channel configuration and
