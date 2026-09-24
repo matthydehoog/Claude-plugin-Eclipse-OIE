@@ -13,6 +13,8 @@ after you approve them.
 | **Dashboard** (task + right-click) | *Ask Claude* | selected channel(s)/connectors |
 | **Message browser** (task + right-click) | *Ask Claude* | selected message (channel, message ID, connector) |
 | **Channel editor** (task + right-click) | *Ask Claude* | the channel that is open (saved version) |
+| **Code Templates** (task + right-click, one template selected) | *Ask Claude* | the selected code template and its library |
+| **Global Scripts** (task + right-click) | *Ask Claude* | the global deploy/undeploy/pre/postprocessor scripts |
 
 The chat window stays open next to the Administrator. Ctrl+Enter sends; *New conversation* starts
 over; *Stop* aborts a running question.
@@ -28,6 +30,8 @@ The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It
 | **Channel editor**, tab **Claude** | the chat with the open channel as context |
 | **Channels** view, right-click | *Ask Claude* about the selected channel |
 | **Message browser**, right-click | *Ask Claude* about the selected message (web admin API 4.7+) |
+| **Code Templates**, right-click | *Ask Claude* about the selected code template |
+| **Command palette** | *Claude Assistant*, and *Ask Claude about Global Scripts* (the web admin has no hook on the Global Scripts view itself) |
 | **Settings**, tab **Claude Assistant** | the same settings and usage as in Swing, using the settings page's own Save |
 
 Both UIs use the same REST API, so masking, permissions, action approval and the audit log are
@@ -36,12 +40,13 @@ identical; a conversation stays open while you move between the Claude page and 
 ## What Claude can do
 
 **Read** (immediately): server info, channels with status and counters, channel configuration and
-scripts, statistics per connector, searching and viewing messages, events, the server log, code
+scripts, the global scripts, statistics per connector, searching and viewing messages, events, the server log, code
 templates and the keys of the Configuration Map (never the values).
 
 **Actions** (only after clicking *Run* in an approval dialog): deploy/undeploy a channel,
 start/stop/pause/resume, reset statistics, reprocess a message, send a message to a channel and
-change a JavaScript script (deploy/undeploy/pre/postprocessor, filter rule or transformer step).
+change a JavaScript script (deploy/undeploy/pre/postprocessor, filter rule or transformer step) or a
+global script.
 A script change saves the channel with a new revision but does not deploy it; if the channel
 changed in the meantime, nothing is saved. Every executed action is written to the audit log as
 event `Claude Assistant: …`, in the name of the user who approved it.
@@ -97,6 +102,16 @@ Viewing spend requires the *Manage Claude Assistant settings* permission.
 
 The organization's **credit balance** is not available through any Anthropic API, so the tab offers
 an *Open Billing in Console* button instead.
+
+### Without internet
+
+Only the assistant stops working; channels, message processing and both Administrators are not
+affected, and the plugin makes no connections at startup or in the background. A question then ends
+with *Cannot reach the Anthropic API from the OIE server (…)*, naming the cause (for example
+`UnknownHostException` or `Connect timed out`); the conversation is kept, so you can ask again once
+the connection is back. Connecting times out after 10 seconds and is tried three times, so even a
+firewall that silently drops packets gives the message within about half a minute. Answers
+themselves may still take up to 10 minutes.
 
 The OIE server must be able to reach `https://api.anthropic.com`. Behind a gateway or proxy? Add for
 example `-Doie.claude.baseUrl=https://gateway.example/anthropic` to `conf/custom.vmoptions`.

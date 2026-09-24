@@ -1,5 +1,6 @@
 package com.matthy.oie.claude.engine;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
@@ -15,6 +16,7 @@ import java.time.format.DateTimeFormatter;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
+import com.anthropic.errors.AnthropicIoException;
 import com.anthropic.errors.AnthropicServiceException;
 import com.anthropic.models.beta.organization.apikeys.ApiKeyListParams;
 import com.anthropic.models.beta.organization.apikeys.BetaApiKey;
@@ -32,7 +34,7 @@ public class SdkSpendReader implements SpendReader {
     private static final String DEFAULT_BASE_URL = "https://api.anthropic.com";
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build();
+    private final HttpClient http = HttpClient.newBuilder().connectTimeout(SdkModelLoop.TIMEOUT.connect()).build();
 
     @Override
     public String read(String adminKey, String pluginApiKey) throws Exception {
@@ -44,6 +46,8 @@ public class SdkSpendReader implements SpendReader {
         } catch (AnthropicServiceException e) {
             // The API key lookup goes through the SDK; give its errors the same wording as the cost report.
             throw new IllegalStateException(describe(e.statusCode(), e.body().toString()));
+        } catch (AnthropicIoException | IOException e) {
+            throw new IllegalStateException(SdkModelLoop.unreachable(e));
         } finally {
             thread.setContextClassLoader(previous);
         }
@@ -64,7 +68,7 @@ public class SdkSpendReader implements SpendReader {
         // Which workspace does the plugin's own key belong to? Matched on the key's redacted hint.
         String workspaceId = null;
         boolean defaultWorkspace = false;
-        AnthropicClient client = AnthropicOkHttpClient.builder().apiKey(adminKey).baseUrl(baseUrl).build();
+        AnthropicClient client = AnthropicOkHttpClient.builder().apiKey(adminKey).baseUrl(baseUrl).timeout(SdkModelLoop.TIMEOUT).maxRetries(SdkModelLoop.MAX_RETRIES).build();
         try {
             if (pluginApiKey != null && !pluginApiKey.isEmpty()) {
                 for (BetaApiKey key : client.beta().organization().apiKeys().list(ApiKeyListParams.builder().limit(1000L).build()).autoPager()) {

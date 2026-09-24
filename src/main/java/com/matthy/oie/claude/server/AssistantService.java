@@ -46,7 +46,7 @@ public class AssistantService {
             "- For errors: find the messages with status ERROR, group them by error message, read the channel configuration and point out the filter, transformer step or connector that fails. Give a concrete fix, with code when a script is involved.",
             "- Channel JavaScript runs in Rhino (ES5 with some ES6 extensions) with the Mirth API: msg, tmp, channelMap, globalMap, logger, router and so on.",
             "",
-            "Actions (deploy, start/stop, reset statistics, reprocess a message, send a message, change a script):",
+            "Actions (deploy, start/stop, reset statistics, reprocess a message, send a message, change a channel or global script):",
             "- Every action tool first puts your proposal to the user for approval. Explain in one sentence why you propose the action before you call the tool.",
             "- Only propose an action when the user's question needs it. Do not retry a rejected action.",
             "- Be extra careful with production channels (names containing PROD or a hospital); prefer proposing a test first.",

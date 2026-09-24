@@ -13,6 +13,7 @@ import org.apache.logging.log4j.Logger;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.core.JsonValue;
+import com.anthropic.core.Timeout;
 import com.anthropic.errors.AnthropicIoException;
 import com.anthropic.errors.AnthropicServiceException;
 import com.anthropic.errors.BadRequestException;
@@ -45,6 +46,20 @@ import com.matthy.oie.claude.server.ModelLoop;
 public class SdkModelLoop implements ModelLoop {
 
     private static final long MAX_TOKENS = 16_000;
+
+    /**
+     * Answers can take minutes, so reads and the whole request get 10 minutes. Setting up the
+     * connection gets 10 seconds: without internet (e.g. a firewall that drops packets) the user
+     * sees the error in about half a minute instead of waiting several minutes.
+     */
+    static final Timeout TIMEOUT = Timeout.builder()
+            .connect(Duration.ofSeconds(10))
+            .read(Duration.ofMinutes(10))
+            .write(Duration.ofMinutes(1))
+            .request(Duration.ofMinutes(10))
+            .build();
+    /** Retries rate limits, overloads and dropped connections; each attempt waits at most TIMEOUT.connect to connect. */
+    static final int MAX_RETRIES = 2;
     private static final Logger LOG = LogManager.getLogger(SdkModelLoop.class);
 
     /** Cleared when the API rejects the cache-diagnostics beta, so it is not sent again. */
@@ -61,7 +76,7 @@ public class SdkModelLoop implements ModelLoop {
     /** @param toolSpecs maps with name, description, properties (JSON schema per property) and required */
     @SuppressWarnings("unchecked")
     public SdkModelLoop(String apiKey, String model, String effort, int maxToolCalls, String systemPrompt, List toolSpecs, ToolCaller caller) {
-        AnthropicOkHttpClient.Builder builder = AnthropicOkHttpClient.builder().apiKey(apiKey).timeout(Duration.ofMinutes(10)).maxRetries(3);
+        AnthropicOkHttpClient.Builder builder = AnthropicOkHttpClient.builder().apiKey(apiKey).timeout(TIMEOUT).maxRetries(MAX_RETRIES);
         // Optional JVM option (-Doie.claude.baseUrl=...) for an API gateway in front of api.anthropic.com.
         String baseUrl = System.getProperty("oie.claude.baseUrl");
         if (baseUrl != null && !baseUrl.isBlank()) {
@@ -285,8 +300,18 @@ public class SdkModelLoop implements ModelLoop {
             return "Anthropic API error (HTTP " + ((AnthropicServiceException) t).statusCode() + "): " + t.getMessage();
         }
         if (t instanceof AnthropicIoException) {
-            return "Cannot reach the Anthropic API from the OIE server: " + t.getMessage() + ". Check the server's internet access/proxy.";
+            return unreachable(t);
         }
         return "Unexpected error: " + t;
+    }
+
+    /** "Request failed" says little; the root cause says whether it was DNS, a refusal or a timeout. */
+    static String unreachable(Throwable t) {
+        Throwable root = t;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        String cause = root == t ? String.valueOf(t.getMessage()) : root.getClass().getSimpleName() + (root.getMessage() == null ? "" : ": " + root.getMessage());
+        return "Cannot reach the Anthropic API from the OIE server (" + cause + "). Check the server's internet access, firewall or proxy.";
     }
 }

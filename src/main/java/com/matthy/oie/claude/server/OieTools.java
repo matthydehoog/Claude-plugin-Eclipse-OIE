@@ -52,6 +52,7 @@ import com.mirth.connect.server.controllers.EngineController;
 import com.mirth.connect.server.controllers.EventController;
 import com.mirth.connect.server.controllers.ExtensionController;
 import com.mirth.connect.server.controllers.MessageController;
+import com.mirth.connect.server.controllers.ScriptController;
 
 /**
  * The tools Claude can call. Read tools run straight away inside the chat job. Action tools only
@@ -63,6 +64,7 @@ public class OieTools {
     static final int MAX_RESULT_CHARS = 60_000;
 
     private static final String[] MESSAGE_STATUSES = { "RECEIVED", "FILTERED", "TRANSFORMED", "SENT", "QUEUED", "ERROR", "PENDING" };
+    private static final String[] GLOBAL_SCRIPT_TYPES = { "deploy", "undeploy", "preprocessor", "postprocessor" };
     private static final String[] SCRIPT_TYPES = { "deploy", "undeploy", "preprocessor", "postprocessor", "filter_rule", "transformer_step", "response_transformer_step" };
 
     /** A tool as offered to Claude. */
@@ -120,6 +122,7 @@ public class OieTools {
     private final CodeTemplateController codeTemplateController;
     private final ConfigurationController configurationController;
     private final ExtensionController extensionController;
+    private final ScriptController scriptController;
 
     public OieTools(Masker masker) {
         this.masker = masker;
@@ -131,6 +134,7 @@ public class OieTools {
         codeTemplateController = f.createCodeTemplateController();
         configurationController = f.createConfigurationController();
         extensionController = f.createExtensionController();
+        scriptController = f.createScriptController();
         registerReadTools();
         registerActionTools();
     }
@@ -220,7 +224,56 @@ public class OieTools {
         read("oie_get_code_template", "One code template including its code.", props(
                 "codeTemplateId", str("ID of the code template")), in -> ObjectXMLSerializer.getInstance().serialize(codeTemplateController.getCodeTemplateById(text(in, "codeTemplateId"))), "codeTemplateId");
 
+        read("oie_global_scripts", "The global Deploy, Undeploy, Preprocessor and Postprocessor scripts, which run for every channel (in addition to each channel's own scripts).", props(), in -> globalScripts());
+
         read("oie_configuration_map", "Keys of the Configuration Map. Values are never returned because they often contain passwords or paths.", props(), in -> String.join("\n", new TreeMap<>(configurationController.getConfigurationMap()).keySet()));
+    }
+
+    /** ScriptController's keys for the global scripts, by the scriptType names Claude uses. */
+    private static String globalScriptKey(String type) {
+        switch (type) {
+            case "deploy":
+                return ScriptController.DEPLOY_SCRIPT_KEY;
+            case "undeploy":
+                return ScriptController.UNDEPLOY_SCRIPT_KEY;
+            case "preprocessor":
+                return ScriptController.PREPROCESSOR_SCRIPT_KEY;
+            case "postprocessor":
+                return ScriptController.POSTPROCESSOR_SCRIPT_KEY;
+            default:
+                throw new IllegalArgumentException("Unknown scriptType '" + type + "'. Choose from: " + String.join(", ", GLOBAL_SCRIPT_TYPES));
+        }
+    }
+
+    private String globalScripts() throws Exception {
+        Map<String, String> scripts = scriptController.getGlobalScripts();
+        StringBuilder sb = new StringBuilder();
+        for (String type : GLOBAL_SCRIPT_TYPES) {
+            String script = scripts.get(globalScriptKey(type));
+            sb.append("=== global ").append(type).append(" script ===\n").append(script == null || script.isBlank() ? "(empty)" : script).append("\n\n");
+        }
+        return sb.toString();
+    }
+
+    private PreparedAction prepareGlobalScriptUpdate(JsonNode in) throws Exception {
+        String type = text(in, "scriptType");
+        String key = globalScriptKey(type);
+        String script = text(in, "script");
+        String oldScript = scriptController.getGlobalScripts().get(key);
+        boolean suspicious = script.contains(Masker.MASK) && (oldScript == null || !oldScript.contains(Masker.MASK));
+        String detail = "Global " + type + " script (runs for every channel).\n"
+                + (suspicious ? "WARNING: the new script contains '" + Masker.MASK + "'. Claude saw the script masked; check that no real value (e.g. a number or HL7 sample) is lost.\n" : "")
+                + "Saved now; it takes effect for channels deployed afterwards. If you have Global Scripts open in the Administrator, reload them first.\n\n"
+                + "--- current script\n" + (oldScript == null ? "" : oldScript) + "\n\n+++ new script\n" + script;
+        return new PreparedAction("Change global script", detail, ctx -> {
+            Map<String, String> latest = new HashMap<>(scriptController.getGlobalScripts());
+            if (!java.util.Objects.equals(latest.get(key), oldScript)) {
+                return "Not saved: the global " + type + " script has changed in the meantime. Read it again with oie_global_scripts.";
+            }
+            latest.put(key, script);
+            scriptController.setGlobalScripts(latest);
+            return "Global " + type + " script saved. Redeploy channels to use it.";
+        });
     }
 
     private String serverInfo() {
@@ -547,7 +600,11 @@ public class OieTools {
             });
         }, "channel", "message");
 
-        action("oie_update_channel_script", "Replaces one JavaScript script in a channel: the deploy, undeploy, preprocessor or postprocessor script, or a JavaScript filter rule or transformer step (see oie_channel_scripts for metaDataId and index). Saves the channel but does not deploy it. Requires approval.", props(
+        action("oie_update_global_script", "Replaces one global script (deploy, undeploy, preprocessor or postprocessor); global scripts run for every channel. Takes effect for channels deployed afterwards. Requires approval.", props(
+                "scriptType", enumStr("Which global script", GLOBAL_SCRIPT_TYPES),
+                "script", str("The complete new script")), this::prepareGlobalScriptUpdate, "scriptType", "script");
+
+        action("oie_update_channel_script","Replaces one JavaScript script in a channel: the deploy, undeploy, preprocessor or postprocessor script, or a JavaScript filter rule or transformer step (see oie_channel_scripts for metaDataId and index). Saves the channel but does not deploy it. Requires approval.", props(
                 "channel", str("Channel ID (UUID) or channel name"),
                 "scriptType", enumStr("Kind of script", SCRIPT_TYPES),
                 "metaDataId", integer("Connector (0 = source), only for filter_rule/transformer_step/response_transformer_step"),

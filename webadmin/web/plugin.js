@@ -601,6 +601,33 @@ export function register(platform) {
         }
     });
 
+    // The web admin has no hook on the Global Scripts view, so these go in the command palette.
+    if (typeof platform.registerCommand === "function") {
+        platform.registerCommand({ id: "claude-assistant.open", label: "Claude Assistant", icon: "claude", section: "Plugins", keywords: ["claude", "ai", "assistant"], path: "/claude" });
+        platform.registerCommand({
+            id: "claude-assistant.global-scripts",
+            label: "Ask Claude about Global Scripts",
+            icon: "claude",
+            section: "Plugins",
+            keywords: ["claude", "global scripts", "deploy", "preprocessor", "postprocessor"],
+            run: () => openWith("Global Scripts (deploy, undeploy, preprocessor and postprocessor). Claude sees the saved version; unsaved changes in the Global Scripts editor are not visible.",
+                "Explain what the global scripts do and point out weak spots.")
+        });
+    }
+
+    platform.registerCodeTemplateAction({
+        id: "claude-assistant.ask",
+        label: "Ask Claude",
+        icon: "claude",
+        order: 60,
+        onInvoke: (template, ctx) => {
+            if (!template || !template.id) return;
+            const library = ctx && ctx.library && ctx.library.name ? ` in library '${ctx.library.name}'` : "";
+            openWith(`Selected code template: '${template.name}' (${template.id})${library}. Claude sees the saved version; unsaved changes in the code template editor are not visible.`,
+                "Explain what this code template does, which channels use it, and point out weak spots.");
+        }
+    });
+
     // Message actions arrived in @oie API 4.7; on an older web admin the option is simply absent.
     if (typeof platform.registerMessageAction === "function") {
         platform.registerMessageAction({
