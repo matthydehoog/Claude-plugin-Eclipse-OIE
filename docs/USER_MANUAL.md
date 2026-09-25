@@ -188,12 +188,24 @@ Everything sent to Anthropic passes through a masker first. That includes your q
 
 Masked by default:
 
-- HL7 v2 PID fields 2–7, 9, 11, 13, 14 and 19 (ER7 and XML)
-- HL7 v2 NTE comments (NTE-3 onwards), in every segment
-- Every HL7 text value longer than 30 characters, such as free-text notes or a base64 PDF in OBX-5; shorter coded values such as `12345-6^Glucose^LN` stay readable
+- HL7 v2 PID fields 2–7, 9, 11, 13, 14 and 19
+- HL7 v2 NTE comments: everything from NTE-3 onwards, however short
+- Every HL7 text value longer than 30 characters, in any segment: free-text notes, report text, base64 documents such as a PDF in OBX-5
 - GDT patient fields 3000–3107 (raw, and XML from the GDT data type plugin)
 - 9-digit numbers that pass the eleven-test (Dutch BSN)
 - Your own regular expressions under *Settings > Claude Assistant > Mask patterns*
+
+The HL7 rules apply to raw (ER7) messages and to OIE's XML form. The 30-character check applies per component, so short coded values stay readable and Claude can still debug the message:
+
+```
+before: OBX|1|ED|PDF^Report^L||^AP^PDF^Base64^JVBERi0xLjQKJcfsj6IK...||||||F
+after:  OBX|1|ED|PDF^Report^L||^AP^PDF^Base64^***||||||F
+
+before: NTE|1|L|Patient called, see Dr. Jansen
+after:  NTE|1|L|***
+
+unchanged: OBX|3|NM|12345-6^Glucose^LN||5.4|mmol/L|||||F
+```
 
 Add a mask pattern for any identifier the defaults miss, such as a hospital patient number format.
 
@@ -288,6 +300,7 @@ Connecting times out after 10 seconds and is tried three times, so you get the m
 | Spend lower than the Console | Today's costs not reported yet by the Cost API | Wait or use the Console's Billing page |
 | No Claude items in the Ctrl+K palette search | Web admin bug before the Dashboard has loaded | Open the Dashboard first |
 | Answer stops with tool-call limit reached | Question needs more lookups than *Max tool calls* | Narrow the question or raise the limit |
+| Notes, report text or a code show as `***` | Masking by design: NTE comments and HL7 values over 30 characters are hidden from Claude | Normal; ask about structure and codes, or read the text yourself in the message browser |
 
 For anything else, look in *Dashboard > Server Log* for lines starting with `Claude Assistant`.
 
