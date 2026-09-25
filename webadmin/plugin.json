@@ -1,7 +1,7 @@
 {
     "id": "claude-assistant",
     "name": "Claude Assistant",
-    "version": "0.2.4",
+    "version": "0.2.5",
     "author": "X Connections",
     "description": "Chat with Claude about channels, messages, errors and scripts - web equivalent of the Swing Claude Assistant (chat page, channel tab, channel and message actions, settings panel).",
     "oie": { "apiMin": "4.6" },
