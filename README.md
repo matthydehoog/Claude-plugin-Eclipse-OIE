@@ -5,6 +5,9 @@ the GUI: channels, messages, errors, scripts, code templates and server status. 
 facts up itself through the same tools as `oie-mcp-server`, and can propose actions that only run
 after you approve them.
 
+**New here?** Read the [User Manual](docs/USER_MANUAL.md) for installation, setup, daily use and
+troubleshooting.
+
 ## Where to find Claude in the Administrator
 
 | Place | Task | Context sent along |
