@@ -66,6 +66,12 @@ oie-mcp-server:
 - 9-digit numbers that pass the eleven-test (Dutch BSN)
 - your own patterns under *Settings > Claude Assistant*
 
+**Review before sending.** Before message content, log lines or events go to Claude, a dialog shows
+exactly what would be sent, after masking. You can edit the text, send it (*Send to Claude*) or
+withhold it (*Don't send*, or close the dialog); edited text is masked again. *Settings > Claude
+Assistant > Review before sending* sets the scope: *Message content, logs and events* (default),
+*Everything, including my question*, or *Off*.
+
 This is a safety net, not anonymisation. Only send real patient data through it if you have a legal
 basis and a data processing agreement with Anthropic. Conversations live only in the server's memory
 (cleared 4 hours after last use) and are only visible to the user who started them.

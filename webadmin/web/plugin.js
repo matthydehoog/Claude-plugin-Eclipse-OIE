@@ -18,6 +18,8 @@ const LANGUAGES = [
     ["French", "Français (French)"], ["Spanish", "Español (Spanish)"], ["Italian", "Italiano (Italian)"], ["Portuguese", "Português (Portuguese)"],
     ["Polish", "Polski (Polish)"], ["Swedish", "Svenska (Swedish)"], ["Danish", "Dansk (Danish)"], ["Norwegian", "Norsk (Norwegian)"], ["Finnish", "Suomi (Finnish)"]
 ];
+// Stored value of "Review before sending" and its label.
+const REVIEWS = [["data", "Message content, logs and events (recommended)"], ["all", "Everything, including my question"], ["off", "Off (send without review)"]];
 // Stroke-only 24x24 path, same format as the built-in icons: an eight-point burst.
 const ICON_PATH = "M12 3v5M12 16v5M3 12h5M16 12h5M5.6 5.6l3.5 3.5M14.9 14.9l3.5 3.5M5.6 18.4l3.5-3.5M14.9 9.1l3.5-3.5";
 
@@ -50,6 +52,8 @@ const CSS = `
 .claude-input .claude-buttons { display: flex; flex-direction: column; gap: 6px; }
 .claude-status { color: var(--text-faint); font-size: 12px; min-height: 16px; }
 .claude-detail { font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap; max-height: 55vh; overflow: auto; background: var(--bg1); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; margin: 8px 0 0; }
+.claude-review { display: block; width: 100%; box-sizing: border-box; height: 50vh; margin: 8px 0 4px; resize: vertical; font-family: var(--font-mono); font-size: 12px; color: var(--text); background: var(--bg1); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 8px; }
+.claude-hint { color: var(--text-faint); font-size: 12px; }
 .claude-settings { padding: 12px 16px; max-width: 760px; }
 .claude-settings .claude-row { display: grid; grid-template-columns: 220px 1fr; gap: 10px; align-items: center; margin: 8px 0; }
 .claude-settings .claude-row > label { text-align: right; color: var(--text-dim); }
@@ -278,6 +282,12 @@ const chat = {
             this.status = "Waiting for your approval…";
             this.askApproval(pending);
         }
+        const review = job.pendingReview;
+        if (job.state === "WAITING" && review && review.id !== this.shownActionId) {
+            this.shownActionId = review.id;
+            this.status = "Waiting for your review…";
+            this.askReview(review);
+        }
         if (job.state === "DONE" || job.state === "ERROR" || job.state === "CANCELLED") {
             this.finishJob();
         }
@@ -335,6 +345,43 @@ const chat = {
                 { label: "Run", danger: true, onClick: () => decide(true) }
             ],
             // Closing the dialog (X, Escape, clicking outside) counts as rejecting, as in Swing.
+            onClose: () => { decide(false); }
+        });
+    },
+
+    /** Shows exactly what Claude would receive; the user can edit it, send it or withhold it. */
+    askReview(review) {
+        const jobId = this.jobId;
+        const { h, modal } = P.ui;
+        // A plain DOM textarea, so its value can be read back whatever the shell's h() returns.
+        const text = document.createElement("textarea");
+        text.className = "claude-review";
+        text.value = review.detail || "";
+        text.spellcheck = false;
+        let decided = false;
+        const decide = async (approved) => {
+            if (decided) return true;
+            decided = true;
+            this.setStatus("Claude continues…");
+            try {
+                await call("POST", "/jobs/" + encodeURIComponent(jobId) + "/review", approved ? { reviewId: review.id, approved, text: text.value } : { reviewId: review.id, approved });
+            } catch (err) {
+                this.add("error", "Review failed: " + errorText(err));
+            }
+            return true;
+        };
+        modal({
+            title: "Review before sending: " + review.title,
+            size: "lg",
+            body: h("div", null,
+                h("div", null, "This is exactly what will be sent to Claude (Anthropic), after masking. Edit it to remove anything Claude should not see; edited text is masked again before sending."),
+                text,
+                h("div.claude-hint", null, (review.detail || "").length + " characters. Closing this dialog sends nothing.")),
+            buttons: [
+                { label: "Don't send", onClick: () => decide(false) },
+                { label: "Send to Claude", primary: true, onClick: () => decide(true) }
+            ],
+            // Closing the dialog (X, Escape, clicking outside) sends nothing.
             onClose: () => { decide(false); }
         });
     }
@@ -477,7 +524,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
 
     const show = React.useCallback((s) => {
         setStatus(s);
-        setForm({ apiKey: "", adminApiKey: "", clearAdminApiKey: false, model: s.model || MODELS[0], effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic" });
+        setForm({ apiKey: "", adminApiKey: "", clearAdminApiKey: false, model: s.model || MODELS[0], effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic", reviewBeforeSending: s.reviewBeforeSending || "data" });
         clean();
         if (s.adminApiKeySet) loadSpend(false);
         else setSpend({ state: "idle" });
@@ -562,6 +609,8 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
         row("Effort:", e("select", { value: form.effort, onChange: set("effort") }, EFFORTS.map((x) => e("option", { key: x, value: x }, x)))),
         row("Response language:", e("select", { value: form.responseLanguage, onChange: set("responseLanguage") }, LANGUAGES.map(([value, label]) => e("option", { key: value, value }, label)))),
         row("Max. tool calls per question:", e("input", { type: "number", min: 1, max: 100, value: form.maxToolCalls, onChange: set("maxToolCalls"), style: { width: 80 } })),
+        row("Review before sending:", e("select", { value: form.reviewBeforeSending, onChange: set("reviewBeforeSending") }, REVIEWS.map(([value, label]) => e("option", { key: value, value }, label))),
+            "Shows exactly what will be sent to Claude, after masking, so each user can edit it or withhold it first."),
         row("Extra mask patterns:", e("textarea", { rows: 4, value: form.maskPatterns, onChange: set("maskPatterns") }),
             "Regular expressions, separated by ;; . They are masked in addition to the built-in rules (HL7 PID, GDT 3000-3107, BSN). The API keys are stored encrypted on the server and never sent back to the Administrator. Leave a key field empty to keep the current key."),
         e("h3", null, "Usage"),

@@ -81,6 +81,7 @@ The key is stored encrypted on the server and never sent back to the Administrat
 | Effort | `high` | How hard Claude thinks; lower is faster and cheaper |
 | Max tool calls | 25 | Lookups Claude may do for one question |
 | Response language | Automatic | Automatic answers in the language of the question; a fixed language always answers in that language |
+| Review before sending | Message content, logs and events | Which outgoing data you see, can edit and must approve first (see *Review before sending*) |
 | Mask patterns | none | Extra regular expressions to mask, on top of the built-in rules |
 | Admin API key | none | Optional, only for the spend figures (see *Usage and costs*) |
 
@@ -193,6 +194,24 @@ Masked by default:
 - Your own regular expressions under *Settings > Claude Assistant > Mask patterns*
 
 Add a mask pattern for any identifier the defaults miss, such as a hospital patient number format.
+
+### Review before sending
+
+Before message content, log lines or events go to Claude, a dialog shows exactly what would be sent, after masking. Nothing leaves the server until you decide.
+
+- **Send to Claude** sends the text as shown, including any edits you made. Edited text is masked again.
+- **Don't send**, or closing the dialog, withholds it. Claude is told the data was withheld and continues without it.
+- No decision within 15 minutes counts as *Don't send*.
+
+The scope is set under *Settings > Claude Assistant > Review before sending*:
+
+| Option | What you review |
+| --- | --- |
+| Message content, logs and events (default) | Results of message search, message details, server log and events |
+| Everything, including my question | Your question and every tool result |
+| Off | Nothing; data is sent after masking without a dialog |
+
+Reviewing needs only the *Use Claude Assistant* permission. The reviewed text is not written to the audit log.
 
 Masking is a safety net, not anonymisation. Send real patient data only with a legal basis and a data processing agreement with Anthropic.
 

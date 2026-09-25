@@ -41,6 +41,17 @@ final class ClaudeApi {
         return MAPPER.readTree(servlet().confirm(jobId, body.toString()));
     }
 
+    /** @param text the (possibly edited) text to send; ignored when not approved */
+    static void review(String jobId, String reviewId, boolean approved, String text) throws Exception {
+        ObjectNode body = MAPPER.createObjectNode();
+        body.put("reviewId", reviewId);
+        body.put("approved", approved);
+        if (approved) {
+            body.put("text", text);
+        }
+        servlet().review(jobId, body.toString());
+    }
+
     static void cancel(String jobId) throws Exception {
         servlet().cancel(jobId);
     }

@@ -42,6 +42,9 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     private static final String[] LANGUAGES = { "Automatic", "English", "Dutch", "German", "French", "Spanish", "Italian", "Portuguese", "Polish", "Swedish", "Danish", "Norwegian", "Finnish" };
     private static final String[] LANGUAGE_LABELS = { "Automatic (language of the question)", "English", "Nederlands (Dutch)", "Deutsch (German)", "Français (French)", "Español (Spanish)",
             "Italiano (Italian)", "Português (Portuguese)", "Polski (Polish)", "Svenska (Swedish)", "Dansk (Danish)", "Norsk (Norwegian)", "Suomi (Finnish)" };
+    /** Stored values of "Review before sending" and their labels. */
+    private static final String[] REVIEWS = { "data", "all", "off" };
+    private static final String[] REVIEW_LABELS = { "Message content, logs and events (recommended)", "Everything, including my question", "Off (send without review)" };
     /** The credit balance has no API, so the tab links to the Console's billing page instead. */
     private static final String BILLING_URL = "https://platform.claude.com/settings/billing";
 
@@ -51,6 +54,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     private final JComboBox<String> effortBox = new JComboBox<>(EFFORTS);
     private final JComboBox<String> languageBox = new JComboBox<>(LANGUAGE_LABELS);
     private final JSpinner maxToolCalls = new JSpinner(new SpinnerNumberModel(25, 1, 100, 1));
+    private final JComboBox<String> reviewBox = new JComboBox<>(REVIEW_LABELS);
     private final JTextArea maskPatterns = new JTextArea(4, 50);
 
     private final JPasswordField adminKeyField = new JPasswordField(40);
@@ -89,6 +93,10 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         form.add(languageBox, "wrap, w 260!");
         form.add(new JLabel("Max. tool calls per question:"));
         form.add(maxToolCalls, "wrap, w 80!");
+        form.add(new JLabel("Review before sending:"));
+        form.add(reviewBox, "wrap, w 360!");
+        form.add(new JLabel(""));
+        form.add(new JLabel("<html>Shows exactly what will be sent to Claude, after masking, so each user can edit it or withhold it first.</html>"), "wrap, w 600!");
         form.add(new JLabel("Extra mask patterns:"), "top");
         form.add(new JScrollPane(maskPatterns), "wrap, growx, h 80!");
         form.add(new JLabel(""));
@@ -130,6 +138,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         effortBox.addActionListener(e -> markChanged());
         languageBox.addActionListener(e -> markChanged());
         maxToolCalls.addChangeListener(e -> markChanged());
+        reviewBox.addActionListener(e -> markChanged());
         clearAdminKey.addActionListener(e -> markChanged());
         refreshSpend.addActionListener(e -> loadSpend(true));
         openBilling.addActionListener(e -> openBilling());
@@ -176,6 +185,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         body.put("effort", String.valueOf(effortBox.getSelectedItem()));
         body.put("responseLanguage", LANGUAGES[Math.max(0, languageBox.getSelectedIndex())]);
         body.put("maxToolCalls", (Integer) maxToolCalls.getValue());
+        body.put("reviewBeforeSending", REVIEWS[Math.max(0, reviewBox.getSelectedIndex())]);
         body.put("maskPatterns", maskPatterns.getText().trim());
 
         final String workingId = getFrame().startWorking("Saving " + getTabName() + " settings...");
@@ -214,6 +224,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
             effortBox.setSelectedItem(s.path("effort").asText("high"));
             languageBox.setSelectedIndex(Math.max(0, java.util.Arrays.asList(LANGUAGES).indexOf(s.path("responseLanguage").asText("Automatic"))));
             maxToolCalls.setValue(s.path("maxToolCalls").asInt(25));
+            reviewBox.setSelectedIndex(Math.max(0, java.util.Arrays.asList(REVIEWS).indexOf(s.path("reviewBeforeSending").asText("data"))));
             maskPatterns.setText(s.path("maskPatterns").asText(""));
             setSaveEnabled(false);
         } finally {

@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -34,6 +35,16 @@ public class AssistantService {
     private static final long CONVERSATION_TTL_MS = TimeUnit.HOURS.toMillis(4);
     private static final long ACTION_TIMEOUT_MINUTES = 15;
 
+    /**
+     * Read tools whose results carry message content, log lines or event details. With review
+     * setting "data" only these are shown to the user before they are sent; with "all" every tool.
+     */
+    private static final Map<String, String> DATA_TOOLS = Map.of(
+            "oie_get_message", "Message content",
+            "oie_search_messages", "Message search results",
+            "oie_server_log", "Server log lines",
+            "oie_events", "Server events");
+
     private static final String LANGUAGE_LINE = "{language}";
 
     private static final String SYSTEM_PROMPT = String.join("\n",
@@ -53,6 +64,7 @@ public class AssistantService {
             "",
             "Privacy: message content, logs and error messages are masked before they are sent; patient fields (HL7 PID, GDT 3000-3107, Dutch BSN) appear as ***.",
             "Do not try to recover masked data and do not ask the user for patient data.",
+            "The user may review tool results before they reach you: they can edit them or withhold them. Work with what you receive and say plainly what you could not check.",
             "",
             "Formatting: the chat renders Markdown (headings, bold, italics, lists, tables and code blocks). Keep tables narrow.");
 
@@ -204,9 +216,19 @@ public class AssistantService {
             conversation.lastUsed = System.currentTimeMillis();
         }
         jobs.put(job.id, job);
-        String userText = buildUserText(message, context);
+        String builtText = buildUserText(message, context);
+        boolean reviewQuestion = Settings.REVIEW_ALL.equals(settings.reviewBeforeSending);
         job.setFuture(executor.submit(() -> {
             try {
+                String userText = builtText;
+                if (reviewQuestion) {
+                    userText = review(job, "question", "Your question", builtText);
+                    if (userText == null) {
+                        job.emit("info", "Your question was not sent to Claude.");
+                        job.finish(ChatJob.State.CANCELLED);
+                        return;
+                    }
+                }
                 l.run(job, userText);
             } finally {
                 job.finish(ChatJob.State.DONE); // no-op when the loop already set a final state
@@ -227,7 +249,7 @@ public class AssistantService {
     /** Runs (or rejects) the pending action on the servlet thread, as the approving user. */
     public String decide(ChatJob job, String actionId, boolean approved, ServerEventContext context) {
         ChatJob.PendingAction pending = job.pending();
-        if (pending == null || !pending.id.equals(actionId)) {
+        if (pending == null || pending.review || !pending.id.equals(actionId)) {
             throw new IllegalStateException("This action is no longer waiting for a decision.");
         }
         String result;
@@ -251,6 +273,28 @@ public class AssistantService {
         return result;
     }
 
+    /**
+     * Sends (possibly edited) or withholds the data under review. Edited text goes through the
+     * masker again, so the user cannot accidentally put patient data back in.
+     */
+    public void decideReview(ChatJob job, String reviewId, boolean approved, String text) {
+        ChatJob.PendingAction pending = job.pending();
+        if (pending == null || !pending.review || !pending.id.equals(reviewId)) {
+            throw new IllegalStateException("This data is no longer waiting for review.");
+        }
+        String result = null;
+        if (approved) {
+            String edited = text == null ? pending.prepared.detail : masker.mask(text);
+            boolean changed = !edited.equals(pending.prepared.detail);
+            result = edited;
+            job.emit("info", "Sent to Claude after review" + (changed ? " (edited)" : "") + ": " + pending.prepared.title);
+        } else {
+            job.emit("info", "Not sent to Claude: " + pending.prepared.title);
+        }
+        job.resumed();
+        pending.decision.complete(result);
+    }
+
     // ------------------------------------------------------------------ tool calls from the engine
 
     private String callTool(ChatJob job, String name, String inputJson) throws Exception {
@@ -261,18 +305,46 @@ public class AssistantService {
         OieTools t = tools;
         job.emit("tool", name + " " + summarize(input));
         if (!t.isAction(name)) {
-            return t.run(name, input);
+            String result = t.run(name, input);
+            String review = settings.reviewBeforeSending;
+            boolean data = DATA_TOOLS.containsKey(name);
+            if (Settings.REVIEW_ALL.equals(review) || (Settings.REVIEW_DATA.equals(review) && data)) {
+                String sent = review(job, name, data ? DATA_TOOLS.get(name) : "Result of " + name, result);
+                return sent != null ? sent
+                        : "The user reviewed this tool result and chose not to send it to you. Continue without it, say what you could not check, and do not call this tool again for the same data unless the user asks.";
+            }
+            return result;
         }
         OieTools.PreparedAction prepared = t.prepare(name, input);
         // The confirmation dialog shows the detail, so it goes through the masker like everything else.
         OieTools.PreparedAction shown = new OieTools.PreparedAction(prepared.title, masker.mask(prepared.detail), prepared.runner);
-        ChatJob.PendingAction pending = job.await(name, shown);
+        ChatJob.PendingAction pending = job.await(name, shown, false);
         try {
             return pending.decision.get(ACTION_TIMEOUT_MINUTES, TimeUnit.MINUTES);
         } catch (TimeoutException e) {
             job.resumed();
             job.emit("info", "No decision within " + ACTION_TIMEOUT_MINUTES + " minutes; the action was not run.");
             return "The user did not decide in time; the action was not run.";
+        }
+    }
+
+    /**
+     * Shows the exact (already masked) text Claude would receive and waits until the user sends it,
+     * possibly edited, or withholds it. Returns the text to send, or null when nothing is sent.
+     */
+    private String review(ChatJob job, String name, String title, String text) {
+        ChatJob.PendingAction pending = job.await(name, new OieTools.PreparedAction(title, text, null), true);
+        try {
+            return pending.decision.get(ACTION_TIMEOUT_MINUTES, TimeUnit.MINUTES);
+        } catch (TimeoutException e) {
+            job.resumed();
+            job.emit("info", "No review within " + ACTION_TIMEOUT_MINUTES + " minutes; nothing was sent: " + title);
+            return null;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (ExecutionException e) {
+            return null;
         }
     }
 

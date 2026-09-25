@@ -13,7 +13,26 @@ public class SettingsTest {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private static Settings settings(String language) {
-        return new Settings("sk-ant-api03-key", "", "claude-opus-5", "high", 25, "", language);
+        return new Settings("sk-ant-api03-key", "", "claude-opus-5", "high", 25, "", language, null);
+    }
+
+    private static Settings review(String review) {
+        return new Settings("sk-ant-api03-key", "", "claude-opus-5", "high", 25, "", null, review);
+    }
+
+    @Test
+    public void reviewDefaultsToMessageData() {
+        assertEquals("data", review(null).reviewBeforeSending);
+        assertEquals("data", review("nonsense").reviewBeforeSending);
+        assertEquals("all", review(" ALL ").reviewBeforeSending);
+        assertEquals("off", review("off").reviewBeforeSending);
+    }
+
+    @Test
+    public void mergeKeepsReviewUnlessGiven() throws Exception {
+        Settings all = review("all");
+        assertEquals("all", all.merge(MAPPER.readTree("{\"effort\":\"low\"}")).reviewBeforeSending);
+        assertEquals("off", all.merge(MAPPER.readTree("{\"reviewBeforeSending\":\"off\"}")).reviewBeforeSending);
     }
 
     @Test

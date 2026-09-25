@@ -12,7 +12,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * One user turn: runs the model/tool loop in the background and records events the client polls
- * for. When Claude proposes an action the job waits until the user approves or rejects it.
+ * for. When Claude proposes an action, or when data is about to be sent that the user wants to
+ * review first, the job waits until the user decides.
  */
 public class ChatJob {
 
@@ -20,17 +21,23 @@ public class ChatJob {
         RUNNING, WAITING, DONE, ERROR, CANCELLED
     }
 
-    /** An action waiting for the user's decision. The job thread blocks on {@link #decision}. */
+    /**
+     * An action, or outgoing data under review, waiting for the user's decision. The job thread
+     * blocks on {@link #decision}. For a review, the detail is the exact text Claude would receive
+     * and the prepared action has no runner.
+     */
     static final class PendingAction {
         final String id = UUID.randomUUID().toString();
         final String toolName;
         final OieTools.PreparedAction prepared;
-        /** Completed with the tool result text once the user decided. */
+        final boolean review;
+        /** Completed with the text for Claude once the user decided; for a review, null means "not sent". */
         final CompletableFuture<String> decision = new CompletableFuture<>();
 
-        PendingAction(String toolName, OieTools.PreparedAction prepared) {
+        PendingAction(String toolName, OieTools.PreparedAction prepared, boolean review) {
             this.toolName = toolName;
             this.prepared = prepared;
+            this.review = review;
         }
     }
 
@@ -83,8 +90,8 @@ public class ChatJob {
         pending = null;
     }
 
-    synchronized PendingAction await(String toolName, OieTools.PreparedAction prepared) {
-        pending = new PendingAction(toolName, prepared);
+    synchronized PendingAction await(String toolName, OieTools.PreparedAction prepared, boolean review) {
+        pending = new PendingAction(toolName, prepared, review);
         state = State.WAITING;
         return pending;
     }
@@ -113,7 +120,7 @@ public class ChatJob {
             f = future;
         }
         if (p != null) {
-            p.decision.complete("The user stopped the conversation; the action was not run.");
+            p.decision.complete(p.review ? null : "The user stopped the conversation; the action was not run.");
         }
         if (f != null) {
             f.cancel(true);
@@ -136,7 +143,8 @@ public class ChatJob {
             }
         }
         if (pending != null) {
-            ObjectNode pa = node.putObject("pendingAction");
+            // Separate keys, so an older client never shows data for review as an action to run.
+            ObjectNode pa = node.putObject(pending.review ? "pendingReview" : "pendingAction");
             pa.put("id", pending.id);
             pa.put("tool", pending.toolName);
             pa.put("title", pending.prepared.title);

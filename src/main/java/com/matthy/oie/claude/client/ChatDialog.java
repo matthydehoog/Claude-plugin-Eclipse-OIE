@@ -255,6 +255,12 @@ class ChatDialog extends JDialog {
             statusLabel.setText("Waiting for your approval…");
             SwingUtilities.invokeLater(() -> askConfirmation(pending));
         }
+        JsonNode review = job.path("pendingReview");
+        if ("WAITING".equals(state) && review.isObject() && !review.path("id").asText().equals(shownActionId)) {
+            shownActionId = review.path("id").asText();
+            statusLabel.setText("Waiting for your review…");
+            SwingUtilities.invokeLater(() -> askReview(review));
+        }
         if ("DONE".equals(state) || "ERROR".equals(state) || "CANCELLED".equals(state)) {
             pollTimer.stop();
             jobId = null;
@@ -280,6 +286,33 @@ class ChatDialog extends JDialog {
         boolean approved = choice == 0;
         statusLabel.setText(approved ? "Running action…" : "Claude continues…");
         background(() -> ClaudeApi.confirm(id, actionId, approved), r -> statusLabel.setText("Claude continues…"), error -> add("<div class=\"error\">Approval failed: " + Markdown.escape(error) + "</div>"));
+    }
+
+    /** Shows exactly what Claude would receive; the user can edit it, send it or withhold it. */
+    private void askReview(JsonNode review) {
+        String id = jobId;
+        if (id == null) {
+            return;
+        }
+        String reviewId = review.path("id").asText();
+        String original = review.path("detail").asText();
+        JTextArea text = new JTextArea(original, 20, 90);
+        text.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        text.setCaretPosition(0);
+        JPanel panel = new JPanel(new BorderLayout(0, 8));
+        panel.add(new JLabel("<html>This is exactly what will be sent to Claude (Anthropic) from server <b>" + Markdown.escape(String.valueOf(PlatformUI.SERVER_NAME))
+                + "</b>, after masking.<br>Edit it to remove anything Claude should not see; edited text is masked again before sending.</html>"), BorderLayout.NORTH);
+        panel.add(new JScrollPane(text), BorderLayout.CENTER);
+        panel.add(new JLabel(original.length() + " characters. Closing this dialog sends nothing."), BorderLayout.SOUTH);
+        Object[] options = { "Send to Claude", "Don't send" };
+        int choice = JOptionPane.showOptionDialog(this, panel, "Review before sending: " + review.path("title").asText(), JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[1]);
+        boolean approved = choice == 0;
+        String edited = text.getText();
+        statusLabel.setText("Claude continues…");
+        background(() -> {
+            ClaudeApi.review(id, reviewId, approved, edited);
+            return null;
+        }, r -> {}, error -> add("<div class=\"error\">Review failed: " + Markdown.escape(error) + "</div>"));
     }
 
     private void setBusy(boolean busy) {

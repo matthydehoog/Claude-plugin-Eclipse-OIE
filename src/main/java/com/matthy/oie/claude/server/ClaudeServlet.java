@@ -62,6 +62,18 @@ public class ClaudeServlet extends MirthServlet implements ClaudeServletInterfac
     }
 
     @Override
+    public String review(String jobId, String body) {
+        JsonNode in = parse(body);
+        JsonNode text = in.path("text");
+        try {
+            service().decideReview(job(jobId), in.path("reviewId").asText(""), in.path("approved").asBoolean(false), text.isTextual() ? text.asText() : null);
+            return "{}";
+        } catch (IllegalStateException e) {
+            throw new MirthApiException(Response.status(Response.Status.CONFLICT).entity(e.getMessage()).build());
+        }
+    }
+
+    @Override
     public String cancel(String jobId) {
         job(jobId).cancel();
         return "{}";

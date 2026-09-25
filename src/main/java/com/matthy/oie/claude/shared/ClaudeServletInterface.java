@@ -60,6 +60,16 @@ public interface ClaudeServletInterface extends BaseServletInterface {
             @Param("body") @Parameter(description = "Decision as JSON.", required = true) String body) throws ClientException;
     // @formatter:on
 
+    // Not auditable: the body holds the reviewed data, which must not end up in the audit log.
+    @POST
+    @Path("/jobs/{jobId}/review")
+    @Operation(summary = "Sends (possibly edited) or withholds the data the job is waiting to send to Claude. Body: {reviewId, approved, text?}.")
+    @MirthOperation(name = "claudeReviewData", display = "Review data for Claude", permission = PERMISSION_USE, type = ExecuteType.ASYNC, auditable = false)
+    String review(// @formatter:off
+            @Param("jobId") @Parameter(description = "Job ID.", required = true) @PathParam("jobId") String jobId,
+            @Param("body") @Parameter(description = "Decision as JSON.", required = true) String body) throws ClientException;
+    // @formatter:on
+
     @POST
     @Path("/jobs/{jobId}/cancel")
     @Operation(summary = "Stops a running job.")
