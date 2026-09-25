@@ -1,8 +1,8 @@
 # Claude Assistant for OIE — User Manual
 
-Version 0.2.5 · September 2026
+Version 0.2.6 · September 2026
 
-The Claude Assistant (version 0.2.5) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
+The Claude Assistant (version 0.2.6) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
 
 ## Contents
 
