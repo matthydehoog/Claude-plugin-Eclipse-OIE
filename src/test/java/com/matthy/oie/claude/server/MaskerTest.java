@@ -76,6 +76,18 @@ public class MaskerTest {
                 + "NTE|1|L|***&#xd;OBX|1|TX|NOTE||***||||||F&#xd;</content>", out);
     }
 
+    /**
+     * Raw content with \r\n segment separators, as reported from a test system: the last field of
+     * PV1 is masked, but the encoded separator after it must survive.
+     */
+    @Test
+    public void keepsEncodedSeparatorAfterMaskedLastField() {
+        String xml = "<content>MSH|^~\\&amp;|LAB|FAC&#xd;\nPID|1||PID12345^^^MRN||Doe^John^A||19800101|M&#xd;\n"
+                + "PV1|1|I|ICU^^||||||||||||||||12345^^^VISIT&#xd;\nOBR|1||REQ67890&#xd;\nNTE|1|L|note&#xd;\n</content>";
+        assertEquals("<content>MSH|^~\\&amp;|LAB|FAC&#xd;\nPID|1||***||***||***|M&#xd;\n"
+                + "PV1|1|I|ICU^^||||||||||||||||***&#xd;\nOBR|1||REQ67890&#xd;\nNTE|1|L|***&#xd;\n</content>", masker.mask(xml));
+    }
+
     /** Transformed content is XML serialized inside XML: &lt;PID.5&gt;. */
     @Test
     public void masksHl7XmlInsideSerializedMessage() {

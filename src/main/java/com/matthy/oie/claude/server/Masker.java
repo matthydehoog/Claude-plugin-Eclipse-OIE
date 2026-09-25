@@ -46,8 +46,14 @@ public class Masker {
     /** HL7 v2 as OIE XML: a field element such as <PID.5><PID.5.1>...</PID.5.1></PID.5>. */
     private static final Pattern HL7_XML = Pattern.compile("(<(" + HL7_MASKED_SEGMENTS + ")\\.(\\d+)>)[\\s\\S]*?(</\\2\\.\\3>)");
 
+    /**
+     * One character of an ER7 segment: anything up to a line break or an XML-encoded one (&amp;#xd;),
+     * so a segment in already-escaped text never swallows its separator.
+     */
+    private static final String SEGMENT_CHAR = "(?:(?!&#(?:x[dDaA]|1[03]);)[^\\r\\n])";
+
     /** HL7 v2 ER7 segments with masked fields. Segment separator is \r, \n or both; the field separator follows the segment name. */
-    private static final Pattern HL7_ER7 = Pattern.compile("(^|[\\r\\n])(" + HL7_MASKED_SEGMENTS + ")(.)([^\\r\\n]*)");
+    private static final Pattern HL7_ER7 = Pattern.compile("(^|[\\r\\n])(" + HL7_MASKED_SEGMENTS + ")(.)(" + SEGMENT_CHAR + "*)");
 
     /**
      * Text values longer than this are masked in every HL7 segment: free-text notes, report text,
@@ -56,13 +62,13 @@ public class Masker {
     static final int HL7_MAX_TEXT = 30;
 
     /** HL7 v2 ER7 NTE segments: everything after NTE-2 (the comment and its type) is masked. */
-    private static final Pattern HL7_NTE_ER7 = Pattern.compile("(^|[\\r\\n])NTE(\\|[^|\\r\\n]*\\|[^|\\r\\n]*\\|)([^\\r\\n]+)");
+    private static final Pattern HL7_NTE_ER7 = Pattern.compile("(^|[\\r\\n])NTE(\\|[^|\\r\\n]*\\|[^|\\r\\n]*\\|)(" + SEGMENT_CHAR + "+)");
 
     /** HL7 v2 as OIE XML: the NTE comment <NTE.3>...</NTE.3>. */
     private static final Pattern HL7_NTE_XML = Pattern.compile("(<NTE\\.3>)[\\s\\S]*?(</NTE\\.3>)");
 
     /** Any HL7 v2 ER7 segment line (field separator |). */
-    private static final Pattern HL7_SEGMENT = Pattern.compile("(^|[\\r\\n])([A-Z][A-Z0-9]{2}\\|)([^\\r\\n]*)");
+    private static final Pattern HL7_SEGMENT = Pattern.compile("(^|[\\r\\n])([A-Z][A-Z0-9]{2}\\|)(" + SEGMENT_CHAR + "*)");
 
     /** A value between HL7 delimiters (| ^ ~ &) that is longer than {@link #HL7_MAX_TEXT}. */
     private static final Pattern HL7_LONG_VALUE = Pattern.compile("[^|^~&\\r\\n]{" + (HL7_MAX_TEXT + 1) + ",}");
