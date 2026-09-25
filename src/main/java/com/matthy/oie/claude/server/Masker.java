@@ -33,6 +33,27 @@ public class Masker {
     /** HL7 v2 ER7 PID segments. Segment separator is \r, \n or both; field separator follows "PID". */
     private static final Pattern HL7_ER7 = Pattern.compile("(^|[\\r\\n])PID(.)([^\\r\\n]*)");
 
+    /**
+     * Text values longer than this are masked in every HL7 segment: free-text notes, report text,
+     * base64 documents (e.g. a PDF in OBX-5). Short coded values stay readable.
+     */
+    static final int HL7_MAX_TEXT = 30;
+
+    /** HL7 v2 ER7 NTE segments: everything after NTE-2 (the comment and its type) is masked. */
+    private static final Pattern HL7_NTE_ER7 = Pattern.compile("(^|[\\r\\n])NTE(\\|[^|\\r\\n]*\\|[^|\\r\\n]*\\|)([^\\r\\n]+)");
+
+    /** HL7 v2 as OIE XML: the NTE comment <NTE.3>...</NTE.3>. */
+    private static final Pattern HL7_NTE_XML = Pattern.compile("(<NTE\\.3>)[\\s\\S]*?(</NTE\\.3>)");
+
+    /** Any HL7 v2 ER7 segment line (field separator |). */
+    private static final Pattern HL7_SEGMENT = Pattern.compile("(^|[\\r\\n])([A-Z][A-Z0-9]{2}\\|)([^\\r\\n]*)");
+
+    /** A value between HL7 delimiters (| ^ ~ &) that is longer than {@link #HL7_MAX_TEXT}. */
+    private static final Pattern HL7_LONG_VALUE = Pattern.compile("[^|^~&\\r\\n]{" + (HL7_MAX_TEXT + 1) + ",}");
+
+    /** HL7 v2 as OIE XML: a leaf element such as <OBX.5.1> with more than {@link #HL7_MAX_TEXT} characters of text. */
+    private static final Pattern HL7_XML_LONG = Pattern.compile("(<([A-Z][A-Z0-9]{2}\\.\\d+(?:\\.\\d+)*)>)([^<]{" + (HL7_MAX_TEXT + 1) + ",})(</\\2>)");
+
     private static final Pattern NINE_DIGITS = Pattern.compile("(?<!\\d)\\d{9}(?!\\d)");
 
     private final List<Pattern> extraPatterns;
@@ -58,10 +79,14 @@ public class Masker {
             return text;
         }
         String out = maskHl7Er7(text);
+        out = HL7_NTE_ER7.matcher(out).replaceAll("$1NTE$2" + Matcher.quoteReplacement(MASK));
+        out = replace(HL7_SEGMENT, out, m -> m.group(1) + m.group(2) + HL7_LONG_VALUE.matcher(m.group(3)).replaceAll(Matcher.quoteReplacement(MASK)));
         out = HL7_XML.matcher(out).replaceAll("$1" + Matcher.quoteReplacement(MASK) + "$3");
+        out = HL7_NTE_XML.matcher(out).replaceAll("$1" + Matcher.quoteReplacement(MASK) + "$2");
+        out = HL7_XML_LONG.matcher(out).replaceAll("$1" + Matcher.quoteReplacement(MASK) + "$4");
         out = GDT_RAW.matcher(out).replaceAll("$1$2" + Matcher.quoteReplacement(MASK));
         out = GDT_XML.matcher(out).replaceAll("$1" + Matcher.quoteReplacement(MASK) + "$3");
-        out = replace(NINE_DIGITS, out, m -> isBsn(m) ? MASK : m);
+        out = replace(NINE_DIGITS, out, m -> isBsn(m.group()) ? MASK : m.group());
         for (Pattern p : extraPatterns) {
             out = p.matcher(out).replaceAll(Matcher.quoteReplacement(MASK));
         }
@@ -99,14 +124,14 @@ public class Masker {
     }
 
     private interface Replacer {
-        String apply(String match);
+        String apply(Matcher match);
     }
 
     private static String replace(Pattern pattern, String text, Replacer replacer) {
         Matcher m = pattern.matcher(text);
         StringBuilder sb = new StringBuilder();
         while (m.find()) {
-            m.appendReplacement(sb, Matcher.quoteReplacement(replacer.apply(m.group())));
+            m.appendReplacement(sb, Matcher.quoteReplacement(replacer.apply(m)));
         }
         m.appendTail(sb);
         return sb.toString();

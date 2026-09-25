@@ -612,7 +612,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
         row("Review before sending:", e("select", { value: form.reviewBeforeSending, onChange: set("reviewBeforeSending") }, REVIEWS.map(([value, label]) => e("option", { key: value, value }, label))),
             "Shows exactly what will be sent to Claude, after masking, so each user can edit it or withhold it first."),
         row("Extra mask patterns:", e("textarea", { rows: 4, value: form.maskPatterns, onChange: set("maskPatterns") }),
-            "Regular expressions, separated by ;; . They are masked in addition to the built-in rules (HL7 PID, GDT 3000-3107, BSN). The API keys are stored encrypted on the server and never sent back to the Administrator. Leave a key field empty to keep the current key."),
+            "Regular expressions, separated by ;; . They are masked in addition to the built-in rules (HL7 PID, NTE and text over 30 characters, GDT 3000-3107, BSN). The API keys are stored encrypted on the server and never sent back to the Administrator. Leave a key field empty to keep the current key."),
         e("h3", null, "Usage"),
         row("Admin API key (optional):", e("input", { type: "password", value: form.adminApiKey, onChange: set("adminApiKey"), autoComplete: "off" }),
             e("span", { className: "claude-inline" },

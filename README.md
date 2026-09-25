@@ -62,6 +62,8 @@ channel configuration) first goes through a masker with the same rules as `mask.
 oie-mcp-server:
 
 - HL7 v2 PID fields 2-7, 9, 11, 13, 14, 19 (ER7 and XML)
+- HL7 v2 NTE comments (NTE-3 onwards) and every HL7 text value longer than 30 characters, such as
+  free-text notes or a base64 PDF in OBX-5; shorter coded values stay readable (ER7 and XML)
 - GDT patient fields 3000-3107 (raw and XML from the GDT data type plugin)
 - 9-digit numbers that pass the eleven-test (Dutch BSN)
 - your own patterns under *Settings > Claude Assistant*

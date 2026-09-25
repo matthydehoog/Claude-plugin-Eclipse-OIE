@@ -101,7 +101,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         form.add(new JScrollPane(maskPatterns), "wrap, growx, h 80!");
         form.add(new JLabel(""));
         form.add(new JLabel("<html>Regular expressions, separated by <code>;;</code>. They are masked in addition to the built-in rules "
-                + "(HL7 PID, GDT 3000-3107, BSN).<br>The API keys are stored encrypted on the server and never sent back to the Administrator. "
+                + "(HL7 PID, NTE and text over 30 characters, GDT 3000-3107, BSN).<br>The API keys are stored encrypted on the server and never sent back to the Administrator. "
                 + "Leave a key field empty to keep the current key.</html>"), "wrap, w 600!");
 
         form.add(new JSeparator(), "span, growx, gaptop 12, gapbottom 6, wrap");

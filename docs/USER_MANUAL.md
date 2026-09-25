@@ -189,6 +189,8 @@ Everything sent to Anthropic passes through a masker first. That includes your q
 Masked by default:
 
 - HL7 v2 PID fields 2–7, 9, 11, 13, 14 and 19 (ER7 and XML)
+- HL7 v2 NTE comments (NTE-3 onwards), in every segment
+- Every HL7 text value longer than 30 characters, such as free-text notes or a base64 PDF in OBX-5; shorter coded values such as `12345-6^Glucose^LN` stay readable
 - GDT patient fields 3000–3107 (raw, and XML from the GDT data type plugin)
 - 9-digit numbers that pass the eleven-test (Dutch BSN)
 - Your own regular expressions under *Settings > Claude Assistant > Mask patterns*

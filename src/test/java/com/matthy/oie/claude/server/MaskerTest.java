@@ -36,6 +36,37 @@ public class MaskerTest {
     }
 
     @Test
+    public void masksHl7Er7NteComments() {
+        String hl7 = "MSH|^~\\&|A|B\rNTE|1|L|Pt called, see J.|RE\rNTE|2||ok\rOBX|1|NM|BMI||24";
+        String out = masker.mask(hl7);
+        assertTrue(out, out.contains("\rNTE|1|L|***\r"));
+        assertTrue(out, out.contains("\rNTE|2||***\r"));
+        assertTrue(out, out.contains("OBX|1|NM|BMI||24"));
+    }
+
+    @Test
+    public void masksLongHl7TextButKeepsShortCodes() {
+        String pdf = "JVBERi0xLjQKJcfsj6IKNSAwIG9iago8PC9MZW5ndGggNiAwIFI+PgpzdHJlYW0K";
+        String hl7 = "MSH|^~\\&|A|B|C|D|20260925101010||ORU^R01|42|P|2.5\r"
+                + "OBX|1|ED|PDF^Report^L||^AP^PDF^Base64^" + pdf + "||||||F\r"
+                + "OBX|2|TX|12345-6^Glucose^LN||Patient reports dizziness since yesterday morning||||||F\r"
+                + "OBX|3|NM|12345-6^Glucose^LN||5.4|mmol/L|||||F";
+        String out = masker.mask(hl7);
+        assertTrue(out, out.contains("OBX|1|ED|PDF^Report^L||^AP^PDF^Base64^***||||||F\r"));
+        assertTrue(out, out.contains("OBX|2|TX|12345-6^Glucose^LN||***||||||F\r"));
+        assertTrue(out, out.contains("OBX|3|NM|12345-6^Glucose^LN||5.4|mmol/L|||||F"));
+        assertTrue(out, out.startsWith("MSH|^~\\&|A|B|C|D|20260925101010||ORU^R01|42|P|2.5\r"));
+    }
+
+    @Test
+    public void masksLongHl7XmlTextAndNteComments() {
+        String xml = "<OBX><OBX.3><OBX.3.2>Glucose</OBX.3.2></OBX.3><OBX.5><OBX.5.1>Patient reports dizziness since yesterday</OBX.5.1></OBX.5></OBX>"
+                + "<NTE><NTE.1>1</NTE.1><NTE.3><NTE.3.1>short</NTE.3.1></NTE.3></NTE>";
+        assertEquals("<OBX><OBX.3><OBX.3.2>Glucose</OBX.3.2></OBX.3><OBX.5><OBX.5.1>***</OBX.5.1></OBX.5></OBX>"
+                + "<NTE><NTE.1>1</NTE.1><NTE.3>***</NTE.3></NTE>", masker.mask(xml));
+    }
+
+    @Test
     public void masksHl7XmlPidFields() {
         String xml = "<PID><PID.5><PID.5.1>Jansen</PID.5.1></PID.5><PID.8><PID.8.1>M</PID.8.1></PID.8></PID>";
         assertEquals("<PID><PID.5>***</PID.5><PID.8><PID.8.1>M</PID.8.1></PID.8></PID>", masker.mask(xml));
