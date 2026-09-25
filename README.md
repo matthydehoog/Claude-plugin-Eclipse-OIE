@@ -61,7 +61,8 @@ Everything sent to the Anthropic API (your questions, context, message content, 
 channel configuration) first goes through a masker with the same rules as `mask.ts` in
 oie-mcp-server:
 
-- HL7 v2 PID fields 2-7, 9, 11, 13, 14, 19 (ER7 and XML)
+- HL7 v2 PID fields 2-7, 9, 11, 13, 14, 18-21, 23, 29 and PV1 fields 7-9, 17, 19, 50 (doctors, visit
+  number); whole NK1, GT1, IN1, IN2 and MRG segments except the set ID (ER7 and XML)
 - HL7 v2 NTE comments (NTE-3 onwards) and every HL7 text value longer than 30 characters, such as
   free-text notes or a base64 PDF in OBX-5; shorter coded values stay readable (ER7 and XML)
 - GDT patient fields 3000-3107 (raw and XML from the GDT data type plugin)
@@ -87,7 +88,15 @@ The extension adds three permissions (visible in the RBAC extension):
 - **Run Claude Assistant actions**: approve proposed actions
 - **Manage Claude Assistant settings**: change the API key, model and mask patterns
 
-Users with channel restrictions cannot use the assistant, because the tools see all channels.
+Claude only gets what the user could see or do in OIE: every tool checks the user's own OIE
+permission (via the RBAC extension when installed), e.g. *View Messages* for message search. Tools
+the user lacks are skipped and Claude is told which permission is missing; an action is checked
+again when it is approved. Users with channel restrictions cannot use the assistant, because the
+tools see all channels.
+
+Every time message data, log lines or events are sent to Anthropic, the audit log gets an event
+`Claude Assistant: data sent to Anthropic` with the user, tool, channel, message IDs and whether it
+was reviewed. The content itself is never logged.
 
 ## Setup
 

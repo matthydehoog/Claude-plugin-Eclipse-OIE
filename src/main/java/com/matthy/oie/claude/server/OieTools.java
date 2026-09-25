@@ -67,6 +67,37 @@ public class OieTools {
     private static final String[] GLOBAL_SCRIPT_TYPES = { "deploy", "undeploy", "preprocessor", "postprocessor" };
     private static final String[] SCRIPT_TYPES = { "deploy", "undeploy", "preprocessor", "postprocessor", "filter_rule", "transformer_step", "response_transformer_step" };
 
+    /**
+     * The OIE operation each tool corresponds to, i.e. what the Administrator itself would call for
+     * the same data or change. The user must be authorized for it (their own role, via the RBAC
+     * extension when installed); Claude never gets more than the user could see or do.
+     * Tools without an entry (server info) need no permission, like OIE's own version/status calls.
+     */
+    static final Map<String, String> OPERATIONS = Map.ofEntries(
+            Map.entry("oie_list_channels", "getChannelStatusList"),
+            Map.entry("oie_get_channel", "getChannel"),
+            Map.entry("oie_channel_scripts", "getChannel"),
+            Map.entry("oie_channel_statistics", "getStatistics"),
+            Map.entry("oie_search_messages", "searchMessages"),
+            Map.entry("oie_get_message", "getMessageContent"),
+            Map.entry("oie_events", "getEvents"),
+            Map.entry("oie_server_log", "getMirthServerLogs"),
+            Map.entry("oie_list_code_templates", "getCodeTemplateLibraries"),
+            Map.entry("oie_get_code_template", "getCodeTemplates"),
+            Map.entry("oie_global_scripts", "getGlobalScripts"),
+            Map.entry("oie_configuration_map", "getConfigurationMap"),
+            Map.entry("oie_deploy_channel", "deployChannels"),
+            Map.entry("oie_undeploy_channel", "undeployChannels"),
+            Map.entry("oie_start_channel", "startChannels"),
+            Map.entry("oie_stop_channel", "stopChannels"),
+            Map.entry("oie_pause_channel", "pauseChannels"),
+            Map.entry("oie_resume_channel", "resumeChannels"),
+            Map.entry("oie_reset_statistics", "clearStatistics"),
+            Map.entry("oie_reprocess_message", "reprocessMessage"),
+            Map.entry("oie_send_message", "processMessages"),
+            Map.entry("oie_update_channel_script", "updateChannel"),
+            Map.entry("oie_update_global_script", "setGlobalScripts"));
+
     /** A tool as offered to Claude. */
     public static final class Spec {
         final String name;

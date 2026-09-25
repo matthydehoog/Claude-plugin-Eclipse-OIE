@@ -3,10 +3,13 @@ package com.matthy.oie.claude.server;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -16,12 +19,15 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mirth.connect.client.core.Operation;
 import com.mirth.connect.model.ServerEvent;
 import com.mirth.connect.model.ServerEventContext;
 import com.mirth.connect.server.controllers.ControllerFactory;
@@ -188,7 +194,7 @@ public class AssistantService {
 
     // ------------------------------------------------------------------ API used by the servlet
 
-    public ChatJob startChat(int userId, String conversationId, String message, String context) {
+    public ChatJob startChat(int userId, String address, String conversationId, String message, String context) {
         ModelLoop l = loop;
         if (l == null) {
             if (engineError != null) {
@@ -211,7 +217,7 @@ public class AssistantService {
             if (conversation.activeJob != null && !isFinished(conversation.activeJob)) {
                 throw new IllegalStateException("Claude is still working on your previous question.");
             }
-            job = new ChatJob(conversation);
+            job = new ChatJob(conversation, address);
             conversation.activeJob = job;
             conversation.lastUsed = System.currentTimeMillis();
         }
@@ -247,13 +253,19 @@ public class AssistantService {
     }
 
     /** Runs (or rejects) the pending action on the servlet thread, as the approving user. */
-    public String decide(ChatJob job, String actionId, boolean approved, ServerEventContext context) {
+    public String decide(ChatJob job, String actionId, boolean approved, ServerEventContext context, String address) {
         ChatJob.PendingAction pending = job.pending();
         if (pending == null || pending.review || !pending.id.equals(actionId)) {
             throw new IllegalStateException("This action is no longer waiting for a decision.");
         }
         String result;
-        if (!approved) {
+        Integer approver = context != null ? context.getUserId() : null;
+        if (approved && (approver == null || !authorized(approver, address, pending.toolName))) {
+            // Checked again at approval: the user's role may have changed since Claude proposed it.
+            result = missingPermission(pending.toolName);
+            job.emit("error", pending.prepared.title + " not run: you do not have the OIE permission for it.");
+            audit(context, pending, ServerEvent.Outcome.FAILURE, "Not authorized");
+        } else if (!approved) {
             result = "The user rejected this action. Do not run it and do not propose it again unless the user asks for it.";
             job.emit("info", "Action rejected: " + pending.prepared.title);
         } else {
@@ -304,16 +316,26 @@ public class AssistantService {
         }
         OieTools t = tools;
         job.emit("tool", name + " " + summarize(input));
+        if (!authorized(job.conversation.userId, job.address, name)) {
+            job.emit("info", "Skipped " + name + ": you do not have the OIE permission for it (" + OieTools.OPERATIONS.get(name) + ").");
+            return missingPermission(name);
+        }
         if (!t.isAction(name)) {
             String result = t.run(name, input);
             String review = settings.reviewBeforeSending;
             boolean data = DATA_TOOLS.containsKey(name);
-            if (Settings.REVIEW_ALL.equals(review) || (Settings.REVIEW_DATA.equals(review) && data)) {
-                String sent = review(job, name, data ? DATA_TOOLS.get(name) : "Result of " + name, result);
-                return sent != null ? sent
-                        : "The user reviewed this tool result and chose not to send it to you. Continue without it, say what you could not check, and do not call this tool again for the same data unless the user asks.";
+            String sent = result;
+            boolean reviewed = Settings.REVIEW_ALL.equals(review) || (Settings.REVIEW_DATA.equals(review) && data);
+            if (reviewed) {
+                sent = review(job, name, data ? DATA_TOOLS.get(name) : "Result of " + name, result);
+                if (sent == null) {
+                    return "The user reviewed this tool result and chose not to send it to you. Continue without it, say what you could not check, and do not call this tool again for the same data unless the user asks.";
+                }
             }
-            return result;
+            if (data) {
+                auditShared(job, name, input, sent, reviewed ? (sent.equals(result) ? "reviewed" : "reviewed, edited") : "not reviewed");
+            }
+            return sent;
         }
         OieTools.PreparedAction prepared = t.prepare(name, input);
         // The confirmation dialog shows the detail, so it goes through the masker like everything else.
@@ -345,6 +367,80 @@ public class AssistantService {
             return null;
         } catch (ExecutionException e) {
             return null;
+        }
+    }
+
+    // ------------------------------------------------------------------ permissions and audit
+
+    /**
+     * Whether the user may do what the tool does, judged by OIE itself (the RBAC extension when
+     * installed; without it every user may do everything, as in OIE). Fails closed on errors.
+     */
+    private boolean authorized(int userId, String address, String tool) {
+        String operation = OieTools.OPERATIONS.get(tool);
+        if (operation == null) {
+            return true;
+        }
+        try {
+            return ControllerFactory.getFactory().createAuthorizationController()
+                    .isUserAuthorized(userId, new Operation(operation, operation, Operation.ExecuteType.SYNC, false), new HashMap<>(), address, false);
+        } catch (Exception e) {
+            logger.warn("Claude Assistant: authorization check for " + tool + " failed", e);
+            return false;
+        }
+    }
+
+    private static String missingPermission(String tool) {
+        return "The user does not have the OIE permission for this (" + tool + ", OIE operation " + OieTools.OPERATIONS.get(tool)
+                + "). Do not retry it; tell the user which permission is missing and continue with what you may see.";
+    }
+
+    private static final Pattern SEARCH_MESSAGE_ID = Pattern.compile("(?m)^Message (\\d+) —");
+    private static final Pattern XML_MESSAGE_ID = Pattern.compile("<messageId>(\\d+)</messageId>");
+
+    /**
+     * Records that message data, log lines or events went to Anthropic: who, which tool, which
+     * channel and message IDs, and whether it was reviewed. Never the content itself.
+     */
+    private void auditShared(ChatJob job, String tool, JsonNode input, String sent, String review) {
+        try {
+            ServerEvent event = new ServerEvent(ControllerFactory.getFactory().createConfigurationController().getServerId(), "Claude Assistant: data sent to Anthropic");
+            event.setLevel(ServerEvent.Level.INFORMATION);
+            event.setOutcome(ServerEvent.Outcome.SUCCESS);
+            event.setUserId(job.conversation.userId);
+            if (job.address != null) {
+                event.setIpAddress(job.address);
+            }
+            Map<String, String> attributes = new LinkedHashMap<>();
+            attributes.put("tool", tool);
+            attributes.put("what", DATA_TOOLS.get(tool));
+            String channel = input.path("channel").asText("");
+            if (!channel.isEmpty()) {
+                attributes.put("channel", channel);
+            }
+            Set<String> ids = new TreeSet<>(Comparator.comparingLong(Long::parseLong));
+            if (input.hasNonNull("messageId")) {
+                ids.add(String.valueOf(input.path("messageId").asLong()));
+            }
+            for (Pattern p : new Pattern[] { SEARCH_MESSAGE_ID, XML_MESSAGE_ID }) {
+                Matcher m = p.matcher(sent);
+                while (m.find()) {
+                    ids.add(m.group(1));
+                }
+            }
+            if (!ids.isEmpty()) {
+                attributes.put("messageIds", String.join(", ", ids));
+                if (ids.size() == 1) {
+                    event.setMessageId(ids.iterator().next());
+                }
+            }
+            attributes.put("review", review);
+            attributes.put("characters", String.valueOf(sent.length()));
+            attributes.put("conversation", job.conversation.id);
+            event.setAttributes(attributes);
+            ControllerFactory.getFactory().createEventController().dispatchEvent(event);
+        } catch (Exception e) {
+            logger.warn("Could not write Claude Assistant audit event", e);
         }
     }
 

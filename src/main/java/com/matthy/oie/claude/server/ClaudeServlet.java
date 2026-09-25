@@ -33,7 +33,7 @@ public class ClaudeServlet extends MirthServlet implements ClaudeServletInterfac
             throw new MirthApiException(Response.status(Response.Status.FORBIDDEN).entity("The Claude assistant is not available to users with channel restrictions.").build());
         }
         try {
-            ChatJob job = service().startChat(getCurrentUserId(), in.path("conversationId").asText(null), message, in.path("context").asText(null));
+            ChatJob job = service().startChat(getCurrentUserId(), request.getRemoteAddr(), in.path("conversationId").asText(null), message, in.path("context").asText(null));
             ObjectNode out = MAPPER.createObjectNode();
             out.put("conversationId", job.conversation.id);
             out.put("jobId", job.id);
@@ -52,7 +52,7 @@ public class ClaudeServlet extends MirthServlet implements ClaudeServletInterfac
     public String confirm(String jobId, String body) {
         JsonNode in = parse(body);
         try {
-            String result = service().decide(job(jobId), in.path("actionId").asText(""), in.path("approved").asBoolean(false), context);
+            String result = service().decide(job(jobId), in.path("actionId").asText(""), in.path("approved").asBoolean(false), context, request.getRemoteAddr());
             ObjectNode out = MAPPER.createObjectNode();
             out.put("result", result);
             return out.toString();

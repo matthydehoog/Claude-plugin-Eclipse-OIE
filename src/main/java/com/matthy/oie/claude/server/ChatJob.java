@@ -55,6 +55,8 @@ public class ChatJob {
 
     final String id = UUID.randomUUID().toString();
     final Conversation conversation;
+    /** IP address of the user's client, for authorization checks and audit events. */
+    final String address;
 
     public Conversation conversation() {
         return conversation;
@@ -66,8 +68,9 @@ public class ChatJob {
     private volatile boolean cancelled;
     private Future<?> future;
 
-    ChatJob(Conversation conversation) {
+    ChatJob(Conversation conversation, String address) {
         this.conversation = conversation;
+        this.address = address;
     }
 
     synchronized void setFuture(Future<?> future) {

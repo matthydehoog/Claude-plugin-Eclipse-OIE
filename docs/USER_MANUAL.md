@@ -1,8 +1,8 @@
 # Claude Assistant for OIE — User Manual
 
-Version 0.2.7 · September 2026
+Version 0.2.8 · September 2026
 
-The Claude Assistant (version 0.2.7) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
+The Claude Assistant (version 0.2.8) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
 
 ## Contents
 
@@ -182,13 +182,17 @@ The dialog shows exactly what will happen. For a script change it shows the new 
 
 **Audit:** every executed action is logged under *Events* as `Claude Assistant: <action>`, in the name of the user who approved it.
 
+Every time message data, log lines or events are sent to Anthropic, *Events* also gets `Claude Assistant: data sent to Anthropic`, with the user, IP address, tool, channel, message IDs and whether the data was reviewed or edited. The content itself is never logged.
+
 ## Privacy and masking
 
 Everything sent to Anthropic passes through a masker first. That includes your questions, context, message content, logs, errors and channel configuration. Masking cannot be switched off.
 
 Masked by default:
 
-- HL7 v2 PID fields 2–7, 9, 11, 13, 14 and 19
+- HL7 v2 PID fields 2–7, 9, 11, 13, 14, 18–21, 23 and 29 (identifiers, name, date of birth, address, phone, account number, SSN, driver's licence, mother's ID, birthplace, date of death)
+- HL7 v2 PV1 fields 7–9, 17, 19 and 50 (attending, referring, consulting and admitting doctor, visit number)
+- Whole HL7 v2 NK1, GT1, IN1, IN2 and MRG segments (next of kin, guarantor, insurance, merged patient IDs), except the set ID
 - HL7 v2 NTE comments: everything from NTE-3 onwards, however short
 - Every HL7 text value longer than 30 characters, in any segment: free-text notes, report text, base64 documents such as a PDF in OBX-5
 - GDT patient fields 3000–3107 (raw, and XML from the GDT data type plugin)
@@ -244,6 +248,28 @@ The extension adds three permissions, which you assign to roles in the RBAC exte
 
 A user without *Run Claude Assistant actions* can chat but cannot run actions.
 
+Claude only gets what you could see or do yourself in OIE. Every tool checks your own OIE permission, via the RBAC extension when it is installed:
+
+| Tool | OIE permission needed |
+| --- | --- |
+| List channels, channel statistics | View Dashboard |
+| Get channel, channel scripts | View Channels |
+| Search messages, get message | View Messages |
+| Events | View Events |
+| Server log | View Server Log |
+| Code templates | View Code Templates |
+| Global scripts | View Global Scripts |
+| Configuration Map | View Configuration Map |
+| Deploy / undeploy | Deploy/Undeploy Channels |
+| Start / stop / pause / resume | Start/Stop Channels |
+| Reset statistics | Clear Statistics |
+| Reprocess message | Reprocess Messages |
+| Send message | Process Messages |
+| Update channel script | Manage Channels |
+| Update global script | Edit Global Scripts |
+
+If you lack a permission, Claude skips that tool and tells you which permission is missing. An action is checked again when you approve it. Without the RBAC extension, OIE gives every user every permission, and so does the assistant.
+
 Users with channel restrictions cannot use the assistant, because its tools see all channels.
 
 ## Usage and costs
@@ -298,6 +324,7 @@ Connecting times out after 10 seconds and is tried three times, so you get the m
 | Answers in the wrong language | *Response language* is *Automatic* and follows the question or data | Pick a fixed language in *Settings > Claude Assistant* |
 | Claude doesn't see my latest change | The channel editor has unsaved changes | Save the channel, then ask again |
 | *Run* is refused | Missing *Run Claude Assistant actions* permission | Ask an administrator to add it to your role |
+| "Skipped …: you do not have the OIE permission" | Your role lacks the OIE permission for that tool | Ask an administrator for the permission (see *Permissions*), or ask something else |
 | Spend lower than the Console | Today's costs not reported yet by the Cost API | Wait or use the Console's Billing page |
 | No Claude items in the Ctrl+K palette search | Web admin bug before the Dashboard has loaded | Open the Dashboard first |
 | Answer stops with tool-call limit reached | Question needs more lookups than *Max tool calls* | Narrow the question or raise the limit |

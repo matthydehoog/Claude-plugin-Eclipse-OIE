@@ -90,6 +90,52 @@ public class MaskerTest {
     }
 
     @Test
+    public void masksWholePersonSegmentsExceptSetId() {
+        String hl7 = "MSH|^~\\&|A|B\rNK1|1|Jansen^Marie|MTH|Dorpsstraat 1^^Arnhem|0612345678\rIN1|1|ZK01|4711|Zilveren Kruis\rIN2|ID77\rMRG|OLD123^^^HOSP\rOBX|1|NM|BMI||24";
+        String out = masker.mask(hl7);
+        assertTrue(out, out.contains("\rNK1|1|***|***|***|***\r"));
+        assertTrue(out, out.contains("\rIN1|1|***|***|***\r"));
+        assertTrue(out, out.contains("\rIN2|***\r"));
+        assertTrue(out, out.contains("\rMRG|***\r"));
+        assertTrue(out, out.contains("OBX|1|NM|BMI||24"));
+    }
+
+    @Test
+    public void masksExtraPidAndPv1Fields() {
+        String[] pid = new String[30];
+        java.util.Arrays.fill(pid, "");
+        pid[0] = "PID";
+        pid[1] = "1";
+        pid[8] = "M";
+        pid[18] = "ACC99";
+        pid[20] = "DL12";
+        pid[21] = "MID";
+        pid[23] = "Nijmegen";
+        pid[29] = "20250101";
+        String[] pv1 = new String[20];
+        java.util.Arrays.fill(pv1, "");
+        pv1[0] = "PV1";
+        pv1[2] = "I";
+        pv1[7] = "1234^Arts^Anna";
+        pv1[19] = "V555";
+        String out = masker.mask(String.join("|", pid) + "\r" + String.join("|", pv1));
+        String[] maskedPid = pid.clone();
+        for (int n : new int[] { 18, 20, 21, 23, 29 }) {
+            maskedPid[n] = "***";
+        }
+        String[] maskedPv1 = pv1.clone();
+        maskedPv1[7] = "***";
+        maskedPv1[19] = "***";
+        assertEquals(String.join("|", maskedPid) + "\r" + String.join("|", maskedPv1), out);
+    }
+
+    @Test
+    public void masksPersonSegmentsInXml() {
+        String xml = "<NK1><NK1.1><NK1.1.1>1</NK1.1.1></NK1.1><NK1.2><NK1.2.1>Jansen</NK1.2.1></NK1.2></NK1><PV1><PV1.2><PV1.2.1>I</PV1.2.1></PV1.2><PV1.19><PV1.19.1>V555</PV1.19.1></PV1.19></PV1>";
+        assertEquals("<NK1><NK1.1><NK1.1.1>1</NK1.1.1></NK1.1><NK1.2>***</NK1.2></NK1><PV1><PV1.2><PV1.2.1>I</PV1.2.1></PV1.2><PV1.19>***</PV1.19></PV1>", masker.mask(xml));
+    }
+
+    @Test
     public void masksHl7XmlPidFields() {
         String xml = "<PID><PID.5><PID.5.1>Jansen</PID.5.1></PID.5><PID.8><PID.8.1>M</PID.8.1></PID.8></PID>";
         assertEquals("<PID><PID.5>***</PID.5><PID.8><PID.8.1>M</PID.8.1></PID.8></PID>", masker.mask(xml));
