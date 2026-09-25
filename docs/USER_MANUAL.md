@@ -1,8 +1,8 @@
 # Claude Assistant for OIE — User Manual
 
-Version 0.2.6 · September 2026
+Version 0.2.7 · September 2026
 
-The Claude Assistant (version 0.2.6) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
+The Claude Assistant (version 0.2.7) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
 
 ## Contents
 
@@ -193,9 +193,10 @@ Masked by default:
 - Every HL7 text value longer than 30 characters, in any segment: free-text notes, report text, base64 documents such as a PDF in OBX-5
 - GDT patient fields 3000–3107 (raw, and XML from the GDT data type plugin)
 - 9-digit numbers that pass the eleven-test (Dutch BSN)
+- Credentials in channel configuration: elements named like password, passphrase, secret, token or apiKey
 - Your own regular expressions under *Settings > Claude Assistant > Mask patterns*
 
-The HL7 rules apply to raw (ER7) messages and to OIE's XML form. The 30-character check applies per component, so short coded values stay readable and Claude can still debug the message:
+The HL7 rules apply to raw (ER7) messages and to OIE's XML form, also when they are embedded (escaped) in the XML the tools return. The 30-character check applies per component, so short coded values stay readable and Claude can still debug the message:
 
 ```
 before: OBX|1|ED|PDF^Report^L||^AP^PDF^Base64^JVBERi0xLjQKJcfsj6IK...||||||F

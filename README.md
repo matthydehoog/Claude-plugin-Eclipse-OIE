@@ -66,6 +66,7 @@ oie-mcp-server:
   free-text notes or a base64 PDF in OBX-5; shorter coded values stay readable (ER7 and XML)
 - GDT patient fields 3000-3107 (raw and XML from the GDT data type plugin)
 - 9-digit numbers that pass the eleven-test (Dutch BSN)
+- credentials in channel configuration: elements named like password, passphrase, secret, token or apiKey
 - your own patterns under *Settings > Claude Assistant*
 
 **Review before sending.** Before message content, log lines or events go to Claude, a dialog shows

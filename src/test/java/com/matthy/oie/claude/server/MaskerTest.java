@@ -66,6 +66,29 @@ public class MaskerTest {
                 + "<NTE><NTE.1>1</NTE.1><NTE.3>***</NTE.3></NTE>", masker.mask(xml));
     }
 
+    /** oie_get_message returns XStream XML: segment separators become &#xd; and & becomes &amp;. */
+    @Test
+    public void masksHl7Er7InsideSerializedMessage() {
+        String xml = "<content>MSH|^~\\&amp;|HIS|RIJN|OIE|RIJN|20260925||ADT^A08|42|P|2.5&#xd;PID|1||123456^^^HOSP||Jansen^Piet||19800101|M&#xd;"
+                + "NTE|1|L|Called patient&#xd;OBX|1|TX|NOTE||Patient reports dizziness since yesterday morning||||||F&#xd;</content>";
+        String out = masker.mask(xml);
+        assertEquals("<content>MSH|^~\\&amp;|HIS|RIJN|OIE|RIJN|20260925||ADT^A08|42|P|2.5&#xd;PID|1||***||***||***|M&#xd;"
+                + "NTE|1|L|***&#xd;OBX|1|TX|NOTE||***||||||F&#xd;</content>", out);
+    }
+
+    /** Transformed content is XML serialized inside XML: &lt;PID.5&gt;. */
+    @Test
+    public void masksHl7XmlInsideSerializedMessage() {
+        String xml = "<content>&lt;HL7Message&gt;&lt;PID&gt;&lt;PID.5&gt;&lt;PID.5.1&gt;Jansen&lt;/PID.5.1&gt;&lt;/PID.5&gt;&lt;PID.8&gt;&lt;PID.8.1&gt;M&lt;/PID.8.1&gt;&lt;/PID.8&gt;&lt;/PID&gt;&lt;/HL7Message&gt;</content>";
+        assertEquals("<content>&lt;HL7Message&gt;&lt;PID&gt;&lt;PID.5&gt;***&lt;/PID.5&gt;&lt;PID.8&gt;&lt;PID.8.1&gt;M&lt;/PID.8.1&gt;&lt;/PID.8&gt;&lt;/PID&gt;&lt;/HL7Message&gt;</content>", masker.mask(xml));
+    }
+
+    @Test
+    public void masksCredentialsInConfiguration() {
+        String xml = "<host>db01</host><username>oie</username><password>S3cret!</password><passPhrase>x</passPhrase><encryptPassword>false</encryptPassword>";
+        assertEquals("<host>db01</host><username>oie</username><password>***</password><passPhrase>***</passPhrase><encryptPassword>***</encryptPassword>", masker.mask(xml));
+    }
+
     @Test
     public void masksHl7XmlPidFields() {
         String xml = "<PID><PID.5><PID.5.1>Jansen</PID.5.1></PID.5><PID.8><PID.8.1>M</PID.8.1></PID.8></PID>";

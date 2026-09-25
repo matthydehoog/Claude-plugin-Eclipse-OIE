@@ -56,6 +56,17 @@ public class Masker {
 
     private static final Pattern NINE_DIGITS = Pattern.compile("(?<!\\d)\\d{9}(?!\\d)");
 
+    /**
+     * XML text holding escaped content, as the tools return it: message content serialized by
+     * XStream has segment separators as &amp;#xd; and transformed XML as &amp;lt;PID.5&amp;gt;.
+     * Such text is unescaped, masked with every rule and escaped again.
+     */
+    private static final Pattern ESCAPED_TEXT = Pattern.compile(">([^<]*&(?:#x[0-9a-fA-F]+|#\\d+|lt|gt|amp|quot|apos);[^<]*)<");
+    private static final Pattern ENTITY = Pattern.compile("&(?:#x([0-9a-fA-F]+)|#(\\d+)|(lt|gt|amp|quot|apos));");
+
+    /** Credentials in serialized configuration, e.g. a database reader's or SFTP connector's password. */
+    private static final Pattern CREDENTIAL_XML = Pattern.compile("(?i)(<([\\w.]*(?:password|passphrase|secret|token|apikey)[\\w.]*)>)[^<]+(</\\2>)");
+
     private final List<Pattern> extraPatterns;
 
     /** @param extraPatterns regular expressions separated by ";;", masked in addition to the built-in rules */
@@ -78,7 +89,9 @@ public class Masker {
         if (text == null || text.isEmpty()) {
             return text;
         }
-        String out = maskHl7Er7(text);
+        String out = replace(ESCAPED_TEXT, text, m -> ">" + escapeXml(mask(unescapeXml(m.group(1)))) + "<");
+        out = CREDENTIAL_XML.matcher(out).replaceAll("$1" + Matcher.quoteReplacement(MASK) + "$3");
+        out = maskHl7Er7(out);
         out = HL7_NTE_ER7.matcher(out).replaceAll("$1NTE$2" + Matcher.quoteReplacement(MASK));
         out = replace(HL7_SEGMENT, out, m -> m.group(1) + m.group(2) + HL7_LONG_VALUE.matcher(m.group(3)).replaceAll(Matcher.quoteReplacement(MASK)));
         out = HL7_XML.matcher(out).replaceAll("$1" + Matcher.quoteReplacement(MASK) + "$3");
@@ -108,6 +121,30 @@ public class Masker {
         }
         m.appendTail(sb);
         return sb.toString();
+    }
+
+    static String unescapeXml(String s) {
+        return replace(ENTITY, s, m -> {
+            if (m.group(3) != null) {
+                switch (m.group(3)) {
+                    case "lt": return "<";
+                    case "gt": return ">";
+                    case "amp": return "&";
+                    case "quot": return "\"";
+                    default: return "'";
+                }
+            }
+            try {
+                return new String(Character.toChars(m.group(1) != null ? Integer.parseInt(m.group(1), 16) : Integer.parseInt(m.group(2))));
+            } catch (IllegalArgumentException e) {
+                return m.group();
+            }
+        });
+    }
+
+    /** Escapes like XStream does for text: &amp;, &lt;, &gt; and carriage return. */
+    static String escapeXml(String s) {
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\r", "&#xd;");
     }
 
     /** Dutch BSN: 9 digits passing the 11-proof. Masks some false positives, which is the safe side. */
