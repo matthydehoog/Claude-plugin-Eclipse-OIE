@@ -1,8 +1,8 @@
 # Claude Assistant for OIE — User Manual
 
-Version 0.2.9 · September 2026
+Version 0.3.0 · September 2026
 
-The Claude Assistant (version 0.2.9) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
+The Claude Assistant (version 0.3.0) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
 
 ## Contents
 
@@ -193,6 +193,7 @@ Masked by default:
 - HL7 v2 PID fields 2–7, 9, 11, 13, 14, 18–21, 23 and 29 (identifiers, name, date of birth, address, phone, account number, SSN, driver's licence, mother's ID, birthplace, date of death)
 - HL7 v2 PV1 fields 7–9, 17, 19 and 50 (attending, referring, consulting and admitting doctor, visit number)
 - Whole HL7 v2 NK1, GT1, IN1, IN2 and MRG segments (next of kin, guarantor, insurance, merged patient IDs), except the set ID
+- FHIR resources, in JSON and XML: in Patient, RelatedPerson, Person and Practitioner the name, identifier, telecom, address, birthDate, photo, contact, and extensions with personal data (such as the mother's maiden name or birthplace); in every resource the identifier values, reference displays (`subject.display` is often a patient name), the narrative (`text.div`) and XML comments. Codes, the structure and non-personal resources stay readable, so Claude can still debug the message
 - HL7 v2 NTE comments: everything from NTE-3 onwards, however short
 - Every HL7 text value longer than 30 characters, in any segment: free-text notes, report text, base64 documents such as a PDF in OBX-5
 - GDT patient fields 3000–3107 (raw, and XML from the GDT data type plugin)

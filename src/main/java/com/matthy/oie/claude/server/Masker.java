@@ -121,6 +121,7 @@ public class Masker {
         out = HL7_XML_LONG.matcher(out).replaceAll("$1" + Matcher.quoteReplacement(MASK) + "$4");
         out = GDT_RAW.matcher(out).replaceAll("$1$2" + Matcher.quoteReplacement(MASK));
         out = GDT_XML.matcher(out).replaceAll("$1" + Matcher.quoteReplacement(MASK) + "$3");
+        out = FhirMasker.mask(out);
         out = replace(NINE_DIGITS, out, m -> isBsn(m.group()) ? MASK : m.group());
         for (Pattern p : extraPatterns) {
             out = p.matcher(out).replaceAll(Matcher.quoteReplacement(MASK));

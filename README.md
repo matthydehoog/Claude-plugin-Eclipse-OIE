@@ -63,6 +63,10 @@ oie-mcp-server:
 
 - HL7 v2 PID fields 2-7, 9, 11, 13, 14, 18-21, 23, 29 and PV1 fields 7-9, 17, 19, 50 (doctors, visit
   number); whole NK1, GT1, IN1, IN2 and MRG segments except the set ID (ER7 and XML)
+- FHIR resources in JSON and XML: in Patient, RelatedPerson, Person and Practitioner the name,
+  identifier, telecom, address, birthDate, photo, contact and personal extensions (e.g. mother's
+  maiden name); in every resource identifier values, reference displays, the narrative (`text.div`)
+  and XML comments. Structure, codes and other resources stay readable
 - HL7 v2 NTE comments (NTE-3 onwards) and every HL7 text value longer than 30 characters, such as
   free-text notes or a base64 PDF in OBX-5; shorter coded values stay readable (ER7 and XML)
 - GDT patient fields 3000-3107 (raw and XML from the GDT data type plugin)
