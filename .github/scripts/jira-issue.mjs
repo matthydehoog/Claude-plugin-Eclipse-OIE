@@ -8,6 +8,7 @@
 // anything else -> Task. When the project has no such type, Task is used.
 
 import { execFileSync } from "node:child_process";
+import { markdownToJira } from "./markdown-to-jira.mjs";
 
 const LABEL_TYPES = { bug: "Bug", enhancement: "Feature", feature: "Feature" };
 const FALLBACK_TYPE = "Task";
@@ -23,7 +24,8 @@ function issueType(labels) {
 
 function description(issue, repo) {
   let body = (issue.body || "").trim() || "(no description)";
-  if (body.length > MAX_DESCRIPTION) body = body.slice(0, MAX_DESCRIPTION) + "\n\n[... cut off, see GitHub for the full text]";
+  if (body.length > MAX_DESCRIPTION) body = body.slice(0, MAX_DESCRIPTION) + "\n\n(... cut off, see GitHub for the full text)";
+  body = markdownToJira(body);
   const labels = (issue.labels || []).map((l) => l.name).join(", ") || "none";
   return `${body}\n\n----\nGitHub issue: [${repo}#${issue.number}|${issue.html_url}]\nOpened by: ${issue.user.login}\nLabels: ${labels}`;
 }
