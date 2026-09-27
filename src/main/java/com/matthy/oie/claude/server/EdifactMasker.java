@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
  * after their qualifier, PNA, ADR, COM, a date of birth (DTM with BTH or 329) and the free text of
  * FTX;</li>
  * <li>in both: every component longer than {@link Masker#HL7_MAX_TEXT} characters (remarks, letter
- * text).</li>
+ * text), except in the hospital and laboratory segments ZKH and AFD.</li>
  * </ul>
  * Trade messages (ORDERS, INVOIC, ...) are left alone. The segment tags, qualifiers, data element 0
  * (ARA:1, BEP:1:1:3) and the results (BEP) stay readable. Raw messages are read with their own
@@ -42,6 +42,13 @@ final class EdifactMasker {
     private static final Pattern XML_TYPE = Pattern.compile("<UNH\\.02\\.1>([^<]*)</UNH\\.02\\.1>");
 
     private static final Set<String> BIRTH_DATE_QUALIFIERS = Set.of("BTH", "329");
+
+    /** MEDLAB segments about the hospital and the laboratory (no patient data): never masked for their length. */
+    private static final Set<String> INSTITUTION_SEGMENTS = Set.of("ZKH", "AFD");
+
+    private static boolean tooLong(String tag, String value) {
+        return value.length() > Masker.HL7_MAX_TEXT && !INSTITUTION_SEGMENTS.contains(tag);
+    }
 
     private EdifactMasker() {}
 
@@ -181,7 +188,7 @@ final class EdifactMasker {
             boolean birthDate = tag.equals("DTM") && n == 1 && BIRTH_DATE_QUALIFIERS.contains(unescape(components.get(0), d.release));
             for (int c = 0; c < components.size(); c++) {
                 String value = components.get(c);
-                if (!value.isEmpty() && ((birthDate && c > 0) || unescape(value, d.release).length() > Masker.HL7_MAX_TEXT)) {
+                if (!value.isEmpty() && ((birthDate && c > 0) || tooLong(tag, unescape(value, d.release)))) {
                     components.set(c, Masker.MASK);
                 }
             }
@@ -303,7 +310,7 @@ final class EdifactMasker {
             }
             boolean birthDate = tag.equals("DTM") && n == 1 && e.group(3).matches("(?s)\\s*<DTM\\.01\\.1>(BTH|329)</DTM\\.01\\.1>.*");
             String inner = replace(component, e.group(3), c -> {
-                boolean mask = !c.group(4).isEmpty() && ((birthDate && !c.group(3).equals("1")) || Masker.unescapeXml(c.group(4)).length() > Masker.HL7_MAX_TEXT);
+                boolean mask = !c.group(4).isEmpty() && ((birthDate && !c.group(3).equals("1")) || tooLong(tag, Masker.unescapeXml(c.group(4))));
                 return mask ? c.group(1) + Masker.MASK + c.group(5) : c.group();
             });
             return "<" + e.group(1) + ">" + inner + "</" + e.group(1) + ">";

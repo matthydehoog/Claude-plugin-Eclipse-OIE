@@ -149,6 +149,21 @@ public class EdifactMaskerTest {
     }
 
     @Test
+    public void keepsLongHospitalAndLaboratoryNames() throws Exception {
+        String hospital = "Stichting Noordwest Ziekenhuisgroep"; // 35 characters
+        String lab = "Klinisch chemisch en hematologisch laboratorium";
+        String raw = "UNH+1+MEDLAB:1'ZKH+" + hospital + "+Wilhelminalaan:12::Alkmaar:1815JD'AFD+" + lab + "+'COM:1:1+" + lab + "'UNT+5+1'";
+
+        assertEquals("UNH+1+MEDLAB:1'ZKH+" + hospital + "+Wilhelminalaan:12::Alkmaar:1815JD'AFD+" + lab + "+'COM:1:1+***'UNT+5+1'", masker.mask(raw));
+
+        String xml = resource("medlab.xml").replace("<ZKH.01.1>Testzorg<", "<ZKH.01.1>" + hospital + "<")
+                .replace("<AFD.01.1>Diabetes verpleegkundige<", "<AFD.01.1>" + lab + "<");
+        String masked = masker.mask(xml);
+        assertTrue(masked.contains("<ZKH.01.1>" + hospital + "</ZKH.01.1>"));
+        assertTrue(masked.contains("<AFD.01.1>" + lab + "</AFD.01.1>"));
+    }
+
+    @Test
     public void hl7IsStillMasked() {
         String hl7 = "MSH|^~\\&|LAB|FAC\rPID|1||PID12345^^^MRN||Doe^John^A||19800101|M\r";
 

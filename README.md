@@ -72,7 +72,7 @@ oie-mcp-server:
 - GDT patient fields 3000-3107 (raw and XML from the GDT data type plugin)
 - EDIFACT health messages, raw and XML from the EDIFACT data type plugin: in MEDLAB the patient
   (PID, PAD), the doctors (ART, ARA, KOP) and the sample number (IDE); in other MED* messages PID,
-  NAD, PNA, ADR, COM, the date of birth and the FTX text; long values in both. Tags, qualifiers and
+  NAD, PNA, ADR, COM, the date of birth and the FTX text; long values in both (not in ZKH, AFD). Tags, qualifiers and
   results (BEP) stay readable; trade messages (ORDERS, INVOIC) are not masked
 - 9-digit numbers that pass the eleven-test (Dutch BSN)
 - credentials in channel configuration: elements named like password, passphrase, secret, token or apiKey

@@ -81,7 +81,7 @@ public class Masker {
     private static final Pattern HL7_LONG_VALUE = Pattern.compile("[^|^~&\\r\\n]{" + (HL7_MAX_TEXT + 1) + ",}");
 
     /** HL7 v2 as OIE XML: a leaf element such as <OBX.5.1> with more than {@link #HL7_MAX_TEXT} characters of text. */
-    private static final Pattern HL7_XML_LONG = Pattern.compile("(<([A-Z][A-Z0-9]{2}\\.\\d+(?:\\.\\d+)*)>)([^<]{" + (HL7_MAX_TEXT + 1) + ",})(</\\2>)");
+    private static final Pattern HL7_XML_LONG = Pattern.compile("(<([A-Z][A-Z0-9]{2}\\.[1-9]\\d*(?:\\.[1-9]\\d*)*)>)([^<]{" + (HL7_MAX_TEXT + 1) + ",})(</\\2>)");
 
     private static final Pattern NINE_DIGITS = Pattern.compile("(?<!\\d)\\d{9}(?!\\d)");
 
