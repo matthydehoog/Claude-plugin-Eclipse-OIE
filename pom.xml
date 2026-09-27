@@ -6,7 +6,7 @@
 
   <groupId>com.matthy.oie</groupId>
   <artifactId>claude-assistant</artifactId>
-  <version>0.5.0</version>
+  <version>0.6.1</version>
   <packaging>jar</packaging>
 
   <name>OIE Claude Assistant</name>
@@ -124,6 +124,13 @@
       <scope>provided</scope>
     </dependency>
 
+    <!-- OIE model classes (Rule, Step) need it at runtime; the engine provides it -->
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.14.0</version>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>

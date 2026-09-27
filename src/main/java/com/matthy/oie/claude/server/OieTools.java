@@ -32,11 +32,16 @@ import com.mirth.connect.donkey.model.message.RawMessage;
 import com.mirth.connect.donkey.model.message.Status;
 import com.mirth.connect.donkey.server.channel.DispatchResult;
 import com.mirth.connect.model.Channel;
+import com.mirth.connect.model.ChannelMetadata;
+import com.mirth.connect.model.ChannelTag;
 import com.mirth.connect.model.Connector;
 import com.mirth.connect.model.DashboardStatus;
 import com.mirth.connect.model.FilterTransformerElement;
+import com.mirth.connect.model.Rule;
 import com.mirth.connect.model.ServerEvent;
 import com.mirth.connect.model.ServerEventContext;
+import com.mirth.connect.model.Step;
+import com.mirth.connect.model.Transformer;
 import com.mirth.connect.model.codetemplates.CodeTemplate;
 import com.mirth.connect.model.codetemplates.CodeTemplateLibrary;
 import com.mirth.connect.model.converters.ObjectXMLSerializer;
@@ -96,7 +101,10 @@ public class OieTools {
             Map.entry("oie_reprocess_message", "reprocessMessage"),
             Map.entry("oie_send_message", "processMessages"),
             Map.entry("oie_update_channel_script", "updateChannel"),
-            Map.entry("oie_update_global_script", "setGlobalScripts"));
+            Map.entry("oie_update_global_script", "setGlobalScripts"),
+            Map.entry("oie_update_filter", "updateChannel"),
+            Map.entry("oie_update_transformer", "updateChannel"),
+            Map.entry("oie_create_channel", "createChannel"));
 
     /** A tool as offered to Claude. */
     public static final class Spec {
@@ -641,6 +649,189 @@ public class OieTools {
                 "metaDataId", integer("Connector (0 = source), only for filter_rule/transformer_step/response_transformer_step"),
                 "index", integer("Position of the rule/step (from 0), only for filter_rule/transformer_step/response_transformer_step"),
                 "script", str("The complete new script")), this::prepareScriptUpdate, "channel", "scriptType", "script");
+
+        action("oie_update_filter", "Replaces the filter rules of one connector with a new list: add, change, remove or reorder rules of any type. "
+                + "Give the complete new list in OIE channel XML, in order, as in oie_get_channel: <elements> with for example "
+                + "<com.mirth.connect.plugins.rulebuilder.RuleBuilderRule version=\"...\"> (name, sequenceNumber, enabled, operator AND/OR/NONE, field, condition EXISTS/NOT_EXIST/EQUALS/NOT_EQUAL/CONTAINS/NOT_CONTAIN, values of <string>), "
+                + "<com.mirth.connect.plugins.javascriptrule.JavaScriptRule> (name, sequenceNumber, enabled, operator, script), "
+                + "<com.mirth.connect.plugins.scriptfilerule.ExternalScriptRule> (scriptPath) or <com.mirth.connect.model.IteratorRule>. "
+                + "Copy unchanged rules exactly. <elements/> removes all rules. Saves the channel but does not deploy it. Requires approval.", props(
+                "channel", str("Channel ID (UUID) or channel name"),
+                "metaDataId", integer("Connector: 0 = source, 1..n = destination"),
+                "elements", str("The complete new list of filter rules as OIE XML (<elements>...</elements>)")),
+                in -> prepareElementsUpdate(in, false, false), "channel", "metaDataId", "elements");
+
+        action("oie_update_transformer", "Replaces the transformer steps (or response transformer steps) of one connector with a new list: add, change, remove or reorder steps of any type. "
+                + "Give the complete new list in OIE channel XML, in order, as in oie_get_channel: <elements> with for example "
+                + "<com.mirth.connect.plugins.mapper.MapperStep version=\"...\"> (name, sequenceNumber, enabled, variable, mapping, defaultValue, replacements, scope CONNECTOR/CHANNEL/GLOBAL_CHANNEL/GLOBAL/RESPONSE), "
+                + "<com.mirth.connect.plugins.messagebuilder.MessageBuilderStep> (messageSegment, mapping, defaultValue, replacements), "
+                + "<com.mirth.connect.plugins.javascriptstep.JavaScriptStep> (script), <com.mirth.connect.plugins.xsltstep.XsltStep>, "
+                + "<com.mirth.connect.plugins.destinationsetfilter.DestinationSetFilterStep> or <com.mirth.connect.model.IteratorStep>. "
+                + "Copy unchanged steps exactly. <elements/> removes all steps. Data types and templates stay as they are. Saves the channel but does not deploy it. Requires approval.", props(
+                "channel", str("Channel ID (UUID) or channel name"),
+                "metaDataId", integer("Connector: 0 = source, 1..n = destination"),
+                "response", bool("true = the response transformer of a destination (default false)"),
+                "elements", str("The complete new list of transformer steps as OIE XML (<elements>...</elements>)")),
+                in -> prepareElementsUpdate(in, true, in.path("response").asBoolean(false)), "channel", "metaDataId", "elements");
+
+        action("oie_create_channel", "Creates a new channel from complete OIE channel XML, in the format oie_get_channel returns (root <channel version=\"...\">, "
+                + "sourceConnector, destinationConnectors, filters, transformers, data types, scripts). To clone a channel, fetch it with oie_get_channel, change it and give a new name. "
+                + "The channel gets a new ID and is created disabled and undeployed. Passwords and other credentials are left empty for the user to fill in. Requires approval.", props(
+                "channel", str("The complete channel XML")), this::prepareCreateChannel, "channel");
+    }
+
+    private PreparedAction prepareElementsUpdate(JsonNode in, boolean transformer, boolean response) throws Exception {
+        Channel current = channel(in);
+        int metaDataId = in.path("metaDataId").asInt(-1);
+        String elementsXml = in.path("elements").asText("");
+
+        ObjectXMLSerializer serializer = ObjectXMLSerializer.getInstance();
+        Channel copy = serializer.deserialize(serializer.serialize(current), Channel.class);
+        Connector connector = connectors(copy).stream().filter(c -> c.getMetaDataId() == metaDataId).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Connector with metaDataId " + metaDataId + " does not exist in '" + current.getName() + "'."));
+        if (response && metaDataId == 0) {
+            throw new IllegalArgumentException("The source connector has no response transformer; use a destination (metaDataId 1..n).");
+        }
+
+        List<FilterTransformerElement> parsed;
+        try {
+            parsed = serializer.deserializeList(ChannelEditor.elementList(elementsXml, serializer.getNormalizedVersion()), FilterTransformerElement.class);
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("OIE cannot read the elements: " + e.getMessage() + ". Use the XML format of oie_get_channel, with the full class name as element name.");
+        }
+        for (FilterTransformerElement element : parsed) {
+            if (element == null) {
+                throw new IllegalArgumentException("OIE cannot read one of the elements. Use the XML format of oie_get_channel, with the full class name as element name.");
+            }
+            boolean fits = transformer ? element instanceof Step : element instanceof Rule;
+            if (!fits) {
+                throw new IllegalArgumentException("'" + element.getName() + "' (" + element.getClass().getSimpleName() + ") is a " + (transformer ? "filter rule; a transformer takes steps" : "transformer step; a filter takes rules") + ".");
+            }
+        }
+        for (int i = 0; i < parsed.size(); i++) {
+            parsed.get(i).setSequenceNumber(String.valueOf(i));
+        }
+
+        String what;
+        List<? extends FilterTransformerElement> old;
+        Runnable apply;
+        if (!transformer) {
+            what = "filter";
+            old = connector.getFilter().getElements();
+            List<Rule> rules = new ArrayList<>();
+            parsed.forEach(e -> rules.add((Rule) e));
+            apply = () -> connector.getFilter().setElements(rules);
+        } else {
+            Transformer target = response ? connector.getResponseTransformer() : connector.getTransformer();
+            if (target == null) {
+                throw new IllegalArgumentException("Connector '" + connector.getName() + "' has no " + (response ? "response transformer" : "transformer") + ".");
+            }
+            what = response ? "response transformer" : "transformer";
+            old = target.getElements();
+            List<Step> steps = new ArrayList<>();
+            parsed.forEach(e -> steps.add((Step) e));
+            apply = () -> target.setElements(steps);
+        }
+
+        // What each new or changed element does, as the JavaScript OIE generates from it.
+        Set<String> oldXml = new HashSet<>();
+        for (FilterTransformerElement e : old) {
+            oldXml.add(withoutSequence(serializer.serialize(e)));
+        }
+        StringBuilder changed = new StringBuilder();
+        boolean suspicious = false;
+        for (int i = 0; i < parsed.size(); i++) {
+            String xml = serializer.serialize(parsed.get(i));
+            if (!oldXml.contains(withoutSequence(xml))) {
+                changed.append("--- ").append(i).append(". [").append(parsed.get(i).getType()).append("] '").append(parsed.get(i).getName()).append("'\n")
+                        .append(ChannelEditor.script(parsed.get(i))).append("\n\n");
+                suspicious |= xml.contains(Masker.MASK);
+            }
+        }
+
+        String location = what + " of connector " + metaDataId + " '" + connector.getName() + "'";
+        String detail = "Channel '" + current.getName() + "', " + location + ".\n"
+                + (suspicious ? "WARNING: a new or changed element contains '" + Masker.MASK + "'. Claude saw the channel masked; check that no real value is lost.\n" : "")
+                + "The channel is saved (new revision) but not deployed. If you have this channel open in the editor, reload it afterwards.\n\n"
+                + "Current " + what + ":\n" + ChannelEditor.describe(old) + "\nNew " + what + ":\n" + ChannelEditor.describe(parsed)
+                + (changed.length() == 0 ? "\nNo element is new or changed (only the order or the removals differ).\n" : "\nNew or changed elements, as the script OIE runs:\n\n" + changed.toString().trim());
+        int revision = current.getRevision();
+        return new PreparedAction(transformer ? "Change transformer" : "Change filter", detail, ctx -> {
+            String notSaved = save(copy, revision, ctx, apply);
+            return notSaved != null ? notSaved : "The " + location + " of '" + current.getName() + "' has been saved (new revision). Deploy the channel to activate the change.";
+        });
+    }
+
+    private static String withoutSequence(String xml) {
+        return xml.replaceAll("<sequenceNumber>[^<]*</sequenceNumber>", "");
+    }
+
+    private PreparedAction prepareCreateChannel(JsonNode in) throws Exception {
+        ObjectXMLSerializer serializer = ObjectXMLSerializer.getInstance();
+        List<String> cleared = new ArrayList<>();
+        String xml = ChannelEditor.clearCredentials(ChannelEditor.channel(text(in, "channel"), serializer.getNormalizedVersion()), cleared);
+        Channel channel;
+        try {
+            channel = serializer.deserialize(xml, Channel.class);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("OIE cannot read the channel: " + e.getMessage() + ". Use the XML format of oie_get_channel.");
+        }
+        if (channel == null || channel.getSourceConnector() == null) {
+            throw new IllegalArgumentException("The channel has no source connector. Use the XML format of oie_get_channel.");
+        }
+        String name = channel.getName() == null ? "" : channel.getName().trim();
+        if (name.isEmpty()) {
+            throw new IllegalArgumentException("The channel needs a name.");
+        }
+        for (Channel existing : channelController.getChannels(null)) {
+            if (existing.getName().equalsIgnoreCase(name)) {
+                throw new IllegalArgumentException("A channel named '" + existing.getName() + "' already exists; choose another name.");
+            }
+        }
+        channel.setName(name);
+        channel.setId(java.util.UUID.randomUUID().toString());
+        channel.setRevision(0);
+        channel.clearExportData();
+        // Without explicit metadata OIE would store its default: enabled.
+        ChannelMetadata metadata = new ChannelMetadata();
+        metadata.setEnabled(false);
+        metadata.setLastModified(Calendar.getInstance());
+        channel.getExportData().setMetadata(metadata);
+
+        StringBuilder detail = new StringBuilder("Create channel '").append(name).append("' (new ID ").append(channel.getId()).append("), disabled and not deployed.\n");
+        if (!cleared.isEmpty()) {
+            detail.append("Left empty for you to fill in: ").append(String.join(", ", cleared)).append(".\n");
+        }
+        if (xml.contains(Masker.MASK)) {
+            detail.append("WARNING: the channel contains '").append(Masker.MASK).append("'. Claude saw the channel it copied masked; check the settings that show it.\n");
+        }
+        for (Connector c : connectors(channel)) {
+            detail.append("\n").append(c.getMetaDataId() == 0 ? "Source" : "Destination " + c.getMetaDataId()).append(": '").append(c.getName()).append("', ").append(c.getTransportName());
+            if (c.getTransformer() != null) {
+                detail.append(", data types ").append(c.getTransformer().getInboundDataType()).append(" -> ").append(c.getTransformer().getOutboundDataType());
+            }
+            detail.append("\n  Filter:\n").append(indent(ChannelEditor.describe(c.getFilter() == null ? null : c.getFilter().getElements())))
+                    .append("  Transformer:\n").append(indent(ChannelEditor.describe(c.getTransformer() == null ? null : c.getTransformer().getElements())));
+        }
+        return new PreparedAction("Create channel", detail.toString().trim(), ctx -> {
+            for (Channel existing : channelController.getChannels(null)) {
+                if (existing.getName().equalsIgnoreCase(name)) {
+                    return "Not created: a channel named '" + existing.getName() + "' was created in the meantime.";
+                }
+            }
+            if (!channelController.updateChannel(channel, ctx, false, Calendar.getInstance())) {
+                return "Not created: OIE did not accept the channel.";
+            }
+            return "Channel '" + name + "' has been created (ID " + channel.getId() + "), disabled and not deployed."
+                    + (cleared.isEmpty() ? "" : " The user must fill in: " + String.join(", ", cleared) + ".")
+                    + " Enable and deploy it in the Administrator when it is ready.";
+        });
+    }
+
+    private static String indent(String lines) {
+        return lines.replaceAll("(?m)^", "  ");
     }
 
     private interface ChannelTask {
@@ -750,14 +941,48 @@ public class OieTools {
                 + "--- current script\n" + (oldScript == null ? "" : oldScript) + "\n\n+++ new script\n" + script;
         int revision = current.getRevision();
         return new PreparedAction("Change script", detail, ctx -> {
-            Channel latest = channelController.getChannelById(current.getId());
+            String notSaved = save(copy, revision, ctx, () -> apply.apply(copy));
+            return notSaved != null ? notSaved : "Script saved in channel '" + current.getName() + "' (new revision). Deploy the channel to activate the change.";
+        });
+    }
+
+    /**
+     * Saves a changed copy of an existing channel if it is still at the revision Claude read.
+     * The check and the save hold the channel controller's lock (its methods synchronize on it),
+     * so nobody can save in between; OIE's own edit-date check is then not needed.
+     * The stored metadata (enabled, pruning settings) and the channel's tags travel along, as the
+     * Administrator sends them; without them OIE would reset them to defaults.
+     *
+     * @return null when saved, else why not
+     */
+    private String save(Channel copy, int revision, ServerEventContext ctx, Runnable apply) throws Exception {
+        synchronized (channelController) {
+            Channel latest = channelController.getChannelById(copy.getId());
             if (latest == null || latest.getRevision() != revision) {
                 return "Not saved: the channel has changed in the meantime (revision " + (latest == null ? "?" : latest.getRevision()) + " instead of " + revision + "). Fetch the channel again.";
             }
-            apply.apply(copy);
-            boolean saved = channelController.updateChannel(copy, ctx, false, Calendar.getInstance());
-            return saved ? "Script saved in channel '" + current.getName() + "' (new revision). Deploy the channel to activate the change." : "Not saved: someone else changed the channel in the meantime.";
-        });
+            apply.run();
+            keepMetadataAndTags(copy);
+            if (!channelController.updateChannel(copy, ctx, true, Calendar.getInstance())) {
+                return "Not saved: OIE did not accept the change.";
+            }
+            return null;
+        }
+    }
+
+    private void keepMetadataAndTags(Channel channel) {
+        ChannelMetadata stored = configurationController.getChannelMetadata().get(channel.getId());
+        ObjectXMLSerializer serializer = ObjectXMLSerializer.getInstance();
+        ChannelMetadata metadata = stored == null ? new ChannelMetadata() : serializer.deserialize(serializer.serialize(stored), ChannelMetadata.class);
+        metadata.setLastModified(Calendar.getInstance());
+        channel.getExportData().setMetadata(metadata);
+        List<ChannelTag> tags = new ArrayList<>();
+        for (ChannelTag tag : configurationController.getChannelTags()) {
+            if (tag.getChannelIds() != null && tag.getChannelIds().contains(channel.getId())) {
+                tags.add(tag);
+            }
+        }
+        channel.getExportData().setChannelTags(tags);
     }
 
     // ------------------------------------------------------------------ helpers

@@ -1,8 +1,8 @@
 # Claude Assistant for OIE — User Manual
 
-Version 0.5.0 · September 2026
+Version 0.6.1 · September 2026
 
-The Claude Assistant (version 0.5.0) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
+The Claude Assistant (version 0.6.1) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
 
 ## Contents
 
@@ -177,8 +177,15 @@ The dialog shows exactly what will happen. For a script change it shows the new 
 | Send message | Sends a raw message to a deployed channel, for example to test a fix |
 | Update channel script | Replaces a deploy, undeploy, pre/postprocessor script, JavaScript filter rule or transformer step |
 | Update global script | Replaces a global deploy, undeploy, preprocessor or postprocessor script |
+| Change filter | Adds, changes, removes or reorders the filter rules of a connector, of any type (Rule Builder, JavaScript, External Script, Iterator) |
+| Change transformer | The same for the transformer steps of a connector (Mapper, Message Builder, JavaScript, XSLT, Destination Set Filter, Iterator), or for a destination's response transformer |
+| Create channel | Creates a new channel from a description, or a copy of an existing channel with changes |
 
-**Script changes** save the channel as a new revision but do not deploy it. Deploy separately when you are ready. If someone changed the channel in the meantime, nothing is saved.
+**Script, filter and transformer changes** save the channel as a new revision but do not deploy it. Deploy separately when you are ready. If someone changed the channel in the meantime, nothing is saved.
+
+For a **filter or transformer change** the dialog lists the current and the new rules or steps, in order, with their type and name, and shows for every new or changed element the JavaScript OIE generates from it. That script tells you what a Mapper or Rule Builder element really does. Claude prefers Mapper, Message Builder and Rule Builder elements where they fit, so you can edit them later without code.
+
+A **new channel** is created disabled and not deployed, with a new ID. The dialog lists every connector with its type, data types, filter rules and transformer steps, exactly as OIE read them; check that nothing is missing. Passwords and other credentials are always left empty: fill them in in the channel editor, then enable and deploy the channel.
 
 **Audit:** every executed action is logged under *Events* as `Claude Assistant: <action>`, in the name of the user who approved it.
 
@@ -269,6 +276,8 @@ Claude only gets what you could see or do yourself in OIE. Every tool checks you
 | Send message | Process Messages |
 | Update channel script | Manage Channels |
 | Update global script | Edit Global Scripts |
+| Change filter / transformer | Manage Channels |
+| Create channel | Manage Channels |
 
 If you lack a permission, Claude skips that tool and tells you which permission is missing. An action is checked again when you approve it. Without the RBAC extension, OIE gives every user every permission, and so does the assistant.
 

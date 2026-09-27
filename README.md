@@ -50,9 +50,12 @@ templates and the keys of the Configuration Map (never the values).
 **Actions** (only after clicking *Run* in an approval dialog): deploy/undeploy a channel,
 start/stop/pause/resume, reset statistics, reprocess a message, send a message to a channel and
 change a JavaScript script (deploy/undeploy/pre/postprocessor, filter rule or transformer step) or a
-global script.
-A script change saves the channel with a new revision but does not deploy it; if the channel
-changed in the meantime, nothing is saved. Every executed action is written to the audit log as
+global script, change the filter rules or transformer steps of a connector (any type: Mapper, Message
+Builder, Rule Builder, Iterator, XSLT, ...) and create a new channel (or a changed copy of one).
+A script, filter or transformer change saves the channel with a new revision but does not deploy it;
+if the channel changed in the meantime, nothing is saved. The approval dialog shows the current and
+new rules or steps, and the script OIE generates for each new one. A new channel is created disabled
+and undeployed, with credentials left empty for you to fill in. Every executed action is written to the audit log as
 event `Claude Assistant: …`, in the name of the user who approved it.
 
 ## Privacy
