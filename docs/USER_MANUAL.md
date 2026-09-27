@@ -181,7 +181,7 @@ The dialog shows exactly what will happen. For a script change it shows the new 
 | Change transformer | The same for the transformer steps of a connector (Mapper, Message Builder, JavaScript, XSLT, Destination Set Filter, Iterator), or for a destination's response transformer |
 | Create channel | Creates a new channel from a description, or a copy of an existing channel with changes |
 
-**Script, filter and transformer changes** save the channel as a new revision but do not deploy it. Deploy separately when you are ready. If someone changed the channel in the meantime, nothing is saved.
+**Script, filter and transformer changes** save the channel as a new revision but do not deploy it. Deploy separately when you are ready. If someone changed the channel in the meantime, nothing is saved. The channel's settings outside the change (enabled or disabled, message pruning, tags) stay as they are.
 
 For a **filter or transformer change** the dialog lists the current and the new rules or steps, in order, with their type and name, and shows for every new or changed element the JavaScript OIE generates from it. That script tells you what a Mapper or Rule Builder element really does. Claude prefers Mapper, Message Builder and Rule Builder elements where they fit, so you can edit them later without code.
 
