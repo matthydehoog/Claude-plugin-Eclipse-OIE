@@ -1,8 +1,8 @@
 # Claude Assistant for OIE — User Manual
 
-Version 0.3.0 · September 2026
+Version 0.4.0 · September 2026
 
-The Claude Assistant (version 0.3.0) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
+The Claude Assistant (version 0.4.0) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
 
 ## Contents
 
@@ -197,6 +197,7 @@ Masked by default:
 - HL7 v2 NTE comments: everything from NTE-3 onwards, however short
 - Every HL7 text value longer than 30 characters, in any segment: free-text notes, report text, base64 documents such as a PDF in OBX-5
 - GDT patient fields 3000–3107 (raw, and XML from the GDT data type plugin)
+- EDIFACT health messages, raw and as XML from the EDIFACT data type plugin. In MEDLAB laboratory messages: the patient's birth date, name and numbers (PID), the patient address and phone (PAD), the doctor's name and address (ART), the names in ARA and KOP, and the sample or request number (IDE). In other health messages (MEDSPE, MEDVRY, MEDEUR, MEDRPT, …): PID and NAD after their qualifier, PNA, ADR, COM, the date of birth (DTM+BTH) and the letter text (FTX). In both, every value longer than 30 characters. The segment tags, qualifiers, sequence numbers (ARA:1) and the results (BEP) stay readable. Trade messages such as ORDERS and INVOIC are not masked
 - 9-digit numbers that pass the eleven-test (Dutch BSN)
 - Credentials in channel configuration: elements named like password, passphrase, secret, token or apiKey
 - Your own regular expressions under *Settings > Claude Assistant > Mask patterns*

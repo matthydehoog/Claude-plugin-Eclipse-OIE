@@ -70,6 +70,10 @@ oie-mcp-server:
 - HL7 v2 NTE comments (NTE-3 onwards) and every HL7 text value longer than 30 characters, such as
   free-text notes or a base64 PDF in OBX-5; shorter coded values stay readable (ER7 and XML)
 - GDT patient fields 3000-3107 (raw and XML from the GDT data type plugin)
+- EDIFACT health messages, raw and XML from the EDIFACT data type plugin: in MEDLAB the patient
+  (PID, PAD), the doctors (ART, ARA, KOP) and the sample number (IDE); in other MED* messages PID,
+  NAD, PNA, ADR, COM, the date of birth and the FTX text; long values in both. Tags, qualifiers and
+  results (BEP) stay readable; trade messages (ORDERS, INVOIC) are not masked
 - 9-digit numbers that pass the eleven-test (Dutch BSN)
 - credentials in channel configuration: elements named like password, passphrase, secret, token or apiKey
 - your own patterns under *Settings > Claude Assistant*

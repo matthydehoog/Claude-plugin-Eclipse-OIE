@@ -43,8 +43,11 @@ public class Masker {
     /** GDT XML as produced by the GDT data type plugin: <F3101 name="Patient name">...</F3101> */
     private static final Pattern GDT_XML = Pattern.compile("(<F(" + GDT_IDS + ")\\b[^>]*>)[\\s\\S]*?(</F\\2>)");
 
-    /** HL7 v2 as OIE XML: a field element such as <PID.5><PID.5.1>...</PID.5.1></PID.5>. */
-    private static final Pattern HL7_XML = Pattern.compile("(<(" + HL7_MASKED_SEGMENTS + ")\\.(\\d+)>)[\\s\\S]*?(</\\2\\.\\3>)");
+    /**
+     * HL7 v2 as OIE XML: a field element such as <PID.5><PID.5.1>...</PID.5.1></PID.5>. HL7 field
+     * numbers have no leading zero; EDIFACT XML (<PID.03>) is left to {@link EdifactMasker}.
+     */
+    private static final Pattern HL7_XML = Pattern.compile("(<(" + HL7_MASKED_SEGMENTS + ")\\.([1-9]\\d*)>)[\\s\\S]*?(</\\2\\.\\3>)");
 
     /**
      * One character of an ER7 segment: anything up to a line break or an XML-encoded one (&amp;#xd;),
@@ -52,8 +55,12 @@ public class Masker {
      */
     private static final String SEGMENT_CHAR = "(?:(?!&#(?:x[dDaA]|1[03]);)[^\\r\\n])";
 
-    /** HL7 v2 ER7 segments with masked fields. Segment separator is \r, \n or both; the field separator follows the segment name. */
-    private static final Pattern HL7_ER7 = Pattern.compile("(^|[\\r\\n])(" + HL7_MASKED_SEGMENTS + ")(.)(" + SEGMENT_CHAR + "*)");
+    /**
+     * HL7 v2 ER7 segments with masked fields. Segment separator is \r, \n or both; the field
+     * separator follows the segment name. It is never a letter, digit or EDIFACT delimiter, so an
+     * EDIFACT segment (PID+...) is left to {@link EdifactMasker}.
+     */
+    private static final Pattern HL7_ER7 = Pattern.compile("(^|[\\r\\n])(" + HL7_MASKED_SEGMENTS + ")([^A-Za-z0-9\\s+:'?])(" + SEGMENT_CHAR + "*)");
 
     /**
      * Text values longer than this are masked in every HL7 segment: free-text notes, report text,
@@ -113,6 +120,7 @@ public class Masker {
         }
         String out = replace(ESCAPED_TEXT, text, m -> ">" + escapeXml(mask(unescapeXml(m.group(1)))) + "<");
         out = CREDENTIAL_XML.matcher(out).replaceAll("$1" + Matcher.quoteReplacement(MASK) + "$3");
+        out = EdifactMasker.mask(out);
         out = maskHl7Er7(out);
         out = HL7_NTE_ER7.matcher(out).replaceAll("$1NTE$2" + Matcher.quoteReplacement(MASK));
         out = replace(HL7_SEGMENT, out, m -> m.group(1) + m.group(2) + HL7_LONG_VALUE.matcher(m.group(3)).replaceAll(Matcher.quoteReplacement(MASK)));
