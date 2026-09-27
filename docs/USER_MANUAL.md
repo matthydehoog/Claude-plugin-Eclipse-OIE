@@ -1,8 +1,8 @@
 # Claude Assistant for OIE — User Manual
 
-Version 0.4.1 · September 2026
+Version 0.5.0 · September 2026
 
-The Claude Assistant (version 0.4.1) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
+The Claude Assistant (version 0.5.0) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
 
 ## Contents
 
@@ -286,7 +286,9 @@ Every question is billed by Anthropic per token on the account of the API key. A
 
 Individual accounts cannot create Admin API keys.
 
-Amounts are in USD since the 1st of the month (UTC). They run up to about 5 minutes behind and are cached for a minute; *Refresh* fetches them again. The Cost API does not always report the current day, so the figure can be lower than the Console's Billing page. The Console is leading.
+Amounts are in USD since the 1st of the month (UTC), today included. They run up to about 5 minutes behind and are cached for a minute; *Refresh* fetches them again, so the figure can trail the Console's Billing page by a few cents. The Console is leading.
+
+**Tokens this month** shows, from the same Admin API key, how many tokens the plugin's API key used since the 1st: new input, input read from the prompt cache (with its share of all input), input written to the cache, and output. If the plugin's key is not found in the organization, the line shows the whole organization. A high cache share means most of each request is billed at the lower cache-read price.
 
 **Credit balance** is not available through any API. Click *Open Billing in Console* to see it.
 
@@ -295,9 +297,13 @@ Amounts are in USD since the 1st of the month (UTC). They run up to about 5 minu
 - Start from *Ask Claude* in the right view, so Claude needs fewer lookups.
 - Use *New conversation* for a new topic; long histories are resent with every question.
 - Lower *Effort* or pick a smaller model for routine questions.
-- Prompt caching is on automatically; repeated context within a few minutes is billed at a lower rate.
+- Prompt caching is on automatically. The system prompt and tool definitions are the same for every question, and each tool call reads the conversation so far from the cache, so only what is new is billed at the full rate. The cache lasts about 5 minutes after its last use.
 
-Each model call writes a usage line (tokens and cache hits) to the OIE server log.
+Each model call writes a usage line (tokens and cache hits) to the OIE server log, and each question a total, for example:
+
+```
+Claude Assistant usage: conversation 3fa1 question, 4 calls: input 1.204 (cache read 18.450, cache write 2.310), output 612 tokens
+```
 
 ## No internet and proxies
 

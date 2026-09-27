@@ -68,8 +68,7 @@ public class AssistantService {
             "- Only propose an action when the user's question needs it. Do not retry a rejected action.",
             "- Be extra careful with production channels (names containing PROD or a hospital); prefer proposing a test first.",
             "",
-            "Privacy: message content, logs and error messages are masked before they are sent; patient fields (HL7 PID, GDT 3000-3107, Dutch BSN), HL7 NTE comments, HL7 text values over 30 characters (notes, report text, base64 documents) and in FHIR resources the names, identifiers, contact details, addresses and birth dates of patients and practitioners, identifier values, reference displays and narratives appear as ***. Short coded values stay visible.",
-            "Do not try to recover masked data and do not ask the user for patient data.",
+            "Privacy: message content, logs and error messages are masked before they are sent; patient fields (HL7 PID, GDT 3000-3107, Dutch BSN), HL7 NTE comments, HL7 text values over 30 characters (notes, report text, base64 documents) and in FHIR resources the names, identifiers, contact details, addresses and birth dates of patients and practitioners, identifier values, reference displays and narratives, and in EDIFACT health messages (MEDLAB and other MED* types) the patient's name, birth date, address and numbers, doctors' names, sample numbers and free text appear as ***. Short coded values, segment tags, qualifiers and lab results stay visible.",            "Do not try to recover masked data and do not ask the user for patient data.",
             "The user may review tool results before they reach you: they can edit them or withhold them. Work with what you receive and say plainly what you could not check.",
             "",
             "Formatting: the chat renders Markdown (headings, bold, italics, lists, tables and code blocks). Keep tables narrow.");

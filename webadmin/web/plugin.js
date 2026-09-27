@@ -579,6 +579,16 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
     };
     const row = (label, control, hint) => e("div", { className: "claude-row" }, e("label", null, label), e("div", null, control, hint ? e("div", { className: "claude-hint" }, hint) : null));
 
+    // e.g. "1.2M input, 18.4M read from the cache (94% of the input), 0.3M written to the cache, 0.2M output (the plugin's API key)"
+    const compact = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "k" : String(n);
+    const tokenLine = (t) => {
+        if (!t) return "–";
+        const total = t.input + t.cacheRead + t.cacheWrite;
+        const share = total ? ` (${Math.round(100 * t.cacheRead / total)}% of the input)` : "";
+        return `${compact(t.input)} input, ${compact(t.cacheRead)} read from the cache${share}, ${compact(t.cacheWrite)} written to the cache, ${compact(t.output)} output`
+            + (t.scope === "pluginKey" ? " (the plugin's API key)" : " (organization)");
+    };
+
     let spendLines;
     if (!status.adminApiKeySet) {
         spendLines = [row("Spend this month:", "–", "Set an Admin API key to show the spend this month.")];
@@ -595,7 +605,8 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
             row("Spend this month:", e("span", { className: "claude-inline" },
                 e("span", { className: "claude-spend" }, `$${d.organizationUsd} (organization, since ${d.monthStart})`),
                 e("button", { className: "btn", onClick: () => loadSpend(true) }, "Refresh")), note),
-            d.workspaceUsd != null ? row("", `of which workspace '${d.workspaceName}' (the plugin's API key): $${d.workspaceUsd}`) : null
+            d.workspaceUsd != null ? row("", `of which workspace '${d.workspaceName}' (the plugin's API key): ${d.workspaceUsd}`) : null,
+            row("Tokens this month:", tokenLine(d.tokens))
         ];
     }
 

@@ -127,6 +127,17 @@ public class SdkModelLoop implements ModelLoop {
 
     private void loop(ChatJob job, String userText) throws Exception {
         State state = state(job.conversation());
+        Usage question = new Usage();
+        try {
+            loop(job, userText, state, question);
+        } finally {
+            if (question.calls > 0) {
+                LOG.info(question.describe(state.id));
+            }
+        }
+    }
+
+    private void loop(ChatJob job, String userText, State state, Usage question) throws Exception {
         List<BetaMessageParam> history = state.messages;
         synchronized (history) {
             history.add(BetaMessageParam.builder().role(BetaMessageParam.Role.USER).content(userText).build());
@@ -138,6 +149,7 @@ public class SdkModelLoop implements ModelLoop {
             BetaMessage response = create(snapshot(history), state.lastMessageId);
             state.lastMessageId = response.id();
             logUsage(state, ++call, response);
+            question.add(response.usage());
             if (job.isCancelled()) {
                 return;
             }
@@ -262,6 +274,37 @@ public class SdkModelLoop implements ModelLoop {
                 .append(", stop ").append(response.stopReason().map(Object::toString).orElse("?"));
         response.diagnostics().flatMap(d -> d.cacheMissReason()).ifPresent(reason -> sb.append(", cache miss: ").append(reason));
         LOG.info(sb.toString());
+    }
+
+    /** Tokens of one question: all API calls it took, tool calls included. */
+    static final class Usage {
+        int calls;
+        long input;
+        long cacheRead;
+        long cacheWrite;
+        long output;
+
+        void add(BetaUsage usage) {
+            add(usage.inputTokens(), usage.cacheReadInputTokens().orElse(0L), usage.cacheCreationInputTokens().orElse(0L), usage.outputTokens());
+        }
+
+        void add(long input, long cacheRead, long cacheWrite, long output) {
+            calls++;
+            this.input += input;
+            this.cacheRead += cacheRead;
+            this.cacheWrite += cacheWrite;
+            this.output += output;
+        }
+
+        /** e.g. "Claude Assistant usage: conversation 3fa1 question, 4 calls: input 1.204 (cache read 18.450, cache write 0), output 612 tokens" */
+        String describe(String conversation) {
+            return "Claude Assistant usage: conversation " + conversation + " question, " + calls + (calls == 1 ? " call" : " calls")
+                    + ": input " + format(input) + " (cache read " + format(cacheRead) + ", cache write " + format(cacheWrite) + "), output " + format(output) + " tokens";
+        }
+
+        private static String format(long n) {
+            return String.format(java.util.Locale.ROOT, "%,d", n).replace(",", ".");
+        }
     }
 
     /** Engine-side state of a conversation, kept on the host-side Conversation as an opaque Object. */

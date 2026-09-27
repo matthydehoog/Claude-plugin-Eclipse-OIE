@@ -128,6 +128,8 @@ Anthropic [Cost API](https://platform.claude.com/docs/en/manage-claude/usage-cos
 optional **Admin API key** (`sk-ant-admin01-…`), which only an organization admin can create in the
 Console (not available for individual accounts). Amounts are in USD since the 1st of the month (UTC),
 run up to about 5 minutes behind and are cached for a minute; *Refresh* fetches them again.
+**Tokens this month** (from the Usage API, same key) shows the plugin key's input, prompt-cache reads
+and writes, and output, so you can see how much of the input the cache serves.
 Viewing spend requires the *Manage Claude Assistant settings* permission.
 
 The organization's **credit balance** is not available through any Anthropic API, so the tab offers

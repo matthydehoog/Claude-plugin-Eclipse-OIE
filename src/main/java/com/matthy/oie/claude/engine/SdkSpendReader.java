@@ -69,6 +69,7 @@ public class SdkSpendReader implements SpendReader {
 
         // Which workspace does the plugin's own key belong to? Matched on the key's redacted hint.
         String workspaceId = null;
+        String pluginKeyId = null;
         boolean defaultWorkspace = false;
         AnthropicClient client = AnthropicOkHttpClient.builder().apiKey(adminKey).baseUrl(baseUrl).timeout(SdkModelLoop.TIMEOUT).maxRetries(SdkModelLoop.MAX_RETRIES).build();
         try {
@@ -76,6 +77,7 @@ public class SdkSpendReader implements SpendReader {
                 for (BetaApiKey key : client.beta().organization().apiKeys().list(ApiKeyListParams.builder().limit(1000L).build()).autoPager()) {
                     if (matches(key.partialKeyHint().orElse(null), pluginApiKey)) {
                         out.put("pluginKeyName", key.name());
+                        pluginKeyId = key.id();
                         if (key.scope().isWorkspace()) {
                             workspaceId = key.scope().workspace().get().workspaceId();
                             // The deprecated top-level workspace_id is null for the default workspace,
@@ -142,7 +144,62 @@ public class SdkSpendReader implements SpendReader {
         if (workspaceId != null) {
             out.put("workspaceUsd", workspaceCents.movePointLeft(2).setScale(2, RoundingMode.HALF_UP).toPlainString());
         }
+
+        // Tokens, to show how much input the prompt cache serves. Optional: the spend stays if this fails.
+        try {
+            out.set("tokens", tokens(baseUrl, adminKey, startingAt, endingAt, pluginKeyId));
+        } catch (Exception e) {
+            LogManager.getLogger(SdkSpendReader.class).warn("Claude Assistant: usage report failed: " + e.getMessage());
+        }
         return out;
+    }
+
+    /** Month-to-date tokens from the usage report: of the plugin's API key if it was found, else of the organization. */
+    private ObjectNode tokens(String baseUrl, String adminKey, String startingAt, String endingAt, String pluginKeyId) throws Exception {
+        long[] totals = new long[4];
+        String page = null;
+        do {
+            String query = "starting_at=" + encode(startingAt) + "&ending_at=" + encode(endingAt) + "&bucket_width=1d&limit=31"
+                    + (pluginKeyId == null ? "" : "&" + encode("api_key_ids[]") + "=" + encode(pluginKeyId))
+                    + (page == null ? "" : "&page=" + encode(page));
+            HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v1/organizations/usage_report/messages?" + query))
+                    .timeout(Duration.ofSeconds(60))
+                    .header("x-api-key", adminKey)
+                    .header("anthropic-version", "2023-06-01")
+                    .header("User-Agent", "OIE-Claude-Assistant")
+                    .GET()
+                    .build();
+            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (response.statusCode() / 100 != 2) {
+                throw new IllegalStateException(describe(response.statusCode(), response.body()));
+            }
+            JsonNode body = MAPPER.readTree(response.body());
+            addUsage(body, totals);
+            page = body.path("has_more").asBoolean(false) ? body.path("next_page").asText(null) : null;
+        } while (page != null);
+
+        ObjectNode tokens = MAPPER.createObjectNode();
+        tokens.put("scope", pluginKeyId == null ? "organization" : "pluginKey");
+        tokens.put("input", totals[0]);
+        tokens.put("cacheRead", totals[1]);
+        tokens.put("cacheWrite", totals[2]);
+        tokens.put("output", totals[3]);
+        LogManager.getLogger(SdkSpendReader.class).info("Claude Assistant tokens this month (" + tokens.path("scope").asText() + "): input " + totals[0]
+                + ", cache read " + totals[1] + ", cache write " + totals[2] + ", output " + totals[3]);
+        return tokens;
+    }
+
+    /** Adds a usage report page to totals: uncached input, cache read, cache write (5 min + 1 h), output. */
+    static void addUsage(JsonNode body, long[] totals) {
+        for (JsonNode bucket : body.path("data")) {
+            for (JsonNode result : bucket.path("results")) {
+                totals[0] += result.path("uncached_input_tokens").asLong(0);
+                totals[1] += result.path("cache_read_input_tokens").asLong(0);
+                JsonNode creation = result.path("cache_creation");
+                totals[2] += creation.path("ephemeral_5m_input_tokens").asLong(0) + creation.path("ephemeral_1h_input_tokens").asLong(0);
+                totals[3] += result.path("output_tokens").asLong(0);
+            }
+        }
     }
 
     private static String encode(String s) {

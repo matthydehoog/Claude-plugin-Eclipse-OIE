@@ -62,6 +62,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     private final JCheckBox clearAdminKey = new JCheckBox("Remove the Admin API key");
     private final JLabel spendOrganization = new JLabel("–");
     private final JLabel spendWorkspace = new JLabel("");
+    private final JLabel spendTokens = new JLabel("");
     private final JLabel spendNote = new JLabel(" ");
     private final JButton refreshSpend = new JButton("Refresh");
     private final JButton openBilling = new JButton("Open Billing in Console");
@@ -116,6 +117,8 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         form.add(leftRow(spendOrganization, refreshSpend), "wrap");
         form.add(new JLabel(""));
         form.add(spendWorkspace, "wrap");
+        form.add(new JLabel("Tokens this month:"));
+        form.add(spendTokens, "wrap");
         form.add(new JLabel("Credits:"));
         form.add(openBilling, "wrap, growx 0");
         form.add(new JLabel(""));
@@ -264,9 +267,11 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         if (spend == null) {
             spendOrganization.setText("–");
             spendWorkspace.setText("");
+            spendTokens.setText("");
             spendNote.setText(problem == null ? " " : "<html>" + Markdown.escape(problem) + "</html>");
             return;
         }
+        spendTokens.setText(tokens(spend.path("tokens")));
         spendOrganization.setText("$" + spend.path("organizationUsd").asText("0.00") + "  (organization, since " + spend.path("monthStart").asText() + ")");
         if (spend.has("workspaceUsd")) {
             spendWorkspace.setText("of which workspace '" + spend.path("workspaceName").asText("?") + "' (the plugin's API key): $" + spend.path("workspaceUsd").asText("0.00"));
@@ -280,6 +285,29 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         } else {
             spendNote.setText("The plugin's API key was not found in this organization, so only the organization total is shown.");
         }
+    }
+
+    /** e.g. "1.2M input + 18.4M from the cache (94%), 0.3M written to the cache, 0.2M output (the plugin's API key)" */
+    static String tokens(JsonNode t) {
+        if (t.isMissingNode() || t.isNull()) {
+            return "–";
+        }
+        long input = t.path("input").asLong();
+        long read = t.path("cacheRead").asLong();
+        long total = input + read + t.path("cacheWrite").asLong();
+        String share = total == 0 ? "" : " (" + Math.round(100.0 * read / total) + "% of the input)";
+        return compact(input) + " input, " + compact(read) + " read from the cache" + share + ", " + compact(t.path("cacheWrite").asLong()) + " written to the cache, "
+                + compact(t.path("output").asLong()) + " output" + ("pluginKey".equals(t.path("scope").asText()) ? " (the plugin's API key)" : " (organization)");
+    }
+
+    static String compact(long n) {
+        if (n >= 1_000_000) {
+            return String.format(java.util.Locale.ROOT, "%.1fM", n / 1_000_000.0);
+        }
+        if (n >= 1_000) {
+            return String.format(java.util.Locale.ROOT, "%.1fk", n / 1_000.0);
+        }
+        return String.valueOf(n);
     }
 
     private static JPanel leftRow(JComponent first, JComponent second) {
