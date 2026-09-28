@@ -80,6 +80,35 @@ public class ClaudeServlet extends MirthServlet implements ClaudeServletInterfac
     }
 
     @Override
+    public String listConversations() {
+        return service().listConversations(getCurrentUserId());
+    }
+
+    @Override
+    public String exportConversation(String conversationId) {
+        try {
+            return service().exportConversation(getCurrentUserId(), conversationId);
+        } catch (IllegalArgumentException e) {
+            throw new MirthApiException(Response.status(Response.Status.NOT_FOUND).entity(e.getMessage()).build());
+        } catch (Exception e) {
+            throw new MirthApiException(e);
+        }
+    }
+
+    @Override
+    public String resumeConversation(String conversationId) {
+        try {
+            return service().resumeConversation(getCurrentUserId(), conversationId);
+        } catch (IllegalArgumentException e) {
+            throw new MirthApiException(Response.status(Response.Status.NOT_FOUND).entity(e.getMessage()).build());
+        } catch (IllegalStateException e) {
+            throw new MirthApiException(Response.status(Response.Status.CONFLICT).entity(e.getMessage()).build());
+        } catch (Exception e) {
+            throw new MirthApiException(e);
+        }
+    }
+
+    @Override
     public String getSettings() {
         ObjectNode out = MAPPER.createObjectNode();
         service().settings().writeTo(out);

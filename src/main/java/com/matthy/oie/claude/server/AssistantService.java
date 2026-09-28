@@ -1,5 +1,8 @@
 package com.matthy.oie.claude.server;
 
+import java.io.File;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -27,6 +30,8 @@ import org.apache.logging.log4j.Logger;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mirth.connect.client.core.Operation;
 import com.mirth.connect.model.ServerEvent;
 import com.mirth.connect.model.ServerEventContext;
@@ -77,6 +82,8 @@ public class AssistantService {
     private final ExecutorService executor = Executors.newCachedThreadPool(daemonThreads("Claude Assistant job"));
     private final ScheduledExecutorService housekeeping = Executors.newSingleThreadScheduledExecutor(daemonThreads("Claude Assistant housekeeping"));
     private final Map<String, Conversation> conversations = new ConcurrentHashMap<>();
+    /** Saved conversations, in the OIE application data folder; only used when Settings.keepConversationsDays > 0. */
+    private volatile ConversationStore store;
     private final Map<String, ChatJob> jobs = new ConcurrentHashMap<>();
 
     private EngineLoader engine;
@@ -235,13 +242,139 @@ public class AssistantService {
                         return;
                     }
                 }
+                conversation.record("question", questionForLog(userText));
                 l.run(job, userText);
             } finally {
                 job.finish(ChatJob.State.DONE); // no-op when the loop already set a final state
                 conversation.lastUsed = System.currentTimeMillis();
+                save(conversation, l);
             }
         }));
         return job;
+    }
+
+    // ------------------------------------------------------------------ saved conversations
+
+    private ConversationStore store() {
+        ConversationStore s = store;
+        if (s == null) {
+            File dir = new File(new File(ControllerFactory.getFactory().createConfigurationController().getApplicationDataDir(), "claude-assistant"), "conversations");
+            s = store = new ConversationStore(dir);
+        }
+        return s;
+    }
+
+    /** Saves the conversation when saving is on; a failure is logged, never shown as a chat error. */
+    private void save(Conversation conversation, ModelLoop l) {
+        if (settings.keepConversationsDays <= 0) {
+            return;
+        }
+        try {
+            store().save(conversation, l.saveHistory(conversation.history()));
+        } catch (Exception e) {
+            logger.warn("Claude Assistant: could not save conversation " + conversation.id, e);
+        }
+    }
+
+    private static final Pattern CONTEXT_LINE = Pattern.compile("^\\[Context from the Administrator: (.*)\\]$");
+
+    /** The question as the user sees it in the log: the header lines become a short context line. */
+    static String questionForLog(String userText) {
+        StringBuilder sb = new StringBuilder();
+        for (String line : userText.split("\\r?\\n", -1)) {
+            if (line.startsWith("[Server time: ")) {
+                continue;
+            }
+            Matcher context = CONTEXT_LINE.matcher(line);
+            sb.append(context.matches() ? "Context: " + context.group(1) : line).append('\n');
+        }
+        return sb.toString().strip();
+    }
+
+    /** The user's conversations: those in memory and, when saving is on, the saved ones. JSON. */
+    public String listConversations(int userId) {
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, ObjectNode> byId = new LinkedHashMap<>();
+        if (settings.keepConversationsDays > 0) {
+            for (ConversationStore.Saved saved : store().list(userId)) {
+                ObjectNode n = mapper.createObjectNode();
+                n.put("id", saved.id).put("title", saved.title).put("lastUsed", saved.lastUsed).put("saved", true);
+                byId.put(saved.id, n);
+            }
+        }
+        for (Conversation c : conversations.values()) {
+            if (c.userId == userId && !c.log().isEmpty()) {
+                ObjectNode n = mapper.createObjectNode();
+                n.put("id", c.id).put("title", c.title()).put("lastUsed", c.lastUsed).put("saved", byId.containsKey(c.id));
+                byId.put(c.id, n);
+            }
+        }
+        List<ObjectNode> list = new ArrayList<>(byId.values());
+        list.sort(Comparator.comparingLong((ObjectNode n) -> n.path("lastUsed").asLong()).reversed());
+        ObjectNode out = mapper.createObjectNode();
+        out.put("keepDays", settings.keepConversationsDays);
+        out.putArray("conversations").addAll(list);
+        return out.toString();
+    }
+
+    /** A conversation as Markdown, from memory or storage. JSON: fileName and markdown. */
+    public String exportConversation(int userId, String conversationId) throws Exception {
+        Conversation c = conversations.get(conversationId);
+        String title;
+        long created;
+        List<Conversation.Entry> log;
+        if (c != null && c.userId == userId) {
+            title = c.title();
+            created = c.created;
+            log = c.log();
+        } else {
+            ConversationStore.Saved saved = settings.keepConversationsDays > 0 ? store().load(userId, conversationId) : null;
+            if (saved == null) {
+                throw new IllegalArgumentException("Conversation not found or expired.");
+            }
+            title = saved.title;
+            created = saved.created;
+            log = saved.log;
+        }
+        String server = ControllerFactory.getFactory().createConfigurationController().getServerName();
+        ObjectNode out = new ObjectMapper().createObjectNode();
+        out.put("fileName", "claude-conversation-" + Instant.ofEpochMilli(created).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmm")) + ".md");
+        out.put("markdown", ConversationStore.markdown(title, server == null || server.isBlank() ? "OIE" : server, created, log));
+        return out.toString();
+    }
+
+    /** Makes a conversation current again (loading it from storage if needed) and returns its log. JSON. */
+    public String resumeConversation(int userId, String conversationId) throws Exception {
+        Conversation c = conversations.get(conversationId);
+        if (c == null || c.userId != userId) {
+            ModelLoop l = loop;
+            ConversationStore.Saved saved = settings.keepConversationsDays > 0 ? store().load(userId, conversationId) : null;
+            if (saved == null) {
+                throw new IllegalArgumentException("Conversation not found or expired.");
+            }
+            if (l == null) {
+                throw new IllegalStateException("The Claude assistant is not configured, so a saved conversation cannot be continued.");
+            }
+            c = new Conversation(saved.id, userId, saved.created);
+            for (Conversation.Entry e : saved.log) {
+                c.record(e.type, e.text);
+            }
+            if (saved.history != null) {
+                c.setHistory(l.loadHistory(saved.history));
+            }
+            Conversation existing = conversations.putIfAbsent(c.id, c);
+            if (existing != null) {
+                c = existing;
+            }
+        }
+        c.lastUsed = System.currentTimeMillis();
+        ObjectNode out = new ObjectMapper().createObjectNode();
+        out.put("conversationId", c.id);
+        ArrayNode log = out.putArray("log");
+        for (Conversation.Entry e : c.log()) {
+            log.addObject().put("type", e.type).put("text", e.text);
+        }
+        return out.toString();
     }
 
     public ChatJob job(String jobId, int userId) {
@@ -496,6 +629,15 @@ public class AssistantService {
             return now - c.lastUsed > CONVERSATION_TTL_MS && (active == null || isFinished(active));
         });
         jobs.values().removeIf(j -> !conversations.containsKey(j.conversation.id) || (isFinished(j) && j.conversation.activeJob != j));
+        // Saved conversations older than the setting go; with saving off, all saved ones go.
+        try {
+            int removed = store().removeOlderThan(settings.keepConversationsDays);
+            if (removed > 0) {
+                logger.info("Claude Assistant: removed " + removed + " saved conversation(s) older than " + settings.keepConversationsDays + " day(s)");
+            }
+        } catch (Exception e) {
+            logger.warn("Claude Assistant: could not clean up saved conversations", e);
+        }
     }
 
     private static ThreadFactory daemonThreads(String name) {

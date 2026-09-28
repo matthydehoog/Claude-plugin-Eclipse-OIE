@@ -1,8 +1,8 @@
 # Claude Assistant for OIE — User Manual
 
-Version 0.6.1 · September 2026
+Version 0.7.1 · September 2026
 
-The Claude Assistant (version 0.6.1) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
+The Claude Assistant (version 0.7.1) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
 
 ## Contents
 
@@ -83,6 +83,7 @@ The key is stored encrypted on the server and never sent back to the Administrat
 | Response language | Automatic | Automatic answers in the language of the question; a fixed language always answers in that language |
 | Review before sending | Message content, logs and events | Which outgoing data you see, can edit and must approve first (see *Review before sending*) |
 | Mask patterns | none | Extra regular expressions to mask, on top of the built-in rules |
+| Keep conversations | 0 days | Days a conversation is saved on the server after its last use, so it can be continued after a restart (see *Conversations: export and continue*); 0 = not saved |
 | Admin API key | none | Optional, only for the spend figures (see *Usage and costs*) |
 
 To get an API key, sign in at [console.anthropic.com](https://console.anthropic.com), open *API keys* and click *Create key*. Copy it straight away: the Console shows it only once.
@@ -108,6 +109,8 @@ The context shows at the top of the chat window. *No context* means Claude looks
 - Claude shows which tools it is using while it works. Long answers can take a minute or more.
 - **Stop** aborts the running question.
 - **New conversation** starts over with an empty history.
+- **Conversations…** lists your earlier conversations; choose one and click *Continue* to pick it up where you left off.
+- **Export…** saves the open conversation as a Markdown file.
 
 The window stays open next to the Administrator, so you can keep working while Claude answers. Unsaved changes in the channel editor are not visible to Claude: save first.
 
@@ -126,7 +129,7 @@ The web administrator gets the same assistant once the **Web Support** extension
 | **Command palette** (Ctrl+K) | *Claude Assistant* and *Ask Claude about Global Scripts* |
 | **Settings**, tab **Claude Assistant** | Same settings and usage as in Swing; save with the page's own *Save* |
 
-A conversation stays open while you move between the Claude page and other views.
+A conversation stays open while you move between the Claude page and other views. The Claude page has the same **Conversations…** and **Export** buttons as the Swing window; *Export* downloads the Markdown file.
 
 The Global Scripts view in the web administrator has no *Ask Claude* action. Use the **Global Scripts** button on the Claude page instead.
 
@@ -243,7 +246,17 @@ Reviewing needs only the *Use Claude Assistant* permission. The reviewed text is
 
 Masking is a safety net, not anonymisation. Send real patient data only with a legal basis and a data processing agreement with Anthropic.
 
-Conversations live only in the OIE server's memory. They are cleared 4 hours after last use and are visible only to the user who started them.
+Conversations are visible only to the user who started them. By default they live only in the OIE server's memory and are cleared 4 hours after last use or when the service restarts. With *Keep conversations* set, they are also saved on the server (see below).
+
+### Conversations: export and continue
+
+**Export** saves a conversation as a Markdown file: every question, the tools Claude used, its answers and the actions you approved. The file contains what Claude received, so patient data appears masked as `***`. Use it to keep an analysis or share it with a colleague.
+
+**Continue later.** *Conversations…* lists your own conversations, most recent first. Without saving that is only the ones still in memory. With *Settings > Claude Assistant > Keep conversations* set to a number of days, each conversation is also saved on the server after every question, and can be continued after a restart of OIE:
+
+- Saved are the questions, answers, tool calls and action results, and the history Claude needs to continue, all exactly as sent to Claude, so masked. Unmasked data is never saved.
+- The files are in the OIE application data folder, under `claude-assistant/conversations/<user ID>/`, one file per conversation. Each user only sees and continues their own.
+- A conversation not used for longer than the setting is removed automatically (checked every 10 minutes). Setting it back to 0 stops saving and removes all saved conversations.
 
 ## Permissions
 
@@ -351,7 +364,7 @@ For anything else, look in *Dashboard > Server Log* for lines starting with `Cla
 
 ## Known limitations
 
-- Conversations are kept in server memory only; a service restart or 4 idle hours clears them.
+- Without *Keep conversations*, a service restart or 4 idle hours clears a conversation; export it first to keep it.
 - Claude sees only saved channel versions, not unsaved edits in the editor.
 - Configuration Map values are never readable, only the keys.
 - Users with channel restrictions cannot use the assistant.

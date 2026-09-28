@@ -29,6 +29,9 @@ public class Settings {
     private static final String KEY_MASK_PATTERNS = "maskPatterns";
     private static final String KEY_RESPONSE_LANGUAGE = "responseLanguage";
     private static final String KEY_REVIEW = "reviewBeforeSending";
+    private static final String KEY_KEEP_DAYS = "keepConversationsDays";
+    /** Longest time saved conversations are kept. */
+    static final int MAX_KEEP_DAYS = 365;
 
     final String apiKey;
     /** Optional Admin API key, only used to read the organization's cost report. */
@@ -41,8 +44,14 @@ public class Settings {
     final String responseLanguage;
     /** Which outgoing data the user sees, can edit and must approve before it goes to Claude: off, data or all. */
     final String reviewBeforeSending;
+    /** Days conversations are saved on the server so they survive a restart; 0 = not saved. */
+    final int keepConversationsDays;
 
     Settings(String apiKey, String adminApiKey, String model, String effort, int maxToolCalls, String maskPatterns, String responseLanguage, String reviewBeforeSending) {
+        this(apiKey, adminApiKey, model, effort, maxToolCalls, maskPatterns, responseLanguage, reviewBeforeSending, 0);
+    }
+
+    Settings(String apiKey, String adminApiKey, String model, String effort, int maxToolCalls, String maskPatterns, String responseLanguage, String reviewBeforeSending, int keepConversationsDays) {
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.adminApiKey = adminApiKey == null ? "" : adminApiKey.trim();
         this.model = blank(model) ? DEFAULT_MODEL : model.trim();
@@ -52,6 +61,7 @@ public class Settings {
         this.responseLanguage = blank(responseLanguage) ? AUTOMATIC_LANGUAGE : responseLanguage.trim();
         String review = blank(reviewBeforeSending) ? REVIEW_DATA : reviewBeforeSending.trim().toLowerCase();
         this.reviewBeforeSending = review.equals(REVIEW_OFF) || review.equals(REVIEW_ALL) ? review : REVIEW_DATA;
+        this.keepConversationsDays = Math.max(0, Math.min(keepConversationsDays, MAX_KEEP_DAYS));
     }
 
     boolean automaticLanguage() {
@@ -68,11 +78,12 @@ public class Settings {
         p.setProperty(KEY_MASK_PATTERNS, "");
         p.setProperty(KEY_RESPONSE_LANGUAGE, AUTOMATIC_LANGUAGE);
         p.setProperty(KEY_REVIEW, REVIEW_DATA);
+        p.setProperty(KEY_KEEP_DAYS, "0");
         return p;
     }
 
     static Settings fromProperties(Properties p, Encryptor encryptor) {
-        return new Settings(decrypt(p.getProperty(KEY_API_KEY, ""), encryptor), decrypt(p.getProperty(KEY_ADMIN_API_KEY, ""), encryptor), p.getProperty(KEY_MODEL), p.getProperty(KEY_EFFORT), parseInt(p.getProperty(KEY_MAX_TOOL_CALLS)), p.getProperty(KEY_MASK_PATTERNS), p.getProperty(KEY_RESPONSE_LANGUAGE), p.getProperty(KEY_REVIEW));
+        return new Settings(decrypt(p.getProperty(KEY_API_KEY, ""), encryptor), decrypt(p.getProperty(KEY_ADMIN_API_KEY, ""), encryptor), p.getProperty(KEY_MODEL), p.getProperty(KEY_EFFORT), parseInt(p.getProperty(KEY_MAX_TOOL_CALLS)), p.getProperty(KEY_MASK_PATTERNS), p.getProperty(KEY_RESPONSE_LANGUAGE), p.getProperty(KEY_REVIEW), parseInt(p.getProperty(KEY_KEEP_DAYS)));
     }
 
     Properties toProperties(Encryptor encryptor) {
@@ -85,6 +96,7 @@ public class Settings {
         p.setProperty(KEY_MASK_PATTERNS, maskPatterns);
         p.setProperty(KEY_RESPONSE_LANGUAGE, responseLanguage);
         p.setProperty(KEY_REVIEW, reviewBeforeSending);
+        p.setProperty(KEY_KEEP_DAYS, String.valueOf(keepConversationsDays));
         return p;
     }
 
@@ -96,7 +108,7 @@ public class Settings {
         String newKey = update.path(KEY_API_KEY).asText("");
         String newAdminKey = update.path(KEY_ADMIN_API_KEY).asText("");
         String admin = update.path("clearAdminApiKey").asBoolean(false) ? "" : newAdminKey.isBlank() ? adminApiKey : newAdminKey;
-        return new Settings(newKey.isBlank() ? apiKey : newKey, admin, update.path(KEY_MODEL).asText(model), update.path(KEY_EFFORT).asText(effort), update.path(KEY_MAX_TOOL_CALLS).asInt(maxToolCalls), update.path(KEY_MASK_PATTERNS).asText(maskPatterns), update.path(KEY_RESPONSE_LANGUAGE).asText(responseLanguage), update.path(KEY_REVIEW).asText(reviewBeforeSending));
+        return new Settings(newKey.isBlank() ? apiKey : newKey, admin, update.path(KEY_MODEL).asText(model), update.path(KEY_EFFORT).asText(effort), update.path(KEY_MAX_TOOL_CALLS).asInt(maxToolCalls), update.path(KEY_MASK_PATTERNS).asText(maskPatterns), update.path(KEY_RESPONSE_LANGUAGE).asText(responseLanguage), update.path(KEY_REVIEW).asText(reviewBeforeSending), update.path(KEY_KEEP_DAYS).asInt(keepConversationsDays));
     }
 
     void writeTo(ObjectNode node) {
@@ -110,6 +122,7 @@ public class Settings {
         node.put(KEY_MASK_PATTERNS, maskPatterns);
         node.put(KEY_RESPONSE_LANGUAGE, responseLanguage);
         node.put(KEY_REVIEW, reviewBeforeSending);
+        node.put(KEY_KEEP_DAYS, keepConversationsDays);
     }
 
     private static String hint(String key) {

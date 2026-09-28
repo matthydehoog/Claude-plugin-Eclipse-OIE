@@ -80,6 +80,7 @@ public class ChatJob {
     /** Event types: text (Claude's answer, markdown), tool (a tool call), action (result of an approved action), info, error. */
     public synchronized void emit(String type, String text) {
         events.add(new Event(events.size() + 1, type, text));
+        conversation.record(type, text);
     }
 
     synchronized State state() {

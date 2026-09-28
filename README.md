@@ -20,7 +20,8 @@ troubleshooting.
 | **Global Scripts** (task + right-click) | *Ask Claude* | the global deploy/undeploy/pre/postprocessor scripts |
 
 The chat window stays open next to the Administrator. Ctrl+Enter sends; *New conversation* starts
-over; *Stop* aborts a running question.
+over; *Stop* aborts a running question. *Export…* saves the conversation as a Markdown file, and
+*Conversations…* continues one of your earlier conversations.
 
 ### Web administrator
 
@@ -88,8 +89,11 @@ Assistant > Review before sending* sets the scope: *Message content, logs and ev
 *Everything, including my question*, or *Off*.
 
 This is a safety net, not anonymisation. Only send real patient data through it if you have a legal
-basis and a data processing agreement with Anthropic. Conversations live only in the server's memory
-(cleared 4 hours after last use) and are only visible to the user who started them.
+basis and a data processing agreement with Anthropic. Conversations are only visible to the user who
+started them. By default they live only in the server's memory (cleared 4 hours after last use or on a
+restart); with *Keep conversations* (days) set, they are also saved in the OIE application data folder
+(`claude-assistant/conversations/`), masked exactly as sent to Claude, so they can be continued after
+a restart. Setting it back to 0 removes the saved ones.
 
 ## Permissions
 

@@ -55,14 +55,17 @@ const CSS = `
 .claude-review { display: block; width: 100%; box-sizing: border-box; height: 50vh; margin: 8px 0 4px; resize: vertical; font-family: var(--font-mono); font-size: 12px; color: var(--text); background: var(--bg1); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 8px; }
 .claude-hint { color: var(--text-faint); font-size: 12px; }
 .claude-settings { padding: 12px 16px; max-width: 760px; }
-.claude-settings .claude-row { display: grid; grid-template-columns: 220px 1fr; gap: 10px; align-items: center; margin: 8px 0; }
-.claude-settings .claude-row > label { text-align: right; color: var(--text-dim); }
+.claude-settings .claude-row { display: grid; grid-template-columns: 220px 1fr; gap: 10px; align-items: start; margin: 8px 0; }
+.claude-settings .claude-row > label { text-align: right; color: var(--text-dim); padding-top: 7px; line-height: 18px; }
+.claude-settings .claude-row > div > .claude-hint { margin-top: 4px; }
+.claude-settings .claude-text-value { padding-top: 7px; line-height: 18px; }
 .claude-settings input[type=password], .claude-settings input[type=text], .claude-settings input[type=number], .claude-settings select, .claude-settings textarea {
   font: inherit; color: var(--text); background: var(--bg1); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 4px 6px; box-sizing: border-box; }
 .claude-settings input[type=password], .claude-settings input[type=text], .claude-settings textarea { width: 100%; }
 .claude-settings .claude-hint { color: var(--text-faint); font-size: 12px; }
 .claude-settings h3 { margin: 18px 0 4px; padding-top: 12px; border-top: 1px solid var(--line); }
 .claude-settings .claude-spend { font-weight: 600; }
+.claude-conversations { width: 100%; font-family: inherit; margin-bottom: 8px; }
 .claude-settings .claude-inline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 `;
 
@@ -318,6 +321,90 @@ const chat = {
         this.notify();
     },
 
+    /** Downloads the conversation as Markdown, as the server has it: what Claude received (masked) and answered. */
+    async exportConversation() {
+        if (!this.conversationId) {
+            this.add("info", "There is no conversation to export yet.");
+            return;
+        }
+        try {
+            const res = await call("GET", "/conversations/" + encodeURIComponent(this.conversationId) + "/export");
+            const blob = new Blob([res.markdown || ""], { type: "text/markdown;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = res.fileName || "claude-conversation.md";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (err) {
+            this.add("error", "Export failed: " + errorText(err));
+        }
+    },
+
+    /** Lists the user's conversations (current and saved) and continues the chosen one. */
+    async chooseConversation() {
+        if (this.jobId) {
+            this.add("info", "Wait until Claude has finished, or click Stop.");
+            return;
+        }
+        let res;
+        try {
+            res = await call("GET", "/conversations");
+        } catch (err) {
+            this.add("error", errorText(err));
+            return;
+        }
+        const list = res.conversations || [];
+        const note = res.keepDays > 0
+            ? "Conversations are saved on the server for " + res.keepDays + " days."
+            : "Conversations are not saved on the server: they are kept for 4 hours and lost on a restart (Settings > Claude Assistant).";
+        const { h, modal } = P.ui;
+        if (list.length === 0) {
+            modal({ title: "Conversations", body: h("div", null, "You have no earlier conversations. " + note), buttons: [{ label: "Close", primary: true, onClick: () => true }] });
+            return;
+        }
+        // A plain DOM select, so its value can be read back whatever the shell's h() returns.
+        const select = document.createElement("select");
+        select.className = "claude-conversations";
+        select.size = Math.min(12, Math.max(4, list.length));
+        for (const c of list) {
+            const option = document.createElement("option");
+            option.value = c.id;
+            option.textContent = new Date(c.lastUsed).toLocaleString() + "   " + c.title + (c.id === this.conversationId ? "   (open)" : "");
+            select.appendChild(option);
+        }
+        select.selectedIndex = 0;
+        const resume = async () => {
+            const id = select.value;
+            if (!id) return true;
+            try {
+                this.showConversation(await call("POST", "/conversations/" + encodeURIComponent(id) + "/resume"));
+            } catch (err) {
+                this.add("error", errorText(err));
+            }
+            return true;
+        };
+        select.ondblclick = () => { resume(); };
+        modal({
+            title: "Conversations",
+            size: "lg",
+            body: h("div", null, select, h("div.claude-hint", null, note)),
+            buttons: [
+                { label: "Cancel", onClick: () => true },
+                { label: "Continue", primary: true, onClick: resume }
+            ]
+        });
+    },
+
+    showConversation(resumed) {
+        this.conversationId = resumed.conversationId;
+        this.entries = (resumed.log || []).map((entry) => ({ kind: entry.type === "question" ? "user" : entry.type, text: entry.text }));
+        this.entries.push({ kind: "info", text: "Continued conversation. Ask your next question." });
+        this.notify();
+    },
+
     askApproval(pending) {
         const jobId = this.jobId;
         const { h, modal } = P.ui;
@@ -461,6 +548,8 @@ function ChatPanel() {
                 onClick: () => c.open(GLOBAL_SCRIPTS_CONTEXT, GLOBAL_SCRIPTS_SUGGESTION)
             }, "Global Scripts"),
             e("button", { className: "btn", disabled: !c.context, onClick: () => c.clearContext() }, "Clear context"),
+            e("button", { className: "btn", title: "Continue one of your earlier conversations", onClick: () => c.chooseConversation() }, "Conversations…"),
+            e("button", { className: "btn", title: "Save this conversation as a Markdown file", disabled: !c.conversationId, onClick: () => c.exportConversation() }, "Export"),
             e("button", { className: "btn", onClick: () => c.newConversation() }, "New conversation")),
         e("div", { className: "claude-transcript", ref: transcriptRef },
             welcome,
@@ -524,7 +613,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
 
     const show = React.useCallback((s) => {
         setStatus(s);
-        setForm({ apiKey: "", adminApiKey: "", clearAdminApiKey: false, model: s.model || MODELS[0], effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic", reviewBeforeSending: s.reviewBeforeSending || "data" });
+        setForm({ apiKey: "", adminApiKey: "", clearAdminApiKey: false, model: s.model || MODELS[0], effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic", reviewBeforeSending: s.reviewBeforeSending || "data", keepConversationsDays: s.keepConversationsDays || 0 });
         clean();
         if (s.adminApiKeySet) loadSpend(false);
         else setSpend({ state: "idle" });
@@ -544,7 +633,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
         const f = formRef.current;
         if (!f) return false;
         try {
-            show(await call("PUT", "/settings", { ...f, maxToolCalls: Number(f.maxToolCalls) || 25 }));
+            show(await call("PUT", "/settings", { ...f, maxToolCalls: Number(f.maxToolCalls) || 25, keepConversationsDays: Math.max(0, Math.min(365, Number(f.keepConversationsDays) || 0)) }));
             setError(null);
             P.ui.toast("Claude Assistant settings saved.", "success");
             return true;
@@ -577,7 +666,9 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
         setForm({ ...form, [key]: ev.target.type === "checkbox" ? ev.target.checked : ev.target.value });
         dirty();
     };
-    const row = (label, control, hint) => e("div", { className: "claude-row" }, e("label", null, label), e("div", null, control, hint ? e("div", { className: "claude-hint" }, hint) : null));
+    // Labels sit level with the first line of their field; plain text gets the same top padding.
+    const row = (label, control, hint) => e("div", { className: "claude-row" }, e("label", null, label),
+        e("div", null, typeof control === "string" ? e("div", { className: "claude-text-value" }, control) : control, hint ? e("div", { className: "claude-hint" }, hint) : null));
 
     // e.g. "1.2M input, 18.4M read from the cache (94% of the input), 0.3M written to the cache, 0.2M output (the plugin's API key)"
     const compact = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? (n / 1e3).toFixed(1) + "k" : String(n);
@@ -605,7 +696,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
             row("Spend this month:", e("span", { className: "claude-inline" },
                 e("span", { className: "claude-spend" }, `$${d.organizationUsd} (organization, since ${d.monthStart})`),
                 e("button", { className: "btn", onClick: () => loadSpend(true) }, "Refresh")), note),
-            d.workspaceUsd != null ? row("", `of which workspace '${d.workspaceName}' (the plugin's API key): ${d.workspaceUsd}`) : null,
+            d.workspaceUsd != null ? row("", `of which workspace '${d.workspaceName}' (the plugin's API key): $${d.workspaceUsd}`) : null,
             row("Tokens this month:", tokenLine(d.tokens))
         ];
     }
@@ -622,6 +713,8 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
         row("Max. tool calls per question:", e("input", { type: "number", min: 1, max: 100, value: form.maxToolCalls, onChange: set("maxToolCalls"), style: { width: 80 } })),
         row("Review before sending:", e("select", { value: form.reviewBeforeSending, onChange: set("reviewBeforeSending") }, REVIEWS.map(([value, label]) => e("option", { key: value, value }, label))),
             "Shows exactly what will be sent to Claude, after masking, so each user can edit it or withhold it first."),
+        row("Keep conversations (days):", e("input", { type: "number", min: 0, max: 365, value: form.keepConversationsDays, onChange: set("keepConversationsDays"), style: { width: 80 } }),
+            "Days a conversation is kept on the server after its last use, so it can be continued after a restart of OIE (Conversations…). Only what was sent to Claude is kept, so masked. 0 = not saved: conversations are gone 4 hours after their last use or on a restart, and saved ones are removed."),
         row("Extra mask patterns:", e("textarea", { rows: 4, value: form.maskPatterns, onChange: set("maskPatterns") }),
             "Regular expressions, separated by ;; . They are masked in addition to the built-in rules (HL7 PID, NTE and text over 30 characters, GDT 3000-3107, BSN). The API keys are stored encrypted on the server and never sent back to the Administrator. Leave a key field empty to keep the current key."),
         e("h3", null, "Usage"),

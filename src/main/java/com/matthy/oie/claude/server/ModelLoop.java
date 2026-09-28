@@ -12,6 +12,12 @@ public interface ModelLoop extends AutoCloseable {
     @Override
     void close();
 
+    /** A conversation's history as JSON, for saving it; null when there is none yet. */
+    String saveHistory(Object history) throws Exception;
+
+    /** The history object for a saved conversation, from {@link #saveHistory}. */
+    Object loadHistory(String json) throws Exception;
+
     /** Runs a tool on the host side and returns the text for Claude. Throws to report a tool error. */
     interface ToolCaller {
         String call(ChatJob job, String name, String inputJson) throws Exception;

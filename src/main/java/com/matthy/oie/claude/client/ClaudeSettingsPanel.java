@@ -55,6 +55,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     private final JComboBox<String> languageBox = new JComboBox<>(LANGUAGE_LABELS);
     private final JSpinner maxToolCalls = new JSpinner(new SpinnerNumberModel(25, 1, 100, 1));
     private final JComboBox<String> reviewBox = new JComboBox<>(REVIEW_LABELS);
+    private final JSpinner keepDays = new JSpinner(new SpinnerNumberModel(0, 0, 365, 1));
     private final JTextArea maskPatterns = new JTextArea(4, 50);
 
     private final JPasswordField adminKeyField = new JPasswordField(40);
@@ -98,6 +99,10 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         form.add(reviewBox, "wrap, w 360!");
         form.add(new JLabel(""));
         form.add(new JLabel("<html>Shows exactly what will be sent to Claude, after masking, so each user can edit it or withhold it first.</html>"), "wrap, w 600!");
+        form.add(new JLabel("Keep conversations (days):"));
+        form.add(keepDays, "wrap, w 80!");
+        form.add(new JLabel(""));
+        form.add(new JLabel("<html>Days a conversation is kept on the server after its last use, so it can be continued after a restart of OIE (Conversations…). Only what was sent to Claude is kept, so masked. 0 = not saved: conversations are gone 4 hours after their last use or on a restart, and saved ones are removed.</html>"), "wrap, w 600!");
         form.add(new JLabel("Extra mask patterns:"), "top");
         form.add(new JScrollPane(maskPatterns), "wrap, growx, h 80!");
         form.add(new JLabel(""));
@@ -142,6 +147,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         languageBox.addActionListener(e -> markChanged());
         maxToolCalls.addChangeListener(e -> markChanged());
         reviewBox.addActionListener(e -> markChanged());
+        keepDays.addChangeListener(e -> markChanged());
         clearAdminKey.addActionListener(e -> markChanged());
         refreshSpend.addActionListener(e -> loadSpend(true));
         openBilling.addActionListener(e -> openBilling());
@@ -189,6 +195,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         body.put("responseLanguage", LANGUAGES[Math.max(0, languageBox.getSelectedIndex())]);
         body.put("maxToolCalls", (Integer) maxToolCalls.getValue());
         body.put("reviewBeforeSending", REVIEWS[Math.max(0, reviewBox.getSelectedIndex())]);
+        body.put("keepConversationsDays", (Integer) keepDays.getValue());
         body.put("maskPatterns", maskPatterns.getText().trim());
 
         final String workingId = getFrame().startWorking("Saving " + getTabName() + " settings...");
@@ -228,6 +235,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
             languageBox.setSelectedIndex(Math.max(0, java.util.Arrays.asList(LANGUAGES).indexOf(s.path("responseLanguage").asText("Automatic"))));
             maxToolCalls.setValue(s.path("maxToolCalls").asInt(25));
             reviewBox.setSelectedIndex(Math.max(0, java.util.Arrays.asList(REVIEWS).indexOf(s.path("reviewBeforeSending").asText("data"))));
+            keepDays.setValue(Math.max(0, Math.min(365, s.path("keepConversationsDays").asInt(0))));
             maskPatterns.setText(s.path("maskPatterns").asText(""));
             setSaveEnabled(false);
         } finally {

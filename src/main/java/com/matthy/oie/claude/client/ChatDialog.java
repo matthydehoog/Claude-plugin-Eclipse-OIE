@@ -7,6 +7,13 @@ import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -16,8 +23,10 @@ import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JEditorPane;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -47,6 +56,8 @@ class ChatDialog extends JDialog {
     private final JButton stopButton = new JButton("Stop");
     private final JButton newButton = new JButton("New conversation");
     private final JButton clearContextButton = new JButton("Clear context");
+    private final JButton exportButton = new JButton("Export…");
+    private final JButton conversationsButton = new JButton("Conversations…");
     private final Timer pollTimer = new Timer(POLL_MS, e -> poll());
 
     /** HTML fragments of the transcript, in order. */
@@ -94,6 +105,8 @@ class ChatDialog extends JDialog {
         top.add(contextLabel, BorderLayout.CENTER);
         JPanel topButtons = new JPanel();
         topButtons.add(clearContextButton);
+        topButtons.add(conversationsButton);
+        topButtons.add(exportButton);
         topButtons.add(newButton);
         top.add(topButtons, BorderLayout.EAST);
 
@@ -127,6 +140,10 @@ class ChatDialog extends JDialog {
         stopButton.addActionListener(e -> stop());
         newButton.addActionListener(e -> newConversation());
         clearContextButton.addActionListener(e -> setContext(null));
+        exportButton.setToolTipText("Save this conversation as a Markdown file");
+        exportButton.addActionListener(e -> exportConversation());
+        conversationsButton.setToolTipText("Continue one of your earlier conversations");
+        conversationsButton.addActionListener(e -> chooseConversation());
         setContext(null);
         setBusy(false);
     }
@@ -164,6 +181,99 @@ class ChatDialog extends JDialog {
         }
         conversationId = null;
         showWelcome();
+    }
+
+    /** Saves the conversation as Markdown, as the server has it: what Claude received (masked) and answered. */
+    private void exportConversation() {
+        String id = conversationId;
+        if (id == null) {
+            JOptionPane.showMessageDialog(this, "There is no conversation to export yet.", "Export conversation", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        background(() -> ClaudeApi.exportConversation(id), result -> {
+            JFileChooser chooser = new JFileChooser();
+            chooser.setDialogTitle("Export conversation");
+            chooser.setSelectedFile(new File(result.path("fileName").asText("claude-conversation.md")));
+            if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+                return;
+            }
+            File file = chooser.getSelectedFile();
+            if (file.exists() && JOptionPane.showConfirmDialog(this, file.getName() + " already exists. Replace it?", "Export conversation", JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) {
+                return;
+            }
+            try {
+                Files.write(file.toPath(), result.path("markdown").asText().getBytes(StandardCharsets.UTF_8));
+                statusLabel.setText("Exported to " + file.getName());
+            } catch (IOException e) {
+                add("<div class=\"error\">Export failed: " + Markdown.escape(String.valueOf(e.getMessage())) + "</div>");
+            }
+        }, error -> add("<div class=\"error\">Export failed: " + Markdown.escape(error) + "</div>"));
+    }
+
+    /** Lists the user's conversations (current and saved) and continues the chosen one. */
+    private void chooseConversation() {
+        if (jobId != null) {
+            JOptionPane.showMessageDialog(this, "Wait until Claude has finished, or click Stop.", "Conversations", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        background(ClaudeApi::conversations, result -> {
+            List<String> ids = new ArrayList<>();
+            List<String> labels = new ArrayList<>();
+            DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            for (JsonNode c : result.path("conversations")) {
+                ids.add(c.path("id").asText());
+                labels.add(Instant.ofEpochMilli(c.path("lastUsed").asLong()).atZone(ZoneId.systemDefault()).format(format) + "   " + c.path("title").asText()
+                        + (c.path("id").asText().equals(conversationId) ? "   (open)" : ""));
+            }
+            int keepDays = result.path("keepDays").asInt();
+            String note = keepDays > 0 ? "Conversations are saved on the server for " + keepDays + " days." : "Conversations are not saved on the server: they are kept for 4 hours and lost on a restart (Settings > Claude Assistant).";
+            if (ids.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "You have no earlier conversations.\n" + note, "Conversations", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+            JList<String> list = new JList<>(labels.toArray(new String[0]));
+            list.setSelectedIndex(0);
+            list.setVisibleRowCount(Math.min(12, labels.size()));
+            JPanel panel = new JPanel(new BorderLayout(0, 8));
+            panel.add(new JScrollPane(list), BorderLayout.CENTER);
+            panel.add(new JLabel(note), BorderLayout.SOUTH);
+            Object[] options = { "Continue", "Cancel" };
+            int choice = JOptionPane.showOptionDialog(this, panel, "Conversations", JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null, options, options[0]);
+            if (choice != 0 || list.getSelectedIndex() < 0) {
+                return;
+            }
+            String id = ids.get(list.getSelectedIndex());
+            background(() -> ClaudeApi.resumeConversation(id), resumed -> showConversation(resumed), error -> add("<div class=\"error\">" + Markdown.escape(error) + "</div>"));
+        }, error -> add("<div class=\"error\">" + Markdown.escape(error) + "</div>"));
+    }
+
+    private void showConversation(JsonNode resumed) {
+        conversationId = resumed.path("conversationId").asText();
+        entries.clear();
+        for (JsonNode e : resumed.path("log")) {
+            String text = e.path("text").asText();
+            switch (e.path("type").asText()) {
+                case "question":
+                    entries.add("<div class=\"user\"><b>You:</b> " + Markdown.escape(text).replace("\n", "<br>") + "</div>");
+                    break;
+                case "text":
+                    entries.add("<div class=\"claude\">" + Markdown.toHtml(text) + "</div>");
+                    break;
+                case "tool":
+                    entries.add("<div class=\"tool\">&#8594; " + Markdown.escape(text) + "</div>");
+                    break;
+                case "action":
+                    entries.add("<div class=\"action\"><b>Done:</b> " + Markdown.escape(text) + "</div>");
+                    break;
+                case "error":
+                    entries.add("<div class=\"error\">" + Markdown.escape(text) + "</div>");
+                    break;
+                default:
+                    entries.add("<div class=\"info\">" + Markdown.escape(text) + "</div>");
+            }
+        }
+        entries.add("<div class=\"info\">Continued conversation. Ask your next question.</div>");
+        render();
     }
 
     private void send() {

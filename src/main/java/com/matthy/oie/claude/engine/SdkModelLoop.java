@@ -107,6 +107,47 @@ public class SdkModelLoop implements ModelLoop {
     }
 
     @Override
+    public String saveHistory(Object history) throws Exception {
+        if (!(history instanceof State)) {
+            return null;
+        }
+        return withEngineLoader(() -> toJson((State) history));
+    }
+
+    private String toJson(State state) throws Exception {
+        com.fasterxml.jackson.databind.json.JsonMapper mapper = com.anthropic.core.ObjectMappers.jsonMapper();
+        com.fasterxml.jackson.databind.node.ObjectNode out = mapper.createObjectNode();
+        out.set("messages", mapper.valueToTree(snapshot(state.messages)));
+        return mapper.writeValueAsString(out);
+    }
+
+    @Override
+    public Object loadHistory(String json) throws Exception {
+        return withEngineLoader(() -> fromJson(json));
+    }
+
+    private State fromJson(String json) throws Exception {
+        com.fasterxml.jackson.databind.json.JsonMapper mapper = com.anthropic.core.ObjectMappers.jsonMapper();
+        State state = new State();
+        for (com.fasterxml.jackson.databind.JsonNode message : mapper.readTree(json).path("messages")) {
+            state.messages.add(mapper.treeToValue(message, BetaMessageParam.class));
+        }
+        return state;
+    }
+
+    /** Jackson and Kotlin reflection look classes up through the context class loader. */
+    private static <T> T withEngineLoader(java.util.concurrent.Callable<T> work) throws Exception {
+        Thread thread = Thread.currentThread();
+        ClassLoader previous = thread.getContextClassLoader();
+        thread.setContextClassLoader(SdkModelLoop.class.getClassLoader());
+        try {
+            return work.call();
+        } finally {
+            thread.setContextClassLoader(previous);
+        }
+    }
+
+    @Override
     public void run(ChatJob job, String userText) {
         Thread thread = Thread.currentThread();
         ClassLoader previous = thread.getContextClassLoader();

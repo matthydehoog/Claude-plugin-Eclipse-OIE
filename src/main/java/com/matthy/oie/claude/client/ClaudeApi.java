@@ -56,6 +56,18 @@ final class ClaudeApi {
         servlet().cancel(jobId);
     }
 
+    static JsonNode conversations() throws Exception {
+        return MAPPER.readTree(servlet().listConversations());
+    }
+
+    static JsonNode exportConversation(String conversationId) throws Exception {
+        return MAPPER.readTree(servlet().exportConversation(conversationId));
+    }
+
+    static JsonNode resumeConversation(String conversationId) throws Exception {
+        return MAPPER.readTree(servlet().resumeConversation(conversationId));
+    }
+
     static JsonNode settings() throws Exception {
         return MAPPER.readTree(servlet().getSettings());
     }

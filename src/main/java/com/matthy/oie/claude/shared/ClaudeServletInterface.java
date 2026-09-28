@@ -77,6 +77,24 @@ public interface ClaudeServletInterface extends BaseServletInterface {
     String cancel(@Param("jobId") @Parameter(description = "Job ID.", required = true) @PathParam("jobId") String jobId) throws ClientException;
 
     @GET
+    @Path("/conversations")
+    @Operation(summary = "The user's conversations: current ones and, when saving is on, saved ones.")
+    @MirthOperation(name = "claudeListConversations", display = "List Claude conversations", permission = PERMISSION_USE, auditable = false)
+    String listConversations() throws ClientException;
+
+    @GET
+    @Path("/conversations/{conversationId}/export")
+    @Operation(summary = "A conversation as Markdown (JSON with fileName and markdown).")
+    @MirthOperation(name = "claudeExportConversation", display = "Export Claude conversation", permission = PERMISSION_USE, auditable = false)
+    String exportConversation(@Param("conversationId") @Parameter(description = "Conversation ID.", required = true) @PathParam("conversationId") String conversationId) throws ClientException;
+
+    @POST
+    @Path("/conversations/{conversationId}/resume")
+    @Operation(summary = "Continues a conversation, loading a saved one if needed; returns its log.")
+    @MirthOperation(name = "claudeResumeConversation", display = "Continue Claude conversation", permission = PERMISSION_USE, auditable = false)
+    String resumeConversation(@Param("conversationId") @Parameter(description = "Conversation ID.", required = true) @PathParam("conversationId") String conversationId) throws ClientException;
+
+    @GET
     @Path("/settings")
     @Operation(summary = "Returns the plugin settings. The API key is never returned, only whether one is set.")
     @MirthOperation(name = "claudeGetSettings", display = "Get Claude settings", permission = PERMISSION_USE, auditable = false)

@@ -29,6 +29,22 @@ public class SettingsTest {
     }
 
     @Test
+    public void keepConversationsDaysIsOffByDefaultAndLimited() throws Exception {
+        Settings off = review("data");
+        assertEquals(0, off.keepConversationsDays);
+        assertEquals(30, off.merge(MAPPER.readTree("{\"keepConversationsDays\":30}")).keepConversationsDays);
+        assertEquals(365, off.merge(MAPPER.readTree("{\"keepConversationsDays\":5000}")).keepConversationsDays);
+        assertEquals(0, off.merge(MAPPER.readTree("{\"keepConversationsDays\":-3}")).keepConversationsDays);
+        Settings month = off.merge(MAPPER.readTree("{\"keepConversationsDays\":30}"));
+        // without API keys, so no encryptor is needed to store them
+        Settings stored = new Settings("", "", "claude-opus-5", "high", 25, "", null, "data", 30);
+        assertEquals(30, month.merge(MAPPER.readTree("{\"effort\":\"low\"}")).keepConversationsDays);
+        assertEquals("30", stored.toProperties(null).getProperty("keepConversationsDays"));
+        assertEquals(30, Settings.fromProperties(stored.toProperties(null), null).keepConversationsDays);
+        assertEquals(0, Settings.fromProperties(Settings.defaults(), null).keepConversationsDays);
+    }
+
+    @Test
     public void mergeKeepsReviewUnlessGiven() throws Exception {
         Settings all = review("all");
         assertEquals("all", all.merge(MAPPER.readTree("{\"effort\":\"low\"}")).reviewBeforeSending);
