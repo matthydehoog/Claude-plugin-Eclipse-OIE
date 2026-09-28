@@ -374,3 +374,5 @@ For anything else, look in *Dashboard > Server Log* for lines starting with `Cla
 - Claude can be wrong. Check its conclusions and proposed changes before you click *Run*.
 
 Source code, releases and issues: [github.com/matthydehoog/Claude-plugin-Eclipse-OIE](https://github.com/matthydehoog/Claude-plugin-Eclipse-OIE).
+
+Training: the online course [Claude Assistant for Eclipse OIE](https://eclipse-oie.moodiy.cloud/course/view.php?id=3) at the Academy for Eclipse OIE, with quizzes and hands-on exercises.

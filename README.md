@@ -8,6 +8,10 @@ after you approve them.
 **New here?** Read the [User Manual](docs/USER_MANUAL.md) for installation, setup, daily use and
 troubleshooting.
 
+**Training:** the online course
+[Claude Assistant for Eclipse OIE](https://eclipse-oie.moodiy.cloud/course/view.php?id=3) at the
+Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exercises on a test channel.
+
 ## Where to find Claude in the Administrator
 
 | Place | Task | Context sent along |
