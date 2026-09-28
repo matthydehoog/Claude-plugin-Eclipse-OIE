@@ -1,8 +1,8 @@
 # Claude Assistant for OIE — User Manual
 
-Version 0.7.1 · September 2026
+Version 0.8.0 · September 2026
 
-The Claude Assistant (version 0.7.1) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
+The Claude Assistant (version 0.8.0) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
 
 ## Contents
 
@@ -106,7 +106,7 @@ The context shows at the top of the chat window. *No context* means Claude looks
 **In the chat window:**
 
 - Type your question and press **Ctrl+Enter** (or click *Send*).
-- Claude shows which tools it is using while it works. Long answers can take a minute or more.
+- Claude shows which tools it is using while it works, and the answer appears while Claude writes it: it grows every second until it is complete. **Stop** also works halfway through an answer.
 - **Stop** aborts the running question.
 - **New conversation** starts over with an empty history.
 - **Conversations…** lists your earlier conversations; choose one and click *Continue* to pick it up where you left off.

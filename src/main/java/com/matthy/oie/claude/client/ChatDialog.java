@@ -62,6 +62,8 @@ class ChatDialog extends JDialog {
 
     /** HTML fragments of the transcript, in order. */
     private final List<String> entries = new ArrayList<>();
+    /** Claude's answer while it is being written, shown after the entries. */
+    private String partial = "";
 
     private String conversationId;
     private String context;
@@ -180,6 +182,7 @@ class ChatDialog extends JDialog {
             stop();
         }
         conversationId = null;
+        partial = "";
         showWelcome();
     }
 
@@ -308,6 +311,7 @@ class ChatDialog extends JDialog {
         pollTimer.stop();
         jobId = null;
         setBusy(false);
+        partial = "";
         add("<div class=\"info\">Stopped.</div>");
         background(() -> {
             ClaudeApi.cancel(id);
@@ -332,6 +336,7 @@ class ChatDialog extends JDialog {
             pollTimer.stop();
             jobId = null;
             setBusy(false);
+            partial = "";
             add("<div class=\"error\">Lost connection to the server: " + Markdown.escape(error) + "</div>");
         });
     }
@@ -357,6 +362,14 @@ class ChatDialog extends JDialog {
                 default:
                     add("<div class=\"info\">" + Markdown.escape(text) + "</div>");
             }
+        }
+        String newPartial = job.path("partial").asText("");
+        if (!newPartial.equals(partial)) {
+            partial = newPartial;
+            if (!partial.isEmpty()) {
+                statusLabel.setText("Claude is writing…");
+            }
+            render();
         }
         String state = job.path("state").asText();
         JsonNode pending = job.path("pendingAction");
@@ -439,7 +452,8 @@ class ChatDialog extends JDialog {
     }
 
     private void render() {
-        transcript.setText("<html><body>" + String.join("", entries) + "</body></html>");
+        String writing = partial.isEmpty() ? "" : "<div class=\"claude\">" + Markdown.toHtml(partial) + "</div>";
+        transcript.setText("<html><body>" + String.join("", entries) + writing + "</body></html>");
         SwingUtilities.invokeLater(() -> transcript.setCaretPosition(transcript.getDocument().getLength()));
     }
 

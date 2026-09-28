@@ -3,6 +3,7 @@ package com.matthy.oie.claude.engine;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -20,12 +21,15 @@ import com.anthropic.errors.BadRequestException;
 import com.anthropic.errors.PermissionDeniedException;
 import com.anthropic.errors.RateLimitException;
 import com.anthropic.errors.UnauthorizedException;
+import com.anthropic.core.http.StreamResponse;
+import com.anthropic.helpers.BetaMessageAccumulator;
 import com.anthropic.models.beta.messages.BetaCacheControlEphemeral;
 import com.anthropic.models.beta.messages.BetaContentBlock;
 import com.anthropic.models.beta.messages.BetaContentBlockParam;
 import com.anthropic.models.beta.messages.BetaDiagnosticsParam;
 import com.anthropic.models.beta.messages.BetaMessage;
 import com.anthropic.models.beta.messages.BetaMessageParam;
+import com.anthropic.models.beta.messages.BetaRawMessageStreamEvent;
 import com.anthropic.models.beta.messages.BetaOutputConfig;
 import com.anthropic.models.beta.messages.BetaStopReason;
 import com.anthropic.models.beta.messages.BetaTextBlockParam;
@@ -187,7 +191,10 @@ public class SdkModelLoop implements ModelLoop {
         int call = 0;
         boolean limitReached = false;
         while (!job.isCancelled()) {
-            BetaMessage response = create(snapshot(history), state.lastMessageId);
+            BetaMessage response = create(snapshot(history), state.lastMessageId, job);
+            if (response == null) {
+                return; // stopped while Claude was writing
+            }
             state.lastMessageId = response.id();
             logUsage(state, ++call, response);
             question.add(response.usage());
@@ -202,8 +209,16 @@ public class SdkModelLoop implements ModelLoop {
                 return;
             }
 
+            // After a server-side fallback in the middle of an answer, the message keeps the declined
+            // attempt's partial output before the last fallback block. Its tool calls must not run.
+            List<BetaContentBlock> content = response.content();
+            int start = lastFallback(content) + 1;
             List<BetaToolUseBlock> toolUses = new ArrayList<>();
-            for (BetaContentBlock block : response.content()) {
+            for (int i = 0; i < content.size(); i++) {
+                BetaContentBlock block = content.get(i);
+                if (i < start && !block.isText()) {
+                    continue;
+                }
                 block.text().ifPresent(t -> {
                     if (!t.text().isBlank()) {
                         job.emit("text", t.text());
@@ -211,10 +226,11 @@ public class SdkModelLoop implements ModelLoop {
                 });
                 block.toolUse().ifPresent(toolUses::add);
             }
+            BetaMessageParam answer = toParam(response, start);
 
             if (toolUses.isEmpty()) {
                 synchronized (history) {
-                    history.add(response.toParam());
+                    history.add(answer);
                 }
                 if (BetaStopReason.MAX_TOKENS.equals(stop)) {
                     job.emit("info", "The answer was cut off because it got too long. Ask for a continuation if needed.");
@@ -243,7 +259,7 @@ public class SdkModelLoop implements ModelLoop {
                 results.add(BetaContentBlockParam.ofToolResult(BetaToolResultBlockParam.builder().toolUseId(use.id()).content(result).isError(isError).build()));
             }
             synchronized (history) {
-                history.add(response.toParam());
+                history.add(answer);
                 history.add(BetaMessageParam.builder().role(BetaMessageParam.Role.USER).contentOfBetaContentBlockParams(results).build());
             }
             if (limitReached) {
@@ -258,10 +274,11 @@ public class SdkModelLoop implements ModelLoop {
         }
     }
 
-    private BetaMessage create(List<BetaMessageParam> history, String previousMessageId) {
+    /** @return the complete message, or null when the user stopped while Claude was writing */
+    private BetaMessage create(List<BetaMessageParam> history, String previousMessageId, ChatJob job) {
         if (diagnostics) {
             try {
-                return client.beta().messages().create(params(history, previousMessageId, true));
+                return stream(params(history, previousMessageId, true), job);
             } catch (BadRequestException e) {
                 if (String.valueOf(e.getMessage()).toLowerCase().contains("diagnos")) {
                     // Cache diagnostics is a beta; if this account rejects it, carry on without it.
@@ -272,7 +289,70 @@ public class SdkModelLoop implements ModelLoop {
                 }
             }
         }
-        return client.beta().messages().create(params(history, previousMessageId, false));
+        return stream(params(history, previousMessageId, false), job);
+    }
+
+    /**
+     * Streams one request: every text fragment goes to the job at once, so the user sees the answer
+     * grow; the accumulator builds the complete message the loop continues with.
+     */
+    private BetaMessage stream(MessageCreateParams params, ChatJob job) {
+        BetaMessageAccumulator accumulator = BetaMessageAccumulator.create();
+        boolean textBefore = false;
+        try (StreamResponse<BetaRawMessageStreamEvent> response = client.beta().messages().createStreaming(params)) {
+            Iterator<BetaRawMessageStreamEvent> events = response.stream().iterator();
+            while (events.hasNext()) {
+                BetaRawMessageStreamEvent event = events.next();
+                accumulator.accumulate(event);
+                if (event.contentBlockStart().map(start -> start.contentBlock().isText()).orElse(false) && textBefore) {
+                    job.appendPartial("\n\n"); // a new text block starts a new paragraph
+                }
+                String text = event.contentBlockDelta().flatMap(delta -> delta.delta().text()).map(t -> t.text()).orElse(null);
+                if (text != null && !text.isEmpty()) {
+                    job.appendPartial(text);
+                    textBefore = true;
+                }
+                if (job.isCancelled()) {
+                    job.clearPartial();
+                    return null; // closing the stream ends the request
+                }
+            }
+        } catch (RuntimeException e) {
+            job.clearPartial();
+            throw e;
+        }
+        return accumulator.message();
+    }
+
+    /** Index of the last fallback block, or -1. */
+    static int lastFallback(List<BetaContentBlock> content) {
+        for (int i = content.size() - 1; i >= 0; i--) {
+            if (content.get(i).isFallback()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * The answer as it goes back into the history. After a mid-answer fallback, only the text of the
+     * declined attempt is echoed (its thinking and tool calls are not), and the fallback marker is dropped.
+     */
+    static BetaMessageParam toParam(BetaMessage response, int start) {
+        BetaMessageParam param = response.toParam();
+        if (start == 0) {
+            return param;
+        }
+        List<BetaContentBlockParam> blocks = new ArrayList<>();
+        List<BetaContentBlockParam> all = param.content().asBetaContentBlockParams();
+        for (int i = 0; i < all.size(); i++) {
+            BetaContentBlockParam block = all.get(i);
+            if (block.isFallback() || (i < start && !block.isText())) {
+                continue;
+            }
+            blocks.add(block);
+        }
+        return BetaMessageParam.builder().role(BetaMessageParam.Role.ASSISTANT).contentOfBetaContentBlockParams(blocks).build();
     }
 
     private MessageCreateParams params(List<BetaMessageParam> history, String previousMessageId, boolean withDiagnostics) {

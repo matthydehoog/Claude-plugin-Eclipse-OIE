@@ -202,6 +202,8 @@ const chat = {
     context: null,
     suggestion: null,
     entries: [],
+    // Claude's answer while it is being written; replaced by the complete "text" event.
+    partial: "",
     jobId: null,
     lastSeq: 0,
     busy: false,
@@ -279,6 +281,8 @@ const chat = {
             if (ev.type === "tool") this.status = "Claude is querying the server…";
             this.entries = [...this.entries, { kind: ev.type, text: ev.text }];
         }
+        this.partial = job.partial || "";
+        if (this.partial) this.status = "Claude is writing…";
         const pending = job.pendingAction;
         if (job.state === "WAITING" && pending && pending.id !== this.shownActionId) {
             this.shownActionId = pending.id;
@@ -301,6 +305,7 @@ const chat = {
         clearInterval(this.timer);
         this.timer = null;
         this.jobId = null;
+        this.partial = "";
         this.busy = false;
         this.status = "";
         this.notify();
@@ -318,6 +323,7 @@ const chat = {
         if (this.jobId) this.stop();
         this.conversationId = null;
         this.entries = [];
+        this.partial = "";
         this.notify();
     },
 
@@ -522,7 +528,7 @@ function ChatPanel() {
     React.useEffect(() => {
         const el = transcriptRef.current;
         if (el) el.scrollTop = el.scrollHeight;
-    }, [c.entries.length]);
+    }, [c.entries.length, c.partial.length]);
 
     const send = () => {
         const text = input.trim();
@@ -553,7 +559,8 @@ function ChatPanel() {
             e("button", { className: "btn", onClick: () => c.newConversation() }, "New conversation")),
         e("div", { className: "claude-transcript", ref: transcriptRef },
             welcome,
-            c.entries.map((entry, i) => e(Entry, { key: i, entry }))),
+            c.entries.map((entry, i) => e(Entry, { key: i, entry })),
+            c.partial ? e(Entry, { key: "partial", entry: { kind: "text", text: c.partial } }) : null),
         e("div", { className: "claude-input" },
             e("textarea", {
                 ref: inputRef,

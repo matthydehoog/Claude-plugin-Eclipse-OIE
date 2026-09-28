@@ -176,5 +176,6 @@ Result: `target/claude-assistant-<version>.zip`.
   and the SDK's Kotlin reflection does not work after relocation (shading).
 - `client` – Swing: chat window, tasks in dashboard/message browser/channel editor, settings screen.
 
-The client polls for progress every 0.8 s (`GET /jobs/{id}`), so long answers do not run into the
-Administrator's HTTP timeout.
+The engine streams each answer from the API; the client polls for progress every 0.8 s
+(`GET /jobs/{id}`) and shows the answer growing while Claude writes it (`partial` in the job), so
+long answers do not run into the Administrator's HTTP timeout.

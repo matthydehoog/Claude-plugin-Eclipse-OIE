@@ -63,6 +63,8 @@ public class ChatJob {
     }
 
     private final List<Event> events = new ArrayList<>();
+    /** Claude's answer while it is being written; replaced by the "text" event once it is complete. */
+    private final StringBuilder partial = new StringBuilder();
     private State state = State.RUNNING;
     private PendingAction pending;
     private volatile boolean cancelled;
@@ -79,8 +81,21 @@ public class ChatJob {
 
     /** Event types: text (Claude's answer, markdown), tool (a tool call), action (result of an approved action), info, error. */
     public synchronized void emit(String type, String text) {
+        if (type.equals("text")) {
+            partial.setLength(0);
+        }
         events.add(new Event(events.size() + 1, type, text));
         conversation.record(type, text);
+    }
+
+    /** Adds streamed answer text; clients show it growing until the complete "text" event arrives. */
+    public synchronized void appendPartial(String text) {
+        partial.append(text);
+    }
+
+    /** Drops streamed text that will not be completed (a stopped or failed request). */
+    public synchronized void clearPartial() {
+        partial.setLength(0);
     }
 
     synchronized State state() {
@@ -92,6 +107,7 @@ public class ChatJob {
             this.state = state;
         }
         pending = null;
+        partial.setLength(0);
     }
 
     synchronized PendingAction await(String toolName, OieTools.PreparedAction prepared, boolean review) {
@@ -145,6 +161,9 @@ public class ChatJob {
                 en.put("type", e.type);
                 en.put("text", e.text);
             }
+        }
+        if (partial.length() > 0) {
+            node.put("partial", partial.toString());
         }
         if (pending != null) {
             // Separate keys, so an older client never shows data for review as an action to run.
