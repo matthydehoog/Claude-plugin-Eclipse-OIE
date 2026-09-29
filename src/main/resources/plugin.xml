@@ -1,10 +1,10 @@
 <pluginMetaData path="claude-assistant">
 	<name>Claude Assistant</name>
 	<author>X Connections</author>
-	<pluginVersion>0.8.0</pluginVersion>
+	<pluginVersion>1.0.0</pluginVersion>
 	<mirthVersion>4.6.0</mirthVersion>
 	<url>https://x-connections.info</url>
-	<description>Chat with Claude inside the Administrator about channels, messages, errors and scripts. Message content is masked before it leaves the server, and actions such as deploying or changing scripts only run after the user approves them.</description>
+	<description>Chat with Claude inside the Administrator about channels, messages, errors and scripts. Message content is masked before it leaves the server, and actions such as deploying or changing scripts only run after the user approves them. Unofficial plugin, not affiliated with or endorsed by Anthropic; Claude is a trademark of Anthropic, PBC. Each organization is responsible for its own use, including patient data sent to Anthropic.</description>
 	<serverClasses>
 		<string>com.matthy.oie.claude.server.ClaudeServicePlugin</string>
 	</serverClasses>

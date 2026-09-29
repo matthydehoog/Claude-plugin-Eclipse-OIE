@@ -1,8 +1,12 @@
 # Claude Assistant for OIE — User Manual
 
-Version 0.8.0 · September 2026
+Version 1.0.0 · September 2026
 
-The Claude Assistant (version 0.8.0) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
+The Claude Assistant (version 1.0.0) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
+
+> **Unofficial plugin.** This is a community-built plugin. It is not affiliated with, endorsed by or supported by Anthropic. Claude and Anthropic are trademarks of Anthropic, PBC.
+>
+> **Your responsibility.** Each organization that installs the plugin is responsible for its own use of it: the legal basis and the data processing agreement with Anthropic for any patient data it sends, and the changes its users approve in OIE. The plugin is provided as is, without warranty (Mozilla Public License 2.0).
 
 ## Contents
 

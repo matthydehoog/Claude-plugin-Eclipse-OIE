@@ -12,6 +12,14 @@ troubleshooting.
 [Claude Assistant for Eclipse OIE](https://eclipse-oie.moodiy.cloud/course/view.php?id=3) at the
 Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exercises on a test channel.
 
+> **Unofficial plugin.** This is a community-built plugin. It is not affiliated with, endorsed by or
+> supported by Anthropic. Claude and Anthropic are trademarks of Anthropic, PBC.
+>
+> **Your responsibility.** Each organization that installs the plugin is responsible for its own use
+> of it: the legal basis and the data processing agreement with Anthropic for any patient data it
+> sends, and the changes its users approve in OIE. The plugin is provided as is, without warranty
+> (see the [Mozilla Public License 2.0](LICENSE)).
+
 ## Where to find Claude in the Administrator
 
 | Place | Task | Context sent along |
