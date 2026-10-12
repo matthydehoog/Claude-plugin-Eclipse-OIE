@@ -28,12 +28,13 @@ Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exerci
 | **Dashboard** (task + right-click) | *Ask Claude* | selected channel(s)/connectors |
 | **Message browser** (task + right-click) | *Ask Claude* | selected message (channel, message ID, connector) |
 | **Channel editor** (task + right-click) | *Ask Claude* | the channel that is open (saved version) |
+| **Channel editor** (task + right-click) | *Document channel* | the open channel; Claude writes its documentation as Markdown |
 | **Code Templates** (task + right-click, one template selected) | *Ask Claude* | the selected code template and its library |
 | **Global Scripts** (task + right-click) | *Ask Claude* | the global deploy/undeploy/pre/postprocessor scripts |
 
 The chat window stays open next to the Administrator. Ctrl+Enter sends; *New conversation* starts
-over; *Stop* aborts a running question. *Export…* saves the conversation as a Markdown file, and
-*Conversations…* continues one of your earlier conversations.
+over; *Stop* aborts a running question. *Export…* saves the conversation as a Markdown file, *Save answer…* only
+Claude's last answer (for example a channel's documentation), and *Conversations…* continues one of your earlier conversations.
 
 ### Web administrator
 
@@ -44,10 +45,11 @@ The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It
 |---|---|
 | Left rail, **Plugins > Claude Assistant** | the chat as a full page |
 | **Channel editor**, tab **Claude** | the chat with the open channel as context |
-| **Channels** view, right-click | *Ask Claude* about the selected channel |
+| **Channels** view, right-click | *Ask Claude* about the selected channel, or *Document channel* |
 | **Message browser**, right-click | *Ask Claude* about the selected message (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask Claude* about the selected code template |
 | **Claude page**, button **Global Scripts** | the global scripts as context (the web admin has no hook on the Global Scripts view itself) |
+| **Claude page**, button **Document channel** | documents the channel in the context |
 | **Command palette** (Ctrl+K) | *Claude Assistant*, and *Ask Claude about Global Scripts* |
 | **Settings**, tab **Claude Assistant** | the same settings and usage as in Swing, using the settings page's own Save |
 
@@ -59,6 +61,11 @@ identical; a conversation stays open while you move between the Claude page and 
 **Read** (immediately): server info, channels with status and counters, channel configuration and
 scripts, the global scripts, statistics per connector, searching and viewing messages, events, the server log, code
 templates and the keys of the Configuration Map (never the values).
+
+**Channel documentation:** *Document channel* has Claude write a Markdown description of a channel
+(purpose, source, filter, destinations, field mappings, scripts, code templates, Configuration Map keys
+and open points) from a readable overview in which passwords and other secrets are hidden. Save it as
+a separate file with *Save answer*.
 
 **Actions** (only after clicking *Run* in an approval dialog): deploy/undeploy a channel,
 start/stop/pause/resume, reset statistics, reprocess a message, send a message to a channel and

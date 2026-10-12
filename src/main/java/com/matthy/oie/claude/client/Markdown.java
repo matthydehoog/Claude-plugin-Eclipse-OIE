@@ -23,7 +23,23 @@ final class Markdown {
     private static final Pattern TABLE_SEPARATOR = Pattern.compile("^\\s*\\|?\\s*:?-{2,}:?\\s*(\\|\\s*:?-{2,}:?\\s*)*\\|?\\s*$");
     private static final Pattern INLINE = Pattern.compile("`([^`]+)`|\\*\\*(.+?)\\*\\*|__(.+?)__|(?<![\\w*])\\*(?!\\s)(.+?)(?<!\\s)\\*(?![\\w*])|(?<!\\w)_(?!\\s)(.+?)(?<!\\s)_(?!\\w)");
 
+    private static final Pattern TITLE = Pattern.compile("(?m)^#\\s+(.+?)[\\s#]*$");
+
     private Markdown() {}
+
+    /** A file name for a Markdown document: its first level-1 heading, else the fallback. */
+    static String fileName(String markdown, String fallback) {
+        Matcher m = TITLE.matcher(markdown == null ? "" : markdown);
+        if (m.find()) {
+            // Drop Markdown emphasis, turn characters Windows forbids into " - ", and trim dots and dashes.
+            String name = m.group(1).replaceAll("\\*\\*|__|[*`]", "").replaceAll("\\s*[\\\\/:?\"<>|]+\\s*", " - ").replaceAll("\\s+", " ");
+            name = name.substring(0, Math.min(100, name.length())).replaceAll("^[\\s.\\-]+|[\\s.\\-]+$", "");
+            if (!name.isEmpty()) {
+                return name + ".md";
+            }
+        }
+        return fallback;
+    }
 
     static String toHtml(String markdown) {
         String[] lines = markdown.replace("\r\n", "\n").replace('\r', '\n').split("\n", -1);

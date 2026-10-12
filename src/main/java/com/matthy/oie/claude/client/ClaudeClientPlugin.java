@@ -51,6 +51,7 @@ public class ClaudeClientPlugin extends ClientPlugin {
         parent.addTask("claudeDashboard", "Ask Claude", "Let Claude analyze the selected channel(s).", "", icon, parent.dashboardTasks, parent.dashboardPopupMenu, this);
         parent.addTask("claudeMessage", "Ask Claude", "Let Claude find out what happened to the selected message.", "", icon, parent.messageTasks, parent.messagePopupMenu, this);
         parent.addTask("claudeChannelEdit", "Ask Claude", "Let Claude explain or improve this channel and its scripts.", "", icon, parent.channelEditTasks, parent.channelEditPopupMenu, this);
+        parent.addTask("claudeDocumentChannel", "Document channel", "Let Claude write documentation for this channel (Markdown; save it with Save answer).", "", icon, parent.channelEditTasks, parent.channelEditPopupMenu, this);
 
         parent.addTask("claudeGlobalScripts", "Ask Claude", "Let Claude explain or improve the global scripts.", "", icon, parent.globalScriptsTasks, parent.globalScriptsPopupMenu, this);
 
@@ -127,6 +128,17 @@ public class ClaudeClientPlugin extends ClientPlugin {
         String context = "Channel open in the editor: '" + channel.getName() + "' (" + channel.getId() + ", revision " + channel.getRevision() + ")."
                 + " Claude sees the saved version; unsaved changes in the editor are not visible.";
         dialog().open(context, "Explain what this channel does and point out weak spots in its scripts.");
+    }
+
+    public void claudeDocumentChannel() {
+        Channel channel = parent.channelEditPanel == null ? null : parent.channelEditPanel.currentChannel;
+        if (channel == null) {
+            claudeOpen();
+            return;
+        }
+        String context = "Channel open in the editor: '" + channel.getName() + "' (" + channel.getId() + ", revision " + channel.getRevision() + ")."
+                + " Claude sees the saved version; unsaved changes in the editor are not visible.";
+        dialog().open(context, "Write documentation for this channel as Markdown: purpose, source, filter, destinations, field mappings, scripts and code templates, Configuration Map keys and open points.");
     }
 
     public void claudeGlobalScripts() {

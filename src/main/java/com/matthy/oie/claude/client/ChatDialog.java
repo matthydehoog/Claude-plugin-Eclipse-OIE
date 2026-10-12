@@ -63,6 +63,7 @@ class ChatDialog extends JDialog {
     private final JButton newButton = new JButton("New conversation");
     private final JButton clearContextButton = new JButton("Clear context");
     private final JButton exportButton = new JButton("Export…");
+    private final JButton saveAnswerButton = new JButton("Save answer…");
     private final JButton conversationsButton = new JButton("Conversations…");
     private final Timer pollTimer = new Timer(POLL_MS, e -> poll());
 
@@ -70,6 +71,8 @@ class ChatDialog extends JDialog {
     private final List<String> entries = new ArrayList<>();
     /** Claude's answer while it is being written, shown after the entries. */
     private String partial = "";
+    /** Claude's last complete answer, as Markdown, for Save answer. */
+    private String lastAnswer;
 
     private String conversationId;
     private String context;
@@ -115,6 +118,7 @@ class ChatDialog extends JDialog {
         topButtons.add(clearContextButton);
         topButtons.add(conversationsButton);
         topButtons.add(exportButton);
+        topButtons.add(saveAnswerButton);
         topButtons.add(newButton);
         top.add(topButtons, BorderLayout.EAST);
 
@@ -150,10 +154,13 @@ class ChatDialog extends JDialog {
         clearContextButton.addActionListener(e -> setContext(null));
         exportButton.setToolTipText("Save this conversation as a Markdown file");
         exportButton.addActionListener(e -> exportConversation());
+        saveAnswerButton.setToolTipText("Save only Claude's last answer as a Markdown file, for example a channel's documentation");
+        saveAnswerButton.addActionListener(e -> saveAnswer());
         conversationsButton.setToolTipText("Continue one of your earlier conversations");
         conversationsButton.addActionListener(e -> chooseConversation());
         setContext(null);
         setBusy(false);
+        setLastAnswer(null);
     }
 
     /** Opens the window with a context from the Administrator and a suggested question. */
@@ -189,6 +196,7 @@ class ChatDialog extends JDialog {
         }
         conversationId = null;
         partial = "";
+        setLastAnswer(null);
         showWelcome();
     }
 
@@ -217,6 +225,38 @@ class ChatDialog extends JDialog {
                 add("<div class=\"error\">Export failed: " + Markdown.escape(String.valueOf(e.getMessage())) + "</div>");
             }
         }, error -> add("<div class=\"error\">Export failed: " + Markdown.escape(error) + "</div>"));
+    }
+
+    /** Saves only Claude's last answer as a Markdown file, named after its first heading. */
+    private void saveAnswer() {
+        String answer = lastAnswer;
+        if (answer == null) {
+            return;
+        }
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Save answer");
+        chooser.setSelectedFile(new File(Markdown.fileName(answer, "claude-answer.md")));
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        File file = chooser.getSelectedFile();
+        if (!file.getName().contains(".")) {
+            file = new File(file.getParentFile(), file.getName() + ".md");
+        }
+        if (file.exists() && JOptionPane.showConfirmDialog(this, file.getName() + " already exists. Replace it?", "Save answer", JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) {
+            return;
+        }
+        try {
+            Files.write(file.toPath(), (answer.trim() + "\n").getBytes(StandardCharsets.UTF_8));
+            statusLabel.setText("Saved to " + file.getName());
+        } catch (IOException e) {
+            add("<div class=\"error\">Save failed: " + Markdown.escape(String.valueOf(e.getMessage())) + "</div>");
+        }
+    }
+
+    private void setLastAnswer(String answer) {
+        lastAnswer = answer;
+        saveAnswerButton.setEnabled(answer != null);
     }
 
     /** Lists the user's conversations (current and saved) and continues the chosen one. */
@@ -259,6 +299,7 @@ class ChatDialog extends JDialog {
     private void showConversation(JsonNode resumed) {
         conversationId = resumed.path("conversationId").asText();
         entries.clear();
+        setLastAnswer(null);
         for (JsonNode e : resumed.path("log")) {
             String text = e.path("text").asText();
             switch (e.path("type").asText()) {
@@ -267,6 +308,7 @@ class ChatDialog extends JDialog {
                     break;
                 case "text":
                     entries.add("<div class=\"claude\">" + Markdown.toHtml(text) + "</div>");
+                    setLastAnswer(text);
                     break;
                 case "tool":
                     entries.add("<div class=\"tool\">&#8594; " + Markdown.escape(text) + "</div>");
@@ -354,6 +396,7 @@ class ChatDialog extends JDialog {
             switch (e.path("type").asText()) {
                 case "text":
                     add("<div class=\"claude\">" + Markdown.toHtml(text) + "</div>");
+                    setLastAnswer(text);
                     break;
                 case "tool":
                     add("<div class=\"tool\">&#8594; " + Markdown.escape(text) + "</div>");
