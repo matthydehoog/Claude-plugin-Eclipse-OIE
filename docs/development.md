@@ -152,9 +152,11 @@ Polling instead of one long request keeps long answers clear of the Administrato
 
 | Read tools (run at once) | Action tools (run after approval) |
 | --- | --- |
-| `oie_server_info`, `oie_list_channels`, `oie_get_channel`, `oie_channel_scripts`, `oie_global_scripts`, `oie_channel_statistics`, `oie_search_messages`, `oie_get_message`, `oie_events`, `oie_server_log`, `oie_list_code_templates`, `oie_get_code_template`, `oie_configuration_map` (keys only) | `oie_deploy_channel`, `oie_undeploy_channel`, `oie_start_channel`, `oie_stop_channel`, `oie_pause_channel`, `oie_resume_channel`, `oie_reset_statistics`, `oie_reprocess_message`, `oie_send_message`, `oie_update_channel_script`, `oie_update_global_script`, `oie_update_filter`, `oie_update_transformer`, `oie_create_channel` |
+| `oie_server_info`, `oie_list_channels`, `oie_get_channel`, `oie_channel_scripts`, `oie_channel_overview`, `oie_global_scripts`, `oie_channel_statistics`, `oie_search_messages`, `oie_get_message`, `oie_events`, `oie_server_log`, `oie_list_code_templates`, `oie_get_code_template`, `oie_configuration_map` (keys only) | `oie_deploy_channel`, `oie_undeploy_channel`, `oie_start_channel`, `oie_stop_channel`, `oie_pause_channel`, `oie_resume_channel`, `oie_reset_statistics`, `oie_reprocess_message`, `oie_send_message`, `oie_update_channel_script`, `oie_update_global_script`, `oie_update_filter`, `oie_update_transformer`, `oie_create_channel` |
 
 The tools mirror those of `oie-mcp-server`. A channel can be given by ID or by name (case-insensitive); dates are ISO dates or date-times, a plain date meaning midnight in the server's time zone.
+
+**Channel overview.** `oie_channel_overview` (built by `ChannelOverview`, free of engine calls) describes a channel for explanation and documentation: per connector OIE's own readable settings (`ConnectorProperties.toFormattedString()`, or the properties XML with credentials emptied and plugin properties left out when a connector has none, as receivers do), the filter rules and transformer steps with the script OIE generates for each, the non-default channel scripts, the linked code template libraries and the Configuration Map keys referenced (`$cfg`, `configurationMap.get`, `$()`, `${key}`). `toFormattedString()` shows HTTP headers and JDBC URLs in full, so settings lines named like a secret (`Authorization:`, `…password…:`) and, everywhere, `password=` parameters and `user:password@` in URLs are hidden before the masker runs. `metaDataIds` limits it to some connectors, for large channels.
 
 **Adding a tool:**
 
@@ -267,8 +269,8 @@ Bodies and responses are **JSON as text** (`text/plain`), so no plugin class pas
 
 ## The Swing client
 
-- `ClaudeClientPlugin` adds the tasks: *Claude Assistant* under **Other**, and *Ask Claude* in the dashboard, message browser, channel editor, code templates and global scripts, each with its context (selected channels, message, channel, template, scripts) and a suggested question.
-- `ChatDialog` is a non-modal window, one per Administrator session. It polls every 800 ms, renders Claude's Markdown with `Markdown`, shows the approval and review dialogs, and offers *New conversation*, *Stop*, *Export…* and *Conversations…*.
+- `ClaudeClientPlugin` adds the tasks: *Claude Assistant* under **Other**, and *Ask Claude* in the dashboard, message browser, channel editor, code templates and global scripts (plus *Document channel* in the channel editor), each with its context (selected channels, message, channel, template, scripts) and a suggested question.
+- `ChatDialog` is a non-modal window, one per Administrator session. It polls every 800 ms, renders Claude's Markdown with `Markdown`, shows the approval and review dialogs, and offers *New conversation*, *Stop*, *Export…*, *Save answer…* (only Claude's last answer, named after its first heading by `Markdown.fileName`) and *Conversations…*.
 - `ClaudeApi` wraps the servlet (`mirthClient.getServlet(ClaudeServletInterface.class)`). All calls block; never call them on the event thread.
 - `ClaudeSettingsPlugin` and `ClaudeSettingsPanel` make the settings tab, with *Usage* and *Open Billing in Console*.
 
@@ -292,7 +294,7 @@ It uses the same REST API and the same 800 ms polling, so masking, permissions, 
 mvn test
 ```
 
-There are 74 tests (JUnit 4). They need no engine, no network and no API key.
+There are 84 tests (JUnit 4). They need no engine, no network and no API key.
 
 | Test | Covers |
 | --- | --- |
@@ -301,9 +303,11 @@ There are 74 tests (JUnit 4). They need no engine, no network and no API key.
 | `FhirMaskerTest` (9) | Person resources in JSON and XML, personal extensions, identifiers, reference displays, narratives, Bundles, FHIR escaped inside tool XML, other resources left readable |
 | `ChannelEditorTest` (8) | Version attributes (also nested), wrappers, malformed XML, credentials emptied, descriptions and generated scripts |
 | `ConversationStoreTest` (7) | Saving, listing and loading per user, replacing, expiry, damaged files, Markdown export, titles |
+| `ChannelOverviewTest` (7) | The overview of a channel, default scripts, connectors limited by `metaDataIds`, secrets hidden in settings and URLs, Configuration Map keys found |
 | `ModelListTest` (6) | Newest first without duplicates, the fixed list with its reason, a saved model that is no longer listed |
 | `SettingsTest` (7) | Defaults and limits (review, keep days, language), updates that keep what is not given, the language in the system prompt |
 | `engine/FallbackTest`, `HistoryTest`, `UsageTest` (2 each) | Fallback handling, history JSON, usage lines |
+| `client/MarkdownTest` (3) | The file name *Save answer* gives: the first heading, cleaned of emphasis and characters Windows forbids |
 | `client/ClaudeSettingsPanelTest` (1) | The cache share in the token figures |
 
 Masking is the part where a mistake hurts most: when you touch a masker, run it over the test messages in `src/test/resources` and check the output by eye as well.

@@ -108,6 +108,7 @@ Start from the place your question is about: *Ask Claude* there sends the select
 | **Dashboard** | Task or right-click, *Ask Claude* | Selected channel(s) or connectors |
 | **Message browser** | Task or right-click, *Ask Claude* | Selected message (channel, message ID, connector) |
 | **Channel editor** | Task or right-click, *Ask Claude* | The open channel (its saved version) |
+| **Channel editor** | Task or right-click, *Document channel* | The open channel; Claude writes its documentation (see *Documenting a channel*) |
 | **Code Templates** | Task or right-click, one template selected | The template and its library |
 | **Global Scripts** | Task or right-click, *Ask Claude* | The deploy, undeploy, preprocessor and postprocessor scripts |
 
@@ -121,6 +122,7 @@ The context shows at the top of the chat window. *No context* means Claude looks
 - **New conversation** starts over with an empty history.
 - **Conversations…** lists your earlier conversations; choose one and click *Continue* to pick it up where you left off.
 - **Export…** saves the open conversation as a Markdown file.
+- **Save answer…** saves only Claude's last answer as a separate Markdown file, named after its first heading. Use it for a channel's documentation.
 
 The window stays open next to the Administrator, so you can keep working while Claude answers. Unsaved changes in the channel editor are not visible to Claude: save first.
 
@@ -132,14 +134,15 @@ The web administrator gets the same assistant once the **Web Support** extension
 | --- | --- |
 | Left rail, **Plugins > Claude Assistant** | The chat as a full page |
 | **Channel editor**, tab **Claude** | The chat with the open channel as context |
-| **Channels** view, right-click | *Ask Claude* about the selected channel |
+| **Channels** view, right-click | *Ask Claude* about the selected channel, or *Document channel* |
 | **Message browser**, right-click | *Ask Claude* about the selected message (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask Claude* about the selected template |
 | **Claude page**, button **Global Scripts** | The global scripts as context |
+| **Claude page**, button **Document channel** | Documents the channel in the context (from the channel editor tab or the Channels view) |
 | **Command palette** (Ctrl+K) | *Claude Assistant* and *Ask Claude about Global Scripts* |
 | **Settings**, tab **Claude Assistant** | Same settings and usage as in Swing; save with the page's own *Save* |
 
-A conversation stays open while you move between the Claude page and other views. The Claude page has the same **Conversations…** and **Export** buttons as the Swing window; *Export* downloads the Markdown file.
+A conversation stays open while you move between the Claude page and other views. The Claude page has the same **Conversations…**, **Export** and **Save answer** buttons as the Swing window; they download the Markdown file.
 
 The Global Scripts view in the web administrator has no *Ask Claude* action. Use the **Global Scripts** button on the Claude page instead.
 
@@ -155,6 +158,7 @@ Claude uses these read tools on its own, without asking. They change nothing.
 | List channels | All channels with deploy state and counters, channels with errors first |
 | Get channel | Full channel configuration: connectors, filters, transformers, scripts |
 | Channel scripts | Every script in a channel with its location |
+| Channel overview | A readable summary of a channel: per connector its settings (passwords and other secrets hidden), filter rules and transformer steps with what each really does, the channel scripts, code template libraries and Configuration Map keys used |
 | Channel statistics | Counters per connector for one channel |
 | Search messages | Messages by status, period or text, optionally with (masked) content |
 | Get message | One message with raw, transformed, encoded, sent and response content, maps and errors |
@@ -165,6 +169,22 @@ Claude uses these read tools on its own, without asking. They change nothing.
 | Configuration Map | The keys only; values are never returned |
 
 At most 25 tool calls are made per question by default (*Max tool calls*). Raise it for broad questions across many channels.
+
+### Documenting a channel
+
+*Document channel* (channel editor, or right-click in the web administrator's Channels view) asks Claude to write documentation for the channel, for a handover, an audit or an integration file. Claude reads the channel overview and writes Markdown with:
+
+- **Purpose**, from the name, description and scripts
+- **Source**: connector type, port or path, data type
+- **Filter**: each rule in plain language
+- **Destinations**: type, target, and when each one runs
+- **Field mappings**: a table of source field, target and transformation, from the actual Mapper, Message Builder and JavaScript steps
+- **Scripts and code templates**, and the **Configuration Map keys** used
+- **Open points**: what Claude noticed, such as disabled rules
+
+The answer is only the documentation. Save it as a separate file with **Save answer…** (Swing) or **Save answer** (web): the file gets the channel's name, for example `OIE XC ORM HAGA v_2_8_5.md`, and holds nothing from the rest of the conversation. Passwords and other secrets are never included: the overview hides them before Claude sees it. Patient data in the channel (for example a sample message in a script) is masked as usual.
+
+For a very large channel, Claude reads a few connectors at a time.
 
 ## Actions and approval
 

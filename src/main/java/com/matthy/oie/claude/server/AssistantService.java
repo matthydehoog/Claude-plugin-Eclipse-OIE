@@ -38,6 +38,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.matthy.oie.claude.shared.ClaudeServletInterface;
+import com.mirth.connect.client.core.ExtensionOperation;
 import com.mirth.connect.client.core.Operation;
 import com.mirth.connect.model.ServerEvent;
 import com.mirth.connect.model.ServerEventContext;
@@ -502,6 +504,13 @@ public class AssistantService {
             job.emit("info", "Skipped " + name + ": you do not have the OIE permission for it (" + OieTools.OPERATIONS.get(name) + ").");
             return missingPermission(name);
         }
+        if (t.isAction(name) && !mayRunActions(job.conversation.userId, job.address)) {
+            // Approving and rejecting both need "Run Claude Assistant actions"; without it the
+            // confirmation would wait until the timeout, so it is not proposed at all.
+            job.emit("info", "Skipped " + name + ": you do not have the Claude Assistant permission \"" + ClaudeServletInterface.PERMISSION_ACTIONS + "\".");
+            return "The user does not have the Claude Assistant permission \"" + ClaudeServletInterface.PERMISSION_ACTIONS
+                    + "\", so no action can be run for them. Do not propose actions; explain what the user, or an administrator, could do instead.";
+        }
         if (!t.isAction(name)) {
             String result = t.run(name, input);
             String review = settings.reviewBeforeSending;
@@ -571,6 +580,20 @@ public class AssistantService {
             return false;
         }
     }
+
+    /** Whether the user has "Run Claude Assistant actions" (the permission of POST /jobs/{id}/confirm). Fails closed. */
+    private boolean mayRunActions(int userId, String address) {
+        try {
+            Operation confirm = new ExtensionOperation(ClaudeServletInterface.PLUGIN_POINT, new Operation(CONFIRM_OPERATION, "Run Claude action", Operation.ExecuteType.ASYNC, false));
+            return ControllerFactory.getFactory().createAuthorizationController().isUserAuthorized(userId, confirm, new HashMap<>(), address, false);
+        } catch (Exception e) {
+            logger.warn("Claude Assistant: authorization check for actions failed", e);
+            return false;
+        }
+    }
+
+    /** Operation name of ClaudeServletInterface.confirm (its @MirthOperation). */
+    static final String CONFIRM_OPERATION = "claudeConfirmAction";
 
     private static String missingPermission(String tool) {
         return "The user does not have the OIE permission for this (" + tool + ", OIE operation " + OieTools.OPERATIONS.get(tool)

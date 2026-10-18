@@ -88,6 +88,7 @@ public class OieTools {
             Map.entry("oie_list_channels", "getChannelStatusList"),
             Map.entry("oie_get_channel", "getChannel"),
             Map.entry("oie_channel_scripts", "getChannel"),
+            Map.entry("oie_channel_overview", "getChannel"),
             Map.entry("oie_channel_statistics", "getStatistics"),
             Map.entry("oie_search_messages", "searchMessages"),
             Map.entry("oie_get_message", "getMessageContent"),
@@ -234,6 +235,16 @@ public class OieTools {
         read("oie_channel_scripts", "Overview of all scripts in a channel with their location (connector metaDataId and index), so you know what oie_update_channel_script should change.", props(
                 "channel", str("Channel ID (UUID) or channel name")), in -> channelScripts(channel(in)), "channel");
 
+        read("oie_channel_overview", "A readable overview of one channel, shorter than oie_get_channel: per connector its type, data types, queue and settings (secrets hidden), "
+                + "the filter rules and transformer steps with the script OIE generates for each (so you see what a Mapper or Rule Builder element really does), "
+                + "the channel scripts, the code template libraries and the Configuration Map keys the channel uses. Use it to explain or document a channel. "
+                + "To document a channel, write Markdown with these sections: Purpose, Source, Filter, Destinations (with when each runs), Field mappings (a table: source field, target, transformation), "
+                + "Scripts and code templates, Configuration Map keys, Open points (what you noticed, such as disabled rules). Describe in plain language, not code; never include a password or other secret. "
+                + "The user saves your answer as a separate file (Save answer), so make the answer only the documentation: start with a level-1 heading '# <channel name>', with no introduction before it and no question or remark after it. "
+                + "For a large channel, ask for a few connectors at a time with metaDataIds.", props(
+                "channel", str("Channel ID (UUID) or channel name"),
+                "metaDataIds", arr(integer("Connector"), "Only these connectors (0 = source); default all")), this::channelOverview, "channel");
+
         read("oie_channel_statistics", "Counters per connector (source = metaDataId 0, destinations 1..n) for one channel.", props(
                 "channel", str("Channel ID (UUID) or channel name")), in -> channelStatistics(channel(in)), "channel");
 
@@ -378,6 +389,34 @@ public class OieTools {
         Map<Status, Long> stats = s.getStatistics();
         Long n = stats == null ? null : stats.get(status);
         return n == null ? 0 : n;
+    }
+
+    private String channelOverview(JsonNode in) throws Exception {
+        Channel channel = channel(in);
+        Set<Integer> only = null;
+        if (in.path("metaDataIds").isArray() && in.path("metaDataIds").size() > 0) {
+            only = new HashSet<>();
+            for (JsonNode n : in.path("metaDataIds")) {
+                only.add(n.asInt());
+            }
+        }
+        ObjectXMLSerializer serializer = ObjectXMLSerializer.getInstance();
+        ChannelMetadata metadata = configurationController.getChannelMetadata().get(channel.getId());
+        List<String> libraries = new ArrayList<>();
+        for (CodeTemplateLibrary lib : codeTemplateController.getLibraries(null, false)) {
+            boolean linked = lib.getEnabledChannelIds() != null && lib.getEnabledChannelIds().contains(channel.getId());
+            boolean byDefault = lib.isIncludeNewChannels() && (lib.getDisabledChannelIds() == null || !lib.getDisabledChannelIds().contains(channel.getId()));
+            if (linked || byDefault) {
+                libraries.add(lib.getName());
+            }
+        }
+        Map<String, String> configMap = configurationController.getConfigurationMap();
+        List<String> keys = ChannelOverview.configKeysUsed(Masker.unescapeXml(serializer.serialize(channel)), configMap == null ? Collections.emptySet() : configMap.keySet());
+        Map<String, String> names = new HashMap<>();
+        for (Channel c : channelController.getChannels(null)) {
+            names.put(c.getId(), c.getName());
+        }
+        return ChannelOverview.describe(channel, only, metadata == null ? null : metadata.isEnabled(), libraries, keys, names, serializer::serialize);
     }
 
     private String channelStatistics(Channel channel) {

@@ -68,9 +68,9 @@ public class ClaudeServicePlugin implements ServicePlugin {
     @Override
     public ExtensionPermission[] getExtensionPermissions() {
         return new ExtensionPermission[] {
-                new ExtensionPermission(PLUGIN_POINT, PERMISSION_USE, "Chat with Claude about channels, messages and server status (read only).", OperationUtil.getOperationNamesForPermission(PERMISSION_USE, ClaudeServletInterface.class), new String[] {}),
+                new ExtensionPermission(PLUGIN_POINT, PERMISSION_USE, "Chat with Claude about channels, messages and server status (read only).", OperationUtil.getOperationNamesForPermission(PERMISSION_USE, ClaudeServletInterface.class), ClaudeServletInterface.USE_TASKS),
                 new ExtensionPermission(PLUGIN_POINT, PERMISSION_ACTIONS, "Approve actions Claude proposes: deploy, start/stop, reprocess, send messages, change scripts.", OperationUtil.getOperationNamesForPermission(PERMISSION_ACTIONS, ClaudeServletInterface.class), new String[] {}),
-                new ExtensionPermission(PLUGIN_POINT, PERMISSION_SETTINGS, "Change the Anthropic API key, model and masking settings.", OperationUtil.getOperationNamesForPermission(PERMISSION_SETTINGS, ClaudeServletInterface.class), new String[] {}) };
+                new ExtensionPermission(PLUGIN_POINT, PERMISSION_SETTINGS, "Change the Anthropic API key, model and masking settings.", OperationUtil.getOperationNamesForPermission(PERMISSION_SETTINGS, ClaudeServletInterface.class), ClaudeServletInterface.SETTINGS_TASKS) };
     }
 
     AssistantService service() {

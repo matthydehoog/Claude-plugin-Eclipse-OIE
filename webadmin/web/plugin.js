@@ -8,6 +8,9 @@ const STYLE_ID = "claude-assistant-style";
 // The web admin has no plugin hook on the Global Scripts view, so the Claude page offers this context itself.
 const GLOBAL_SCRIPTS_CONTEXT = "Global Scripts (deploy, undeploy, preprocessor and postprocessor). Claude sees the saved version; unsaved changes in the Global Scripts editor are not visible.";
 const GLOBAL_SCRIPTS_SUGGESTION = "Explain what the global scripts do and point out weak spots.";
+const DOCUMENT_SUGGESTION = "Write documentation for this channel as Markdown: purpose, source, filter, destinations, field mappings, scripts and code templates, Configuration Map keys and open points.";
+/** Contexts that name one channel, so it can be documented. */
+const CHANNEL_CONTEXT = /^(Channel open in the editor|Selected channel)/;
 const POLL_MS = 800;
 const BILLING_URL = "https://platform.claude.com/settings/billing";
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
@@ -335,18 +338,24 @@ const chat = {
         }
         try {
             const res = await call("GET", "/conversations/" + encodeURIComponent(this.conversationId) + "/export");
-            const blob = new Blob([res.markdown || ""], { type: "text/markdown;charset=utf-8" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = res.fileName || "claude-conversation.md";
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            download(res.markdown || "", res.fileName || "claude-conversation.md");
         } catch (err) {
             this.add("error", "Export failed: " + errorText(err));
         }
+    },
+
+    /** Claude's last complete answer, as Markdown, or null. */
+    lastAnswer() {
+        for (let i = this.entries.length - 1; i >= 0; i--) {
+            if (this.entries[i].kind === "text") return this.entries[i].text;
+        }
+        return null;
+    },
+
+    /** Saves only Claude's last answer as a Markdown file, named after its first heading. */
+    saveAnswer() {
+        const answer = this.lastAnswer();
+        if (answer) download(answer.trim() + "\n", markdownFileName(answer, "claude-answer.md"));
     },
 
     /** Lists the user's conversations (current and saved) and continues the chosen one. */
@@ -553,9 +562,16 @@ function ChatPanel() {
                 disabled: c.context === GLOBAL_SCRIPTS_CONTEXT,
                 onClick: () => c.open(GLOBAL_SCRIPTS_CONTEXT, GLOBAL_SCRIPTS_SUGGESTION)
             }, "Global Scripts"),
+            e("button", {
+                className: "btn",
+                title: "Let Claude write documentation for the channel in the context; save it with Save answer",
+                disabled: !CHANNEL_CONTEXT.test(c.context || ""),
+                onClick: () => c.open(c.context, DOCUMENT_SUGGESTION)
+            }, "Document channel"),
             e("button", { className: "btn", disabled: !c.context, onClick: () => c.clearContext() }, "Clear context"),
             e("button", { className: "btn", title: "Continue one of your earlier conversations", onClick: () => c.chooseConversation() }, "Conversations…"),
             e("button", { className: "btn", title: "Save this conversation as a Markdown file", disabled: !c.conversationId, onClick: () => c.exportConversation() }, "Export"),
+            e("button", { className: "btn", title: "Save only Claude's last answer as a Markdown file, for example a channel's documentation", disabled: c.busy || !c.lastAnswer(), onClick: () => c.saveAnswer() }, "Save answer"),
             e("button", { className: "btn", onClick: () => c.newConversation() }, "New conversation")),
         e("div", { className: "claude-transcript", ref: transcriptRef },
             welcome,
@@ -580,19 +596,33 @@ function ChatPanel() {
         e("div", { className: "claude-status" }, c.status || " "));
 }
 
+/**
+ * Whether the user's role grants "Use Claude Assistant". The server publishes the Swing task names
+ * with that permission, so an RBAC plugin answers checkTask for them; without RBAC everything is allowed.
+ */
+function mayUse(task = "claudeOpen") {
+    return typeof P.checkTask !== "function" || P.checkTask("other", task);
+}
+
+/** Shown instead of the chat when the route is opened directly without the permission. */
+function NoAccess() {
+    return e("div", { className: "claude-error" }, "You do not have the OIE permission \"Use Claude Assistant\". Ask an administrator to add it to your role.");
+}
+
 function ChatView() {
-    return e("div", { className: "claude-page" }, e(ChatPanel));
+    return e("div", { className: "claude-page" }, mayUse() ? e(ChatPanel) : e(NoAccess));
 }
 
 /** "Claude" tab in the channel editor: the chat, with this channel as context. */
 function ChannelTab(props) {
     const channel = props.channel || (props.ctx && props.ctx.channel) || {};
+    const allowed = mayUse("claudeChannelEdit");
     React.useEffect(() => {
-        if (!channel.id) return;
+        if (!channel.id || !allowed) return;
         const context = `Channel open in the editor: '${channel.name}' (${channel.id}, revision ${channel.revision}). Claude sees the saved version; unsaved changes in the editor are not visible.`;
         if (chat.context !== context) chat.open(context, "Explain what this channel does and point out weak spots in its scripts.");
-    }, [channel.id]);
-    return e("div", { className: "claude-panel claude-embedded" }, e(ChatPanel));
+    }, [channel.id, allowed]);
+    return e("div", { className: "claude-panel claude-embedded" }, allowed ? e(ChatPanel) : e(NoAccess));
 }
 
 /**
@@ -761,6 +791,29 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
 
 // ------------------------------------------------------------------ registration
 
+/** Lets the browser download text as a file. */
+function download(text, fileName) {
+    const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** A file name for a Markdown document: its first level-1 heading, else the fallback (as Markdown.fileName in Swing). */
+function markdownFileName(markdown, fallback) {
+    const m = /^#\s+(.+?)[\s#]*$/m.exec(markdown || "");
+    if (!m) return fallback;
+    // Drop Markdown emphasis, turn characters Windows forbids into " - ", and trim dots and dashes.
+    let name = m[1].replace(/\*\*|__|[*`]/g, "").replace(/\s*[\\/:?"<>|]+\s*/g, " - ").replace(/\s+/g, " ");
+    name = name.substring(0, 100).replace(/^[\s.\-]+|[\s.\-]+$/g, "");
+    return name ? name + ".md" : fallback;
+}
+
 function openWith(context, suggestion) {
     chat.open(context, suggestion);
     P.router.navigate("/claude");
@@ -780,31 +833,51 @@ export function register(platform) {
 
     platform.registerIcon("claude", ICON_PATH);
 
-    platform.registerNavItem({ id: "claude-assistant", label: "Claude Assistant", icon: "claude", path: "/claude", section: "Plugins", order: 30 });
+    // task/rbac: the shell hides the entry when an RBAC plugin denies the task; the server publishes
+    // these task names with "Use Claude Assistant" (ClaudeServletInterface.USE_TASKS).
+    platform.registerNavItem({ id: "claude-assistant", label: "Claude Assistant", icon: "claude", path: "/claude", section: "Plugins", order: 30, task: "claudeOpen", rbac: "other" });
     platform.registerView("/claude", platform.reactView(ChatView), { title: "Claude Assistant" });
 
-    platform.registerChannelTab({ id: "claude-assistant", label: "Claude", order: 90, component: ChannelTab });
+    // Channel tabs have no task gate in the shell, so the tab is only registered when allowed.
+    if (mayUse("claudeChannelEdit")) {
+        platform.registerChannelTab({ id: "claude-assistant", label: "Claude", order: 90, component: ChannelTab });
+    }
 
     platform.registerChannelAction({
         id: "claude-assistant.ask",
         label: "Ask Claude",
         icon: "claude",
         order: 60,
+        task: "claudeDashboard",
         onInvoke: (channel) => {
             if (!channel) return;
             openWith(`Selected channel: '${channel.name}' (${channel.id}).`, "Analyze the status and errors of this channel.");
         }
     });
 
+    platform.registerChannelAction({
+        id: "claude-assistant.document",
+        label: "Document channel",
+        icon: "claude",
+        order: 61,
+        task: "claudeDocumentChannel",
+        onInvoke: (channel) => {
+            if (!channel) return;
+            openWith(`Selected channel: '${channel.name}' (${channel.id}).`, DOCUMENT_SUGGESTION);
+        }
+    });
+
     // The web admin has no hook on the Global Scripts view, so these go in the command palette.
     if (typeof platform.registerCommand === "function") {
-        platform.registerCommand({ id: "claude-assistant.open", label: "Claude Assistant", icon: "claude", section: "Plugins", keywords: ["claude", "ai", "assistant"], path: "/claude" });
+        platform.registerCommand({ id: "claude-assistant.open", label: "Claude Assistant", icon: "claude", section: "Plugins", keywords: ["claude", "ai", "assistant"], path: "/claude", task: "claudeOpen", rbac: "other" });
         platform.registerCommand({
             id: "claude-assistant.global-scripts",
             label: "Ask Claude about Global Scripts",
             icon: "claude",
             section: "Plugins",
             keywords: ["claude", "global scripts", "deploy", "preprocessor", "postprocessor"],
+            task: "claudeGlobalScripts",
+            rbac: "script",
             run: () => openWith(GLOBAL_SCRIPTS_CONTEXT, GLOBAL_SCRIPTS_SUGGESTION)
         });
     }
@@ -814,6 +887,7 @@ export function register(platform) {
         label: "Ask Claude",
         icon: "claude",
         order: 60,
+        task: "claudeCodeTemplate",
         onInvoke: (template, ctx) => {
             if (!template || !template.id) return;
             const library = ctx && ctx.library && ctx.library.name ? ` in library '${ctx.library.name}'` : "";
@@ -829,6 +903,7 @@ export function register(platform) {
             label: "Ask Claude",
             icon: "claude",
             order: 60,
+            task: "claudeMessage",
             onInvoke: (message, ctx) => {
                 const messageId = message && (message.messageId != null ? message.messageId : message.id);
                 if (messageId == null) return;
@@ -840,5 +915,6 @@ export function register(platform) {
         });
     }
 
+    // Hidden by the shell unless "settings_Claude Assistant" doRefresh/doSave is allowed ("Manage Claude Assistant settings").
     platform.registerSettingsPanel({ label: "Claude Assistant", component: SettingsPanel });
 }
