@@ -42,6 +42,18 @@ public interface ClaudeServletInterface extends BaseServletInterface {
     String PERMISSION_ACTIONS = "Run Claude Assistant actions";
     String PERMISSION_SETTINGS = "Manage Claude Assistant settings";
 
+    /**
+     * Administrator tasks that open the chat (Swing task callbacks; the web UI uses the same names).
+     * They are published with {@link #PERMISSION_USE} so an RBAC extension can hide them.
+     */
+    String[] USE_TASKS = { "claudeOpen", "claudeDashboard", "claudeMessage", "claudeChannelEdit", "claudeDocumentChannel", "claudeGlobalScripts", "claudeCodeTemplate" };
+
+    /** Task group of the Settings tab (Swing names it "settings_" + tab name; the web UI does the same). */
+    String SETTINGS_TASK_GROUP = "settings_" + PLUGIN_POINT;
+
+    /** Settings tab tasks, published with {@link #PERMISSION_SETTINGS}: without them the tab is hidden. */
+    String[] SETTINGS_TASKS = { SETTINGS_TASK_GROUP + "/doRefresh", SETTINGS_TASK_GROUP + "/doSave" };
+
     @POST
     @Path("/chat")
     @Operation(summary = "Sends a user message to Claude and starts a job. Body: {conversationId?, message, context?}. Returns {conversationId, jobId}.")

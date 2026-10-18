@@ -596,19 +596,33 @@ function ChatPanel() {
         e("div", { className: "claude-status" }, c.status || " "));
 }
 
+/**
+ * Whether the user's role grants "Use Claude Assistant". The server publishes the Swing task names
+ * with that permission, so an RBAC plugin answers checkTask for them; without RBAC everything is allowed.
+ */
+function mayUse(task = "claudeOpen") {
+    return typeof P.checkTask !== "function" || P.checkTask("other", task);
+}
+
+/** Shown instead of the chat when the route is opened directly without the permission. */
+function NoAccess() {
+    return e("div", { className: "claude-error" }, "You do not have the OIE permission \"Use Claude Assistant\". Ask an administrator to add it to your role.");
+}
+
 function ChatView() {
-    return e("div", { className: "claude-page" }, e(ChatPanel));
+    return e("div", { className: "claude-page" }, mayUse() ? e(ChatPanel) : e(NoAccess));
 }
 
 /** "Claude" tab in the channel editor: the chat, with this channel as context. */
 function ChannelTab(props) {
     const channel = props.channel || (props.ctx && props.ctx.channel) || {};
+    const allowed = mayUse("claudeChannelEdit");
     React.useEffect(() => {
-        if (!channel.id) return;
+        if (!channel.id || !allowed) return;
         const context = `Channel open in the editor: '${channel.name}' (${channel.id}, revision ${channel.revision}). Claude sees the saved version; unsaved changes in the editor are not visible.`;
         if (chat.context !== context) chat.open(context, "Explain what this channel does and point out weak spots in its scripts.");
-    }, [channel.id]);
-    return e("div", { className: "claude-panel claude-embedded" }, e(ChatPanel));
+    }, [channel.id, allowed]);
+    return e("div", { className: "claude-panel claude-embedded" }, allowed ? e(ChatPanel) : e(NoAccess));
 }
 
 /**
@@ -819,16 +833,22 @@ export function register(platform) {
 
     platform.registerIcon("claude", ICON_PATH);
 
-    platform.registerNavItem({ id: "claude-assistant", label: "Claude Assistant", icon: "claude", path: "/claude", section: "Plugins", order: 30 });
+    // task/rbac: the shell hides the entry when an RBAC plugin denies the task; the server publishes
+    // these task names with "Use Claude Assistant" (ClaudeServletInterface.USE_TASKS).
+    platform.registerNavItem({ id: "claude-assistant", label: "Claude Assistant", icon: "claude", path: "/claude", section: "Plugins", order: 30, task: "claudeOpen", rbac: "other" });
     platform.registerView("/claude", platform.reactView(ChatView), { title: "Claude Assistant" });
 
-    platform.registerChannelTab({ id: "claude-assistant", label: "Claude", order: 90, component: ChannelTab });
+    // Channel tabs have no task gate in the shell, so the tab is only registered when allowed.
+    if (mayUse("claudeChannelEdit")) {
+        platform.registerChannelTab({ id: "claude-assistant", label: "Claude", order: 90, component: ChannelTab });
+    }
 
     platform.registerChannelAction({
         id: "claude-assistant.ask",
         label: "Ask Claude",
         icon: "claude",
         order: 60,
+        task: "claudeDashboard",
         onInvoke: (channel) => {
             if (!channel) return;
             openWith(`Selected channel: '${channel.name}' (${channel.id}).`, "Analyze the status and errors of this channel.");
@@ -840,6 +860,7 @@ export function register(platform) {
         label: "Document channel",
         icon: "claude",
         order: 61,
+        task: "claudeDocumentChannel",
         onInvoke: (channel) => {
             if (!channel) return;
             openWith(`Selected channel: '${channel.name}' (${channel.id}).`, DOCUMENT_SUGGESTION);
@@ -848,13 +869,15 @@ export function register(platform) {
 
     // The web admin has no hook on the Global Scripts view, so these go in the command palette.
     if (typeof platform.registerCommand === "function") {
-        platform.registerCommand({ id: "claude-assistant.open", label: "Claude Assistant", icon: "claude", section: "Plugins", keywords: ["claude", "ai", "assistant"], path: "/claude" });
+        platform.registerCommand({ id: "claude-assistant.open", label: "Claude Assistant", icon: "claude", section: "Plugins", keywords: ["claude", "ai", "assistant"], path: "/claude", task: "claudeOpen", rbac: "other" });
         platform.registerCommand({
             id: "claude-assistant.global-scripts",
             label: "Ask Claude about Global Scripts",
             icon: "claude",
             section: "Plugins",
             keywords: ["claude", "global scripts", "deploy", "preprocessor", "postprocessor"],
+            task: "claudeGlobalScripts",
+            rbac: "script",
             run: () => openWith(GLOBAL_SCRIPTS_CONTEXT, GLOBAL_SCRIPTS_SUGGESTION)
         });
     }
@@ -864,6 +887,7 @@ export function register(platform) {
         label: "Ask Claude",
         icon: "claude",
         order: 60,
+        task: "claudeCodeTemplate",
         onInvoke: (template, ctx) => {
             if (!template || !template.id) return;
             const library = ctx && ctx.library && ctx.library.name ? ` in library '${ctx.library.name}'` : "";
@@ -879,6 +903,7 @@ export function register(platform) {
             label: "Ask Claude",
             icon: "claude",
             order: 60,
+            task: "claudeMessage",
             onInvoke: (message, ctx) => {
                 const messageId = message && (message.messageId != null ? message.messageId : message.id);
                 if (messageId == null) return;
@@ -890,5 +915,6 @@ export function register(platform) {
         });
     }
 
+    // Hidden by the shell unless "settings_Claude Assistant" doRefresh/doSave is allowed ("Manage Claude Assistant settings").
     platform.registerSettingsPanel({ label: "Claude Assistant", component: SettingsPanel });
 }

@@ -14,8 +14,12 @@ import java.util.List;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.ImageIcon;
+import javax.swing.JPopupMenu;
+
+import org.jdesktop.swingx.JXTaskPane;
 
 import com.matthy.oie.claude.shared.ClaudeServletInterface;
+import com.mirth.connect.client.ui.AuthorizationControllerFactory;
 import com.mirth.connect.client.ui.Frame;
 import com.mirth.connect.client.ui.PlatformUI;
 import com.mirth.connect.client.ui.browsers.message.MessageBrowser;
@@ -47,16 +51,18 @@ public class ClaudeClientPlugin extends ClientPlugin {
     public void start() {
         parent = PlatformUI.MIRTH_FRAME;
         ImageIcon icon = new ImageIcon(Frame.class.getResource("images/help.png"));
-        parent.addTask("claudeOpen", "Claude Assistant", "Ask Claude a question about this OIE server.", "", icon, parent.otherPane, null, this);
-        parent.addTask("claudeDashboard", "Ask Claude", "Let Claude analyze the selected channel(s).", "", icon, parent.dashboardTasks, parent.dashboardPopupMenu, this);
-        parent.addTask("claudeMessage", "Ask Claude", "Let Claude find out what happened to the selected message.", "", icon, parent.messageTasks, parent.messagePopupMenu, this);
-        parent.addTask("claudeChannelEdit", "Ask Claude", "Let Claude explain or improve this channel and its scripts.", "", icon, parent.channelEditTasks, parent.channelEditPopupMenu, this);
-        parent.addTask("claudeDocumentChannel", "Document channel", "Let Claude write documentation for this channel (Markdown; save it with Save answer).", "", icon, parent.channelEditTasks, parent.channelEditPopupMenu, this);
+        // Frame.addTask does not ask the AuthorizationController, so tasks the user's role does not
+        // grant ("Use Claude Assistant", see ClaudeServletInterface.USE_TASKS) are left out here.
+        addTask("claudeOpen", "Claude Assistant", "Ask Claude a question about this OIE server.", icon, parent.otherPane, null);
+        addTask("claudeDashboard", "Ask Claude", "Let Claude analyze the selected channel(s).", icon, parent.dashboardTasks, parent.dashboardPopupMenu);
+        addTask("claudeMessage", "Ask Claude", "Let Claude find out what happened to the selected message.", icon, parent.messageTasks, parent.messagePopupMenu);
+        addTask("claudeChannelEdit", "Ask Claude", "Let Claude explain or improve this channel and its scripts.", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
+        addTask("claudeDocumentChannel", "Document channel", "Let Claude write documentation for this channel (Markdown; save it with Save answer).", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
 
-        parent.addTask("claudeGlobalScripts", "Ask Claude", "Let Claude explain or improve the global scripts.", "", icon, parent.globalScriptsTasks, parent.globalScriptsPopupMenu, this);
+        addTask("claudeGlobalScripts", "Ask Claude", "Let Claude explain or improve the global scripts.", icon, parent.globalScriptsTasks, parent.globalScriptsPopupMenu);
 
         // The code template panel has its own hook; the task shows only when one template is selected.
-        if (parent.codeTemplatePanel != null) {
+        if (parent.codeTemplatePanel != null && allowed("codeTemplate", "claudeCodeTemplate")) {
             AbstractAction askAboutTemplate = new AbstractAction("Ask Claude", icon) {
                 @Override
                 public void actionPerformed(ActionEvent e) {
@@ -167,6 +173,16 @@ public class ClaudeClientPlugin extends ClientPlugin {
         String context = "Selected code template: '" + template.getName() + "' (" + id + ")" + (library == null ? "" : " in library '" + library + "'")
                 + ". Claude sees the saved version; unsaved changes in the code template editor are not visible.";
         dialog().open(context, "Explain what this code template does, which channels use it, and point out weak spots.");
+    }
+
+    private void addTask(String callback, String name, String toolTip, ImageIcon icon, JXTaskPane pane, JPopupMenu menu) {
+        if (allowed(pane.getName(), callback)) {
+            parent.addTask(callback, name, toolTip, "", icon, pane, menu, this);
+        }
+    }
+
+    private static boolean allowed(String taskGroup, String task) {
+        return AuthorizationControllerFactory.getAuthorizationController().checkTask(taskGroup, task);
     }
 
     private ChatDialog dialog() {
