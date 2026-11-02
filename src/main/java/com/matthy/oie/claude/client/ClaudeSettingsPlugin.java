@@ -17,7 +17,7 @@ public class ClaudeSettingsPlugin extends SettingsPanelPlugin {
 
     public ClaudeSettingsPlugin(String name) {
         super(name);
-        panel = new ClaudeSettingsPanel("Claude Assistant");
+        panel = new ClaudeSettingsPanel("OIE AI Assistant");
     }
 
     @Override

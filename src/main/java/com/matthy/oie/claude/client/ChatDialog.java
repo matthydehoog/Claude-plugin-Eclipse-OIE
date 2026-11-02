@@ -82,7 +82,7 @@ class ChatDialog extends JDialog {
     private String shownActionId;
 
     ChatDialog(JFrame owner) {
-        super(owner, "Claude Assistant", false);
+        super(owner, "OIE AI Assistant", false);
         setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
         buildUi();
         setSize(new Dimension(900, 720));
@@ -275,7 +275,7 @@ class ChatDialog extends JDialog {
                         + (c.path("id").asText().equals(conversationId) ? "   (open)" : ""));
             }
             int keepDays = result.path("keepDays").asInt();
-            String note = keepDays > 0 ? "Conversations are saved on the server for " + keepDays + " days." : "Conversations are not saved on the server: they are kept for 4 hours and lost on a restart (Settings > Claude Assistant).";
+            String note = keepDays > 0 ? "Conversations are saved on the server for " + keepDays + " days." : "Conversations are not saved on the server: they are kept for 4 hours and lost on a restart (Settings > OIE AI Assistant).";
             if (ids.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "You have no earlier conversations.\n" + note, "Conversations", JOptionPane.INFORMATION_MESSAGE);
                 return;

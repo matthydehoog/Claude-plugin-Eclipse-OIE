@@ -13,5 +13,5 @@ public interface ModelReader {
      * @param apiKey the plugin's API key
      * @return JSON text: an array of objects with id, displayName and createdAt (ISO 8601), in the API's order
      */
-    String list(String apiKey) throws Exception;
+    String list(String apiKey, String baseUrl) throws Exception;
 }

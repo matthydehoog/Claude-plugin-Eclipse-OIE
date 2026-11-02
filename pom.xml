@@ -13,11 +13,11 @@
   <description>Claude chat assistant inside the Open Integration Engine Administrator.</description>
 
   <properties>
-    <maven.compiler.release>11</maven.compiler.release>
+    <maven.compiler.release>17</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <!-- Engine install to compile against. Override with -Doie.home=... -->
     <oie.home>C:/Program Files/OpenIntegrationEngine</oie.home>
-    <oie.version>4.6.0</oie.version>
+    <oie.version>4.7.0</oie.version>
     <anthropic.version>2.65.0</anthropic.version>
   </properties>
 
