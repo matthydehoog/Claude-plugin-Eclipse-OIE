@@ -2,7 +2,7 @@
 	<name>OIE AI Assistant</name>
 	<author>X Connections</author>
 	<pluginVersion>1.1.0</pluginVersion>
-	<mirthVersion>4.7.0</mirthVersion>
+	<mirthVersion>4.6.0,4.7.0</mirthVersion>
 	<url>https://x-connections.info</url>
 	<description>Chat with Anthropic Claude or an OpenAI-compatible model server such as Ollama or vLLM from the Administrator. Message content is masked before it leaves the server, and actions such as deploying or changing scripts only run after the user approves them.</description>
 	<serverClasses>
