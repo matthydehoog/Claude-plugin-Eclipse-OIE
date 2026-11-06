@@ -63,6 +63,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
 
     private final JPasswordField apiKeyField = new JPasswordField(40);
     private final javax.swing.JTextField baseUrlField = new javax.swing.JTextField(40);
+    private final JComboBox<String> providerBox = new JComboBox<>(new String[] { "Anthropic", "OpenAI-compatible" });
     private final JLabel apiKeyStatus = new JLabel();
     /** Filled from the server's model list (Anthropic's, or a fixed list); a model ID can also be typed. */
     private final JComboBox<String> modelBox = new JComboBox<>();
@@ -114,6 +115,8 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         form.setBackground(Color.WHITE);
         form.add(new JLabel("API key (if required):"));
         form.add(apiKeyField, "wrap, growx");
+        form.add(new JLabel("Provider:"));
+        form.add(providerBox, "wrap, w 220!");
         form.add(new JLabel("API base URL:"));
         form.add(baseUrlField, "wrap, growx");
         form.add(new JLabel(""));
@@ -176,6 +179,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         };
         apiKeyField.getDocument().addDocumentListener(changed);
         baseUrlField.getDocument().addDocumentListener(changed);
+        providerBox.addActionListener(e -> markChanged());
         adminKeyField.getDocument().addDocumentListener(changed);
         maskPatterns.getDocument().addDocumentListener(changed);
         modelBox.addActionListener(e -> markChanged());
@@ -226,6 +230,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         final ObjectNode body = ClaudeApi.MAPPER.createObjectNode();
         body.put("apiKey", new String(apiKeyField.getPassword()).trim());
         body.put("baseUrl", baseUrlField.getText().trim());
+        body.put("provider", providerBox.getSelectedIndex() == 1 ? "openai-compatible" : "anthropic");
         body.put("adminApiKey", new String(adminKeyField.getPassword()).trim());
         body.put("clearAdminApiKey", clearAdminKey.isSelected());
         body.put("model", String.valueOf(modelBox.getSelectedItem()).trim());
@@ -263,6 +268,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         try {
             apiKeyField.setText("");
             baseUrlField.setText(s.path("baseUrl").asText("https://api.anthropic.com"));
+            providerBox.setSelectedIndex("openai-compatible".equals(s.path("provider").asText("anthropic")) ? 1 : 0);
             apiKeyStatus.setText(s.path("apiKeySet").asBoolean() ? "Set: " + s.path("apiKeyHint").asText() : "No API key set yet.");
             adminKeyField.setText("");
             clearAdminKey.setSelected(false);
@@ -281,7 +287,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
             loading = false;
         }
         loadModels(false);
-        boolean anthropic = s.path("baseUrl").asText("https://api.anthropic.com").contains("api.anthropic.com");
+        boolean anthropic = "anthropic".equals(s.path("provider").asText("anthropic"));
         refreshSpend.setEnabled(anthropic && s.path("adminApiKeySet").asBoolean());
         if (anthropic && s.path("adminApiKeySet").asBoolean()) {
             loadSpend(false);

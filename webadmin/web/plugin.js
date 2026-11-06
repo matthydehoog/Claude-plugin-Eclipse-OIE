@@ -661,12 +661,16 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
 
     const show = React.useCallback((s) => {
         setStatus(s);
-        setForm({ apiKey: "", baseUrl: s.baseUrl || "https://api.anthropic.com", adminApiKey: "", clearAdminApiKey: false, model: s.model || "", effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic", reviewBeforeSending: s.reviewBeforeSending || "data", keepConversationsDays: s.keepConversationsDays || 0 });
+        setForm({ apiKey: "", provider: s.provider || "anthropic", baseUrl: s.baseUrl || "https://api.anthropic.com", adminApiKey: "", clearAdminApiKey: false, model: s.model || "", effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic", reviewBeforeSending: s.reviewBeforeSending || "data", keepConversationsDays: s.keepConversationsDays || 0 });
         clean();
         loadModels(false);
-        if (s.adminApiKeySet && (s.baseUrl || "").includes("api.anthropic.com")) loadSpend(false);
+        setSpend({ state: "idle" });
+    }, [loadModels]);
+
+    React.useEffect(() => {
+        if (form && form.provider === "anthropic" && status.adminApiKeySet) loadSpend(false);
         else setSpend({ state: "idle" });
-    }, [loadSpend, loadModels]);
+    }, [form && form.provider, status.adminApiKeySet, loadSpend]);
 
     const load = React.useCallback(async () => {
         try {
@@ -730,7 +734,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
     };
 
     let spendLines;
-    const anthropicProvider = (form.baseUrl || "").includes("api.anthropic.com");
+    const anthropicProvider = form.provider === "anthropic";
     if (!anthropicProvider) {
         spendLines = [row("Usage:", "Not available", "Usage and spend reports are supported only with Anthropic.")];
     } else if (!status.adminApiKeySet) {
@@ -770,6 +774,10 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
         error ? e("div", { className: "claude-error" }, error) : null,
         row("API key (if required):", e("input", { type: "password", value: form.apiKey, onChange: set("apiKey"), autoComplete: "off" }),
             status.apiKeySet ? "Set: " + status.apiKeyHint : "No API key set yet."),
+        row("Provider:", e("select", { value: form.provider, onChange: set("provider") },
+            e("option", { value: "anthropic" }, "Anthropic"),
+            e("option", { value: "openai-compatible" }, "OpenAI-compatible")),
+            "Choose Anthropic for Anthropic-compatible proxies regardless of their base URL."),
         row("API base URL:", e("input", { type: "text", value: form.baseUrl, onChange: set("baseUrl"), placeholder: "http://localhost:11434/v1" }),
             "Anthropic, Ollama (http://localhost:11434/v1), vLLM (http://localhost:8000/v1) or another OpenAI-compatible API."),
         row("Model:", e("span", { className: "claude-inline" },

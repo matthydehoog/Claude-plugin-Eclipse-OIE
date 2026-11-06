@@ -6,7 +6,7 @@
   "type": "plugin",
   "ui": ["web", "swing"],
   "version": "1.1.0",
-  "minEngineVersion": "4.7.0",
+  "minEngineVersion": "4.6.0",
   "maxEngineVersion": null,
   "filename": "claude-assistant-{version}.zip",
   "restartRequired": true,

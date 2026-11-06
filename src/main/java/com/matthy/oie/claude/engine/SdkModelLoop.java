@@ -85,13 +85,10 @@ public class SdkModelLoop implements ModelLoop {
 
     /** @param toolSpecs maps with name, description, properties (JSON schema per property) and required */
     @SuppressWarnings("unchecked")
-    public SdkModelLoop(String apiKey, String model, String effort, int maxToolCalls, String systemPrompt, List toolSpecs, ToolCaller caller) {
+    public SdkModelLoop(String apiKey, String baseUrl, String model, String effort, int maxToolCalls, String systemPrompt, List toolSpecs, ToolCaller caller) {
         AnthropicOkHttpClient.Builder builder = AnthropicOkHttpClient.builder().apiKey(apiKey).timeout(TIMEOUT).maxRetries(MAX_RETRIES);
-        // Optional JVM option (-Doie.claude.baseUrl=...) for an API gateway in front of api.anthropic.com.
-        String baseUrl = System.getProperty("oie.claude.baseUrl");
-        if (baseUrl != null && !baseUrl.isBlank()) {
-            builder.baseUrl(baseUrl.trim());
-        }
+        String overrideBaseUrl = System.getProperty("oie.claude.baseUrl");
+        builder.baseUrl(overrideBaseUrl == null || overrideBaseUrl.isBlank() ? baseUrl : overrideBaseUrl.trim());
         this.client = builder.build();
         this.model = model;
         this.effort = effort;
@@ -109,6 +106,10 @@ public class SdkModelLoop implements ModelLoop {
                     .inputSchema(BetaTool.InputSchema.builder().properties(props.build()).required((List<String>) spec.get("required")).build())
                     .build());
         }
+    }
+
+    public SdkModelLoop(String apiKey, String model, String effort, int maxToolCalls, String systemPrompt, List toolSpecs, ToolCaller caller) {
+        this(apiKey, "https://api.anthropic.com", model, effort, maxToolCalls, systemPrompt, toolSpecs, caller);
     }
 
     @Override

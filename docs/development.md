@@ -129,7 +129,9 @@ The Anthropic Java SDK needs Jackson 2.19, Kotlin and OkHttp. OIE ships Jackson 
 - **Timeouts**: 10 seconds to connect, 10 minutes per request; 2 retries for rate limits, overloads and dropped connections. Without internet the user gets a clear error within about half a minute. A connection error names the root cause (DNS, refused, timeout).
 - **Fallback**: after a mid-answer fallback, the declined attempt's thinking and tool calls are not echoed back into the history.
 - **Prompt caching**: the system prompt only changes with the settings, so it stays byte-identical within a conversation and the cache keeps working. One line per API call and a total per question go to the server log with input, cache read, cache write and output tokens.
-- **Base URL**: the system property `oie.claude.baseUrl` points the SDK at a gateway or proxy instead of `api.anthropic.com`.
+- **Provider and base URL**: the provider is selected explicitly in settings. The configured base
+  URL is used for model requests and model listing; the optional `oie.claude.baseUrl` system
+  property overrides it for Anthropic SDK and spend API requests.
 - `saveHistory` / `loadHistory` turn the opaque history into JSON and back, for saved conversations.
 
 ## A question, step by step

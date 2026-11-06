@@ -48,14 +48,14 @@ final class EngineLoader {
     }
 
     ModelLoop create(Settings settings, String systemPrompt, List<Map<String, Object>> tools, ModelLoop.ToolCaller caller) throws Exception {
-        boolean openAiCompatible = !settings.baseUrl.contains("api.anthropic.com");
+        boolean openAiCompatible = "openai-compatible".equals(settings.provider);
         Class<?> engine = Class.forName(openAiCompatible ? OPENAI_ENGINE_CLASS : ENGINE_CLASS, true, loader);
         if (openAiCompatible) {
             return (ModelLoop) engine.getConstructor(String.class, String.class, String.class, String.class, int.class, String.class, List.class, ModelLoop.ToolCaller.class)
                     .newInstance(settings.apiKey, settings.baseUrl, settings.model, settings.effort, settings.maxToolCalls, systemPrompt, tools, caller);
         }
-        return (ModelLoop) engine.getConstructor(String.class, String.class, String.class, int.class, String.class, List.class, ModelLoop.ToolCaller.class)
-                .newInstance(settings.apiKey, settings.model, settings.effort, settings.maxToolCalls, systemPrompt, tools, caller);
+        return (ModelLoop) engine.getConstructor(String.class, String.class, String.class, String.class, int.class, String.class, List.class, ModelLoop.ToolCaller.class)
+                .newInstance(settings.apiKey, settings.baseUrl, settings.model, settings.effort, settings.maxToolCalls, systemPrompt, tools, caller);
     }
 
     SpendReader createSpendReader() throws Exception {

@@ -157,6 +157,8 @@ was reviewed. The content itself is never logged.
    [console.anthropic.com](https://console.anthropic.com)) and click *Save*. The key is stored
    encrypted and never sent back to the Administrator; the field is emptied after saving and the
    line below it shows *Set: sk-ant-…xxxx*.
+   Select the provider explicitly; choose **Anthropic** for Anthropic-compatible proxies regardless
+   of their base URL, or **OpenAI-compatible** for endpoints such as Ollama and vLLM.
 3. Defaults: model `claude-opus-5`, effort `high`, at most 25 tool calls per question, response
    language *Automatic* (Claude answers in the language of the question). The **Model** list comes
    from Anthropic's Models API for your key (newest first, refreshed daily), so new models appear
@@ -189,8 +191,10 @@ the connection is back. Connecting times out after 10 seconds and is tried three
 firewall that silently drops packets gives the message within about half a minute. Answers
 themselves may still take up to 10 minutes.
 
-The OIE server must be able to reach `https://api.anthropic.com`. Behind a gateway or proxy? Add for
-example `-Doie.claude.baseUrl=https://gateway.example/anthropic` to `conf/custom.vmoptions`.
+The OIE server must be able to reach the configured API base URL. For an Anthropic-compatible
+gateway, select **Anthropic** as the provider and set its URL in **API base URL**. Alternatively,
+`-Doie.claude.baseUrl=https://gateway.example/anthropic` in `conf/custom.vmoptions` overrides the
+Anthropic endpoint.
 
 ## Building
 

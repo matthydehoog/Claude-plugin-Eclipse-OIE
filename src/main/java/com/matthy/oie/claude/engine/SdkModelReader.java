@@ -16,9 +16,9 @@ public class SdkModelReader implements ModelReader {
     private static final ObjectMapper JSON = new ObjectMapper();
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
-    @Override public String list(String apiKey, String baseUrl) throws Exception {
+    @Override public String list(String apiKey, String baseUrl, String provider) throws Exception {
         String base = baseUrl == null ? "" : baseUrl.replaceAll("/+$", "");
-        boolean anthropic = base.contains("api.anthropic.com");
+        boolean anthropic = "anthropic".equals(provider);
         String url = base.endsWith("/v1") ? base + "/models" : base + "/v1/models";
         HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(30));
         if (anthropic) request.header("x-api-key", apiKey).header("anthropic-version", "2023-06-01");

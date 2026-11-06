@@ -12,7 +12,8 @@ public interface SpendReader {
     /**
      * @param adminKey Admin API key of the organization
      * @param pluginApiKey the plugin's own API key, used to find the workspace it belongs to
+     * @param baseUrl the configured Anthropic-compatible endpoint
      * @return JSON text: monthStart, currency, organizationUsd, and workspaceName/workspaceUsd when known
      */
-    String read(String adminKey, String pluginApiKey) throws Exception;
+    String read(String adminKey, String pluginApiKey, String baseUrl) throws Exception;
 }

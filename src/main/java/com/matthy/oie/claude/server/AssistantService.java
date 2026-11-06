@@ -117,6 +117,7 @@ public class AssistantService {
     private JsonNode cachedModels;
     private String cachedModelsKey;
     private String cachedModelsBaseUrl;
+    private String cachedModelsProvider;
     private long cachedModelsAt;
 
     public AssistantService(Settings settings) {
@@ -135,7 +136,7 @@ public class AssistantService {
         Masker newMasker = new Masker(settings.maskPatterns);
         OieTools newTools = new OieTools(newMasker);
         ModelLoop newLoop = null;
-        if (engine != null && (!settings.apiKey.isEmpty() || !settings.baseUrl.contains("api.anthropic.com"))) {
+        if (engine != null && (!settings.apiKey.isEmpty() || "openai-compatible".equals(settings.provider))) {
             List<Map<String, Object>> specs = new ArrayList<>();
             for (OieTools.Spec spec : newTools.specs()) {
                 Map<String, Object> m = new LinkedHashMap<>();
@@ -185,7 +186,7 @@ public class AssistantService {
      */
     public synchronized String spend(boolean refresh) throws Exception {
         Settings s = settings;
-        if (!s.baseUrl.contains("api.anthropic.com")) {
+        if (!"anthropic".equals(s.provider)) {
             throw new IllegalStateException("Usage and spend reports are available only with Anthropic; OpenAI-compatible servers do not provide this report through the plugin.");
         }
         if (s.adminApiKey.isEmpty()) {
@@ -194,7 +195,7 @@ public class AssistantService {
         if (engine == null) {
             throw new IllegalStateException("The Claude assistant cannot start: " + engineError);
         }
-        String cacheKey = s.adminApiKey + '\n' + s.apiKey;
+        String cacheKey = s.adminApiKey + '\n' + s.apiKey + '\n' + s.baseUrl;
         long now = System.currentTimeMillis();
         if (!refresh && cachedSpend != null && cacheKey.equals(cachedSpendKey) && now - cachedSpendAt < SPEND_CACHE_MS) {
             return cachedSpend;
@@ -202,7 +203,7 @@ public class AssistantService {
         if (spendReader == null) {
             spendReader = engine.createSpendReader();
         }
-        cachedSpend = spendReader.read(s.adminApiKey, s.apiKey);
+        cachedSpend = spendReader.read(s.adminApiKey, s.apiKey, s.baseUrl);
         cachedSpendKey = cacheKey;
         cachedSpendAt = now;
         return cachedSpend;
@@ -216,7 +217,7 @@ public class AssistantService {
      */
     public String models(boolean refresh) {
         Settings s = settings;
-        if (s.apiKey.isEmpty() && s.baseUrl.contains("api.anthropic.com")) {
+        if (s.apiKey.isEmpty() && "anthropic".equals(s.provider)) {
             return ModelList.build(null, "Set an API key to load the model list; a fixed list is shown.", s.model, 0).toString();
         }
         if (engine == null) {
@@ -224,14 +225,15 @@ public class AssistantService {
         }
         synchronized (modelsLock) {
             long now = System.currentTimeMillis();
-            if (refresh || cachedModels == null || !s.apiKey.equals(cachedModelsKey) || !s.baseUrl.equals(cachedModelsBaseUrl) || now - cachedModelsAt >= MODELS_CACHE_MS) {
+            if (refresh || cachedModels == null || !s.apiKey.equals(cachedModelsKey) || !s.baseUrl.equals(cachedModelsBaseUrl) || !s.provider.equals(cachedModelsProvider) || now - cachedModelsAt >= MODELS_CACHE_MS) {
                 try {
                     if (modelReader == null) {
                         modelReader = engine.createModelReader();
                     }
-                    cachedModels = MAPPER.readTree(modelReader.list(s.apiKey, s.baseUrl));
+                    cachedModels = MAPPER.readTree(modelReader.list(s.apiKey, s.baseUrl, s.provider));
                     cachedModelsKey = s.apiKey;
                     cachedModelsBaseUrl = s.baseUrl;
+                    cachedModelsProvider = s.provider;
                     cachedModelsAt = now;
                 } catch (Exception e) {
                     // Not cached, so the next visit tries again; the fixed list keeps the screen usable.
