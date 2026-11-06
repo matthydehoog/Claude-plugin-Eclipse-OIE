@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "claude-assistant",
-  "name": "OIE AI Assistant",
+  "name": "Claude Assistant",
   "description": "Chat with Anthropic Claude or an OpenAI-compatible model server (including Ollama and vLLM) inside the OIE Administrator and web administrator. Patient data (HL7, FHIR, GDT, EDIFACT) is masked before it leaves the server, and actions only run after the user approves them.",
   "type": "plugin",
   "ui": ["web", "swing"],
