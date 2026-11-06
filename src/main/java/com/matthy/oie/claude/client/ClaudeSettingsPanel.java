@@ -62,6 +62,8 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     private static final String BILLING_URL = "https://platform.claude.com/settings/billing";
 
     private final JPasswordField apiKeyField = new JPasswordField(40);
+    private final javax.swing.JTextField baseUrlField = new javax.swing.JTextField(40);
+    private final JComboBox<String> providerBox = new JComboBox<>(new String[] { "Anthropic", "OpenAI-compatible" });
     private final JLabel apiKeyStatus = new JLabel();
     /** Filled from the server's model list (Anthropic's, or a fixed list); a model ID can also be typed. */
     private final JComboBox<String> modelBox = new JComboBox<>();
@@ -111,8 +113,14 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
 
         JPanel form = new JPanel(new MigLayout("insets 0, novisualpadding, hidemode 3", "[right][grow,fill]"));
         form.setBackground(Color.WHITE);
-        form.add(new JLabel("Anthropic API key:"));
+        form.add(new JLabel("API key (if required):"));
         form.add(apiKeyField, "wrap, growx");
+        form.add(new JLabel("Provider:"));
+        form.add(providerBox, "wrap, w 220!");
+        form.add(new JLabel("API base URL:"));
+        form.add(baseUrlField, "wrap, growx");
+        form.add(new JLabel(""));
+        form.add(new JLabel("<html>Use the provider URL for Anthropic, or an OpenAI-compatible endpoint such as <code>http://localhost:11434/v1</code> (Ollama) or <code>http://localhost:8000/v1</code> (vLLM). The API key may be blank for local servers.</html>"), "wrap, w 600!");
         form.add(new JLabel(""));
         form.add(apiKeyStatus, "wrap");
         form.add(new JLabel("Model:"));
@@ -170,6 +178,8 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
             public void changedUpdate(DocumentEvent e) { markChanged(); }
         };
         apiKeyField.getDocument().addDocumentListener(changed);
+        baseUrlField.getDocument().addDocumentListener(changed);
+        providerBox.addActionListener(e -> markChanged());
         adminKeyField.getDocument().addDocumentListener(changed);
         maskPatterns.getDocument().addDocumentListener(changed);
         modelBox.addActionListener(e -> markChanged());
@@ -219,6 +229,8 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     public boolean doSave() {
         final ObjectNode body = ClaudeApi.MAPPER.createObjectNode();
         body.put("apiKey", new String(apiKeyField.getPassword()).trim());
+        body.put("baseUrl", baseUrlField.getText().trim());
+        body.put("provider", providerBox.getSelectedIndex() == 1 ? "openai-compatible" : "anthropic");
         body.put("adminApiKey", new String(adminKeyField.getPassword()).trim());
         body.put("clearAdminApiKey", clearAdminKey.isSelected());
         body.put("model", String.valueOf(modelBox.getSelectedItem()).trim());
@@ -255,6 +267,8 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         loading = true;
         try {
             apiKeyField.setText("");
+            baseUrlField.setText(s.path("baseUrl").asText("https://api.anthropic.com"));
+            providerBox.setSelectedIndex("openai-compatible".equals(s.path("provider").asText("anthropic")) ? 1 : 0);
             apiKeyStatus.setText(s.path("apiKeySet").asBoolean() ? "Set: " + s.path("apiKeyHint").asText() : "No API key set yet.");
             adminKeyField.setText("");
             clearAdminKey.setSelected(false);
@@ -273,9 +287,12 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
             loading = false;
         }
         loadModels(false);
-        refreshSpend.setEnabled(s.path("adminApiKeySet").asBoolean());
-        if (s.path("adminApiKeySet").asBoolean()) {
+        boolean anthropic = "anthropic".equals(s.path("provider").asText("anthropic"));
+        refreshSpend.setEnabled(anthropic && s.path("adminApiKeySet").asBoolean());
+        if (anthropic && s.path("adminApiKeySet").asBoolean()) {
             loadSpend(false);
+        } else if (!anthropic) {
+            showSpend(null, "Spend reports are supported only by Anthropic's API.");
         } else {
             showSpend(null, "Set an Admin API key to show the spend this month.");
         }
@@ -325,6 +342,8 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
             text = "<html><font color='#b35900'>" + Markdown.escape(list.path("warning").asText()) + "</font></html>";
         } else if ("anthropic".equals(list.path("source").asText())) {
             text = list.path("models").size() + " models from Anthropic" + updated(list.path("fetchedAt").asText("")) + ". You can also type a model ID.";
+        } else if ("openai-compatible".equals(list.path("source").asText())) {
+            text = list.path("models").size() + " models from the configured endpoint. You can also type a model ID.";
         } else {
             text = "<html>" + Markdown.escape(list.path("note").asText("A fixed list is shown.")) + " You can also type a model ID.</html>";
         }

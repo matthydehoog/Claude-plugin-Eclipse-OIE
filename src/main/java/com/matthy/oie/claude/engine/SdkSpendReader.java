@@ -45,12 +45,12 @@ public class SdkSpendReader implements SpendReader {
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(SdkModelLoop.TIMEOUT.connect()).build();
 
     @Override
-    public String read(String adminKey, String pluginApiKey) throws Exception {
+    public String read(String adminKey, String pluginApiKey, String configuredBaseUrl) throws Exception {
         Thread thread = Thread.currentThread();
         ClassLoader previous = thread.getContextClassLoader();
         thread.setContextClassLoader(SdkSpendReader.class.getClassLoader());
         try {
-            return report(adminKey, pluginApiKey).toString();
+            return report(adminKey, pluginApiKey, configuredBaseUrl).toString();
         } catch (AnthropicServiceException e) {
             // The API key lookup goes through the SDK; give its errors the same wording as the cost report.
             throw new IllegalStateException(describe(e.statusCode(), e.body().toString()));
@@ -61,10 +61,10 @@ public class SdkSpendReader implements SpendReader {
         }
     }
 
-    private ObjectNode report(String adminKey, String pluginApiKey) throws Exception {
+    private ObjectNode report(String adminKey, String pluginApiKey, String configuredBaseUrl) throws Exception {
         String baseUrl = System.getProperty("oie.claude.baseUrl");
         if (baseUrl == null || baseUrl.isBlank()) {
-            baseUrl = DEFAULT_BASE_URL;
+            baseUrl = configuredBaseUrl == null || configuredBaseUrl.isBlank() ? DEFAULT_BASE_URL : configuredBaseUrl;
         }
         baseUrl = baseUrl.trim().replaceAll("/+$", "");
 

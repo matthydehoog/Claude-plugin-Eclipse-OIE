@@ -28,6 +28,8 @@ public class Settings {
     static final String REVIEW_ALL = "all";
 
     private static final String KEY_API_KEY = "apiKey";
+    private static final String KEY_BASE_URL = "baseUrl";
+    private static final String KEY_PROVIDER = "provider";
     private static final String KEY_ADMIN_API_KEY = "adminApiKey";
     private static final String KEY_MODEL = "model";
     private static final String KEY_EFFORT = "effort";
@@ -40,6 +42,8 @@ public class Settings {
     static final int MAX_KEEP_DAYS = 365;
 
     final String apiKey;
+    final String baseUrl;
+    final String provider;
     /** Optional Admin API key, only used to read the organization's cost report. */
     final String adminApiKey;
     final String model;
@@ -58,7 +62,17 @@ public class Settings {
     }
 
     Settings(String apiKey, String adminApiKey, String model, String effort, int maxToolCalls, String maskPatterns, String responseLanguage, String reviewBeforeSending, int keepConversationsDays) {
+        this(apiKey, adminApiKey, model, effort, maxToolCalls, maskPatterns, responseLanguage, reviewBeforeSending, keepConversationsDays, "https://api.anthropic.com");
+    }
+
+    Settings(String apiKey, String adminApiKey, String model, String effort, int maxToolCalls, String maskPatterns, String responseLanguage, String reviewBeforeSending, int keepConversationsDays, String baseUrl) {
+        this(apiKey, adminApiKey, model, effort, maxToolCalls, maskPatterns, responseLanguage, reviewBeforeSending, keepConversationsDays, baseUrl, "anthropic");
+    }
+
+    Settings(String apiKey, String adminApiKey, String model, String effort, int maxToolCalls, String maskPatterns, String responseLanguage, String reviewBeforeSending, int keepConversationsDays, String baseUrl, String provider) {
         this.apiKey = apiKey == null ? "" : apiKey.trim();
+        this.baseUrl = normalizeBaseUrl(baseUrl);
+        this.provider = "openai-compatible".equalsIgnoreCase(provider == null ? "" : provider.trim()) ? "openai-compatible" : "anthropic";
         this.adminApiKey = adminApiKey == null ? "" : adminApiKey.trim();
         this.model = blank(model) ? DEFAULT_MODEL : model.trim();
         this.effort = blank(effort) ? DEFAULT_EFFORT : effort.trim().toLowerCase();
@@ -77,6 +91,8 @@ public class Settings {
     static Properties defaults() {
         Properties p = new Properties();
         p.setProperty(KEY_API_KEY, "");
+        p.setProperty(KEY_BASE_URL, "https://api.anthropic.com");
+        p.setProperty(KEY_PROVIDER, "anthropic");
         p.setProperty(KEY_ADMIN_API_KEY, "");
         p.setProperty(KEY_MODEL, DEFAULT_MODEL);
         p.setProperty(KEY_EFFORT, DEFAULT_EFFORT);
@@ -89,12 +105,14 @@ public class Settings {
     }
 
     static Settings fromProperties(Properties p, Encryptor encryptor) {
-        return new Settings(decrypt(p.getProperty(KEY_API_KEY, ""), encryptor), decrypt(p.getProperty(KEY_ADMIN_API_KEY, ""), encryptor), p.getProperty(KEY_MODEL), p.getProperty(KEY_EFFORT), parseInt(p.getProperty(KEY_MAX_TOOL_CALLS)), p.getProperty(KEY_MASK_PATTERNS), p.getProperty(KEY_RESPONSE_LANGUAGE), p.getProperty(KEY_REVIEW), parseInt(p.getProperty(KEY_KEEP_DAYS)));
+        return new Settings(decrypt(p.getProperty(KEY_API_KEY, ""), encryptor), decrypt(p.getProperty(KEY_ADMIN_API_KEY, ""), encryptor), p.getProperty(KEY_MODEL), p.getProperty(KEY_EFFORT), parseInt(p.getProperty(KEY_MAX_TOOL_CALLS)), p.getProperty(KEY_MASK_PATTERNS), p.getProperty(KEY_RESPONSE_LANGUAGE), p.getProperty(KEY_REVIEW), parseInt(p.getProperty(KEY_KEEP_DAYS)), p.getProperty(KEY_BASE_URL, "https://api.anthropic.com"), p.getProperty(KEY_PROVIDER, "anthropic"));
     }
 
     Properties toProperties(Encryptor encryptor) {
         Properties p = new Properties();
         p.setProperty(KEY_API_KEY, apiKey.isEmpty() ? "" : encryptor.encrypt(apiKey));
+        p.setProperty(KEY_BASE_URL, baseUrl);
+        p.setProperty(KEY_PROVIDER, provider);
         p.setProperty(KEY_ADMIN_API_KEY, adminApiKey.isEmpty() ? "" : encryptor.encrypt(adminApiKey));
         p.setProperty(KEY_MODEL, model);
         p.setProperty(KEY_EFFORT, effort);
@@ -114,12 +132,14 @@ public class Settings {
         String newKey = update.path(KEY_API_KEY).asText("");
         String newAdminKey = update.path(KEY_ADMIN_API_KEY).asText("");
         String admin = update.path("clearAdminApiKey").asBoolean(false) ? "" : newAdminKey.isBlank() ? adminApiKey : newAdminKey;
-        return new Settings(newKey.isBlank() ? apiKey : newKey, admin, update.path(KEY_MODEL).asText(model), update.path(KEY_EFFORT).asText(effort), update.path(KEY_MAX_TOOL_CALLS).asInt(maxToolCalls), update.path(KEY_MASK_PATTERNS).asText(maskPatterns), update.path(KEY_RESPONSE_LANGUAGE).asText(responseLanguage), update.path(KEY_REVIEW).asText(reviewBeforeSending), update.path(KEY_KEEP_DAYS).asInt(keepConversationsDays));
+        return new Settings(newKey.isBlank() ? apiKey : newKey, admin, update.path(KEY_MODEL).asText(model), update.path(KEY_EFFORT).asText(effort), update.path(KEY_MAX_TOOL_CALLS).asInt(maxToolCalls), update.path(KEY_MASK_PATTERNS).asText(maskPatterns), update.path(KEY_RESPONSE_LANGUAGE).asText(responseLanguage), update.path(KEY_REVIEW).asText(reviewBeforeSending), update.path(KEY_KEEP_DAYS).asInt(keepConversationsDays), update.path(KEY_BASE_URL).asText(baseUrl), update.path(KEY_PROVIDER).asText(provider));
     }
 
     void writeTo(ObjectNode node) {
         node.put("apiKeySet", !apiKey.isEmpty());
         node.put("apiKeyHint", hint(apiKey));
+        node.put(KEY_BASE_URL, baseUrl);
+        node.put(KEY_PROVIDER, provider);
         node.put("adminApiKeySet", !adminApiKey.isEmpty());
         node.put("adminApiKeyHint", hint(adminApiKey));
         node.put(KEY_MODEL, model);
@@ -141,6 +161,11 @@ public class Settings {
 
     private static boolean blank(String s) {
         return s == null || s.isBlank();
+    }
+
+    private static String normalizeBaseUrl(String value) {
+        String url = blank(value) ? "https://api.anthropic.com" : value.trim();
+        return url.replaceAll("/+$", "");
     }
 
     private static int parseInt(String s) {

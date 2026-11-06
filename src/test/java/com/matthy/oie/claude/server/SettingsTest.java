@@ -84,4 +84,26 @@ public class SettingsTest {
         assertEquals("Dutch", dutch.merge(MAPPER.readTree("{\"effort\":\"low\"}")).responseLanguage);
         assertEquals("English", dutch.merge(MAPPER.readTree("{\"responseLanguage\":\"English\"}")).responseLanguage);
     }
+
+    @Test
+    public void providerIsExplicitAndPersistsIndependentlyOfBaseUrl() throws Exception {
+        Settings anthropicProxy = new Settings("", "", "claude-opus-5", "high", 25, "", null, null, 0,
+                "https://proxy.example/anthropic", "anthropic");
+        assertEquals("anthropic", anthropicProxy.provider);
+
+        Settings openAi = anthropicProxy.merge(MAPPER.readTree("{\"provider\":\"openai-compatible\"}"));
+        assertEquals("openai-compatible", openAi.provider);
+        assertEquals("openai-compatible", Settings.fromProperties(openAi.toProperties(null), null).provider);
+        assertEquals("anthropic", Settings.fromProperties(Settings.defaults(), null).provider);
+    }
+
+    @Test
+    public void providerCanBeChangedWithoutChangingTheBaseUrl() throws Exception {
+        Settings settings = new Settings("", "", "claude-opus-5", "high", 25, "", null, null, 0,
+                "https://proxy.example/anthropic", "openai-compatible");
+        Settings changed = settings.merge(MAPPER.readTree("{\"provider\":\"anthropic\"}"));
+
+        assertEquals("https://proxy.example/anthropic", changed.baseUrl);
+        assertEquals("anthropic", changed.provider);
+    }
 }

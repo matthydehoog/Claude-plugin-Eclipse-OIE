@@ -1,16 +1,32 @@
-# Claude Assistant for Open Integration Engine
+# OIE AI Assistant
 
-An extension for the OIE Administrator that lets you talk to Claude about your server from inside
-the GUI: channels, messages, errors, scripts, code templates and server status. Claude looks the
-facts up itself through the same tools as `oie-mcp-server`, and can propose actions that only run
-after you approve them.
+An extension for the OIE Administrator that lets you use Anthropic Claude or an OpenAI-compatible
+chat-completions server with your OIE server: channels, messages, errors, scripts, code templates and
+server status. The plugin includes compatible adapters for Ollama, vLLM and other providers that
+implement `/v1/chat/completions` and `/v1/models`. Tool calls use the existing OIE approval flow.
 
-**New here?** Read the [User Manual](docs/USER_MANUAL.md) for installation, setup, daily use and
-troubleshooting.
+## Provider setup
 
-**Training:** the online course
-[Claude Assistant for Eclipse OIE](https://eclipse-oie.moodiy.cloud/course/view.php?id=3) at the
-Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exercises on a test channel.
+Open **Settings > OIE AI Assistant** and enter the API base URL and model ID. The API key is optional
+for local endpoints. Examples:
+
+| Server | API base URL | Example model ID |
+| --- | --- | --- |
+| Anthropic Claude | `https://api.anthropic.com` | `claude-sonnet-4-5` |
+| Ollama | `http://localhost:11434/v1` | `qwen3` |
+| vLLM | `http://localhost:8000/v1` | the model name served by vLLM |
+
+The OIE server must be able to reach the configured URL. For remote deployments, use the OIE
+server's address for a local Ollama/vLLM host, not `localhost` unless that service runs on the same
+machine. OpenAI-compatible providers need function/tool calling enabled for OIE tools. Spend and
+usage reports are available only when using Anthropic.
+
+The plugin still masks message and patient data before it leaves OIE, and actions such as changing
+scripts or deploying channels still require user approval. A custom compatible server receives the
+prompt and context after masking; review settings and OIE permissions continue to apply.
+
+**New here?** Read the [User Manual](docs/USER_MANUAL.md) for installation, daily use and
+troubleshooting. This fork builds on the original [Claude plugin for Eclipse OIE](https://github.com/matthydehoog/Claude-plugin-Eclipse-OIE), which is licensed under MPL-2.0.
 
 > **Unofficial plugin.** This is a community-built plugin. It is not affiliated with, endorsed by or
 > supported by Anthropic. Claude and Anthropic are trademarks of Anthropic, PBC.
@@ -141,6 +157,8 @@ was reviewed. The content itself is never logged.
    [console.anthropic.com](https://console.anthropic.com)) and click *Save*. The key is stored
    encrypted and never sent back to the Administrator; the field is emptied after saving and the
    line below it shows *Set: sk-ant-…xxxx*.
+   Select the provider explicitly; choose **Anthropic** for Anthropic-compatible proxies regardless
+   of their base URL, or **OpenAI-compatible** for endpoints such as Ollama and vLLM.
 3. Defaults: model `claude-opus-5`, effort `high`, at most 25 tool calls per question, response
    language *Automatic* (Claude answers in the language of the question). The **Model** list comes
    from Anthropic's Models API for your key (newest first, refreshed daily), so new models appear
@@ -173,8 +191,10 @@ the connection is back. Connecting times out after 10 seconds and is tried three
 firewall that silently drops packets gives the message within about half a minute. Answers
 themselves may still take up to 10 minutes.
 
-The OIE server must be able to reach `https://api.anthropic.com`. Behind a gateway or proxy? Add for
-example `-Doie.claude.baseUrl=https://gateway.example/anthropic` to `conf/custom.vmoptions`.
+The OIE server must be able to reach the configured API base URL. For an Anthropic-compatible
+gateway, select **Anthropic** as the provider and set its URL in **API base URL**. Alternatively,
+`-Doie.claude.baseUrl=https://gateway.example/anthropic` in `conf/custom.vmoptions` overrides the
+Anthropic endpoint.
 
 ## Building
 

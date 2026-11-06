@@ -41,10 +41,13 @@ final class ModelList {
     static ObjectNode build(JsonNode fetched, String problem, String saved, long fetchedAt) {
         ObjectNode out = MAPPER.createObjectNode();
         Map<String, ObjectNode> models = new LinkedHashMap<>();
-        boolean fromAnthropic = fetched != null && fetched.isArray() && fetched.size() > 0;
-        if (fromAnthropic) {
+        JsonNode fetchedModels = fetched != null && fetched.isObject() ? fetched.path("models") : fetched;
+        String provider = fetched != null && fetched.isObject() ? fetched.path("source").asText("openai-compatible") : "anthropic";
+        boolean fromProvider = fetchedModels != null && fetchedModels.isArray() && fetchedModels.size() > 0;
+        boolean fromAnthropic = fromProvider && "anthropic".equals(provider);
+        if (fromProvider) {
             List<JsonNode> sorted = new ArrayList<>();
-            fetched.forEach(sorted::add);
+            fetchedModels.forEach(sorted::add);
             // Newest first; ISO 8601 timestamps in UTC sort as text.
             sorted.sort(Comparator.comparing((JsonNode m) -> m.path("createdAt").asText("")).reversed().thenComparing(m -> m.path("id").asText("")));
             for (JsonNode m : sorted) {
@@ -57,7 +60,7 @@ final class ModelList {
                     models.put(id, model);
                 }
             }
-            out.put("source", "anthropic");
+            out.put("source", provider);
             if (fetchedAt > 0) {
                 out.put("fetchedAt", Instant.ofEpochMilli(fetchedAt).toString());
             }
@@ -73,8 +76,8 @@ final class ModelList {
         ArrayNode list = out.putArray("models");
         if (!current.isEmpty() && !models.containsKey(current)) {
             list.addObject().put("id", current).put("displayName", current).put("unlisted", true);
-            if (fromAnthropic) {
-                out.put("warning", "The saved model " + current + " is not in Anthropic's model list for this API key. It may have been retired; choose another model.");
+            if (fromProvider) {
+                out.put("warning", "The saved model " + current + " is not in the configured endpoint's model list. Choose a model supported by that endpoint.");
             }
         }
         models.values().forEach(list::add);

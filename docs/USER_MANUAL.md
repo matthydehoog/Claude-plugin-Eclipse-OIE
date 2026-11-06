@@ -1,8 +1,8 @@
 # Claude Assistant for OIE — User Manual
 
-Version 1.1.0 · October 2026
+Version 1.1.1 · October 2026
 
-The Claude Assistant (version 1.1.0) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
+The Claude Assistant (version 1.1.1) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
 
 > **Unofficial plugin.** This is a community-built plugin. It is not affiliated with, endorsed by or supported by Anthropic. Claude and Anthropic are trademarks of Anthropic, PBC.
 >
@@ -80,8 +80,10 @@ The key is stored encrypted on the server and never sent back to the Administrat
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| API key | none | Anthropic key used for every question |
-| Model | `claude-opus-5` | The Claude model that answers. The list shows the models your API key can use, newest first, as Anthropic reports them; you can also type a model ID |
+| Provider | Anthropic | Select Anthropic-compatible or OpenAI-compatible API behavior explicitly; the base URL does not determine the provider |
+| API base URL | `https://api.anthropic.com` | Provider endpoint, including a compatible proxy URL |
+| API key | none | Key for the selected provider; it may be blank for local OpenAI-compatible servers |
+| Model | `claude-opus-5` | The model that answers. The list is loaded from the selected provider when supported; you can also type a model ID |
 | Effort | `high` | How hard Claude thinks; lower is faster and cheaper |
 | Max tool calls | 25 | Lookups Claude may do for one question |
 | Response language | Automatic | Automatic answers in the language of the question; a fixed language always answers in that language |
@@ -92,7 +94,7 @@ The key is stored encrypted on the server and never sent back to the Administrat
 
 To get an API key, sign in at [console.anthropic.com](https://console.anthropic.com), open *API keys* and click *Create key*. Copy it straight away: the Console shows it only once.
 
-**The model list.** Once an API key is saved, the server asks Anthropic which models the key can use and keeps that list for a day; *Refresh list* next to the field asks again. A model Anthropic adds therefore appears without a new plugin version. The line below the field says where the list comes from:
+**The model list.** Once an API key is saved, the server asks the selected provider which models the key can use and keeps that list for a day; *Refresh list* next to the field asks again. The line below the field says where the list comes from:
 
 - *N models from Anthropic, updated …*: the current list.
 - A message and *a fixed list is shown*: Anthropic could not be asked (no API key yet, no internet, a rejected key). The plugin's own list is shown instead; the reason is in the message.
@@ -365,7 +367,9 @@ A question then ends with *Cannot reach the Anthropic API from the OIE server (�
 
 Connecting times out after 10 seconds and is tried three times, so you get the message within about half a minute. An answer itself may take up to 10 minutes.
 
-**Behind a gateway or proxy:** add this line to `conf/custom.vmoptions` and restart the service:
+**Behind an Anthropic-compatible gateway or proxy:** select **Anthropic** as the provider and set
+the proxy URL in **API base URL**. Alternatively, add this line to `conf/custom.vmoptions` and
+restart the service to override the configured URL:
 
 ```
 -Doie.claude.baseUrl=https://gateway.example/anthropic
@@ -377,7 +381,7 @@ Connecting times out after 10 seconds and is tried three times, so you get the m
 | --- | --- | --- |
 | *Claude Assistant* missing under *Other* | Extension not loaded or service not restarted | Check *Settings > Extensions*, restart the OIE service, log in again |
 | API key field is empty after *Save* | By design: the key is never sent back | Check the line *Set: sk-ant-…xxxx* below the field |
-| *Cannot reach the Anthropic API* | No internet, firewall or proxy on the OIE server | Allow `api.anthropic.com`, or set `oie.claude.baseUrl` |
+| *Cannot reach the API* | No internet, firewall or proxy on the OIE server | Allow the configured API base URL, or set `oie.claude.baseUrl` |
 | Authentication error | Wrong, revoked or expired API key | Create a new key in the Console and save it |
 | Error about credits or billing | No credit left on the Anthropic account | Add credits under Billing in the Console |
 | *No context* in the chat header | Opened from *Other*, not from a view | Normal: Claude looks at the whole server; use *Ask Claude* in a view for a specific item |

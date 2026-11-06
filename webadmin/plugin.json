@@ -1,9 +1,9 @@
 {
     "id": "claude-assistant",
     "name": "Claude Assistant",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "author": "X Connections",
-    "description": "Chat with Claude about channels, messages, errors and scripts - web equivalent of the Swing Claude Assistant (chat page, channel tab, channel and message actions, settings panel). Unofficial plugin, not affiliated with or endorsed by Anthropic; Claude is a trademark of Anthropic, PBC. Each organization is responsible for its own use, including patient data sent to Anthropic.",
+    "description": "Chat with Claude, Ollama, vLLM or another OpenAI-compatible model about channels, messages, errors and scripts from the OIE web administrator.",
     "oie": { "apiMin": "4.6" },
     "client": { "entry": "web/plugin.js" }
 }

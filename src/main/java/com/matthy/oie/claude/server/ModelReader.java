@@ -6,12 +6,13 @@
 
 package com.matthy.oie.claude.server;
 
-/** The models an API key can use, from Anthropic's Models API, implemented in the isolated engine. */
+/** The models an API key can use, from the configured provider, implemented in the isolated engine. */
 public interface ModelReader {
 
     /**
      * @param apiKey the plugin's API key
-     * @return JSON text: an array of objects with id, displayName and createdAt (ISO 8601), in the API's order
+     * @param provider the explicitly selected provider ("anthropic" or "openai-compatible")
+     * @return JSON text containing the provider's models
      */
-    String list(String apiKey) throws Exception;
+    String list(String apiKey, String baseUrl, String provider) throws Exception;
 }
