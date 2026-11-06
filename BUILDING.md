@@ -11,7 +11,7 @@ OIE_HOME="/path/to/OpenIntegrationEngine" ./build-local.sh
 ```
 
 The script checks the required OIE jars, installs the five OIE artifacts into the local Maven
-repository, and creates `target/claude-assistant-1.1.0.zip`. It skips running tests. If
+repository, and creates `target/claude-assistant-1.1.1.zip`. It skips running tests. If
 Maven is installed elsewhere, set `MAVEN_BIN` to its `mvn` executable.
 
 The OIE 4.7 archive used here is unpacked at `../toolchain/oie-4.7.0/oie`; the build command is:

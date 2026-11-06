@@ -47,4 +47,4 @@ install_jar "$OIE_HOME/client-lib/mirth-client.jar" client
 install_jar "$OIE_HOME/client-lib/mirth-client-core.jar" client-core
 
 "$MAVEN" -f "$ROOT/pom.xml" -Dmaven.test.skip=true package "-Doie.home=$OIE_HOME"
-echo "Built extension: $ROOT/target/claude-assistant-1.1.0.zip"
+echo "Built extension: $ROOT/target/claude-assistant-1.1.1.zip"
