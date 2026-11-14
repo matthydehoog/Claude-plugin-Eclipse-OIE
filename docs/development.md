@@ -62,6 +62,16 @@ This guide is for people who build, change or release the Claude Assistant. For 
   mvn package -Doie.home=/opt/openintegrationengine
   ```
 
+- **Without an OIE installation** (Linux, macOS, CI), the scripts the build workflow uses take both from the engine's GitHub release, checked against its SHA-256:
+
+  ```bash
+  OIE_HOME="$(bash .github/scripts/oie-home.sh 4.6.0 ~/oie-4.6.0)"     # unpacks server-lib and client-lib
+  MVN_OPTS="-Doie.home=$OIE_HOME" bash .github/scripts/install-oie-jars.sh 4.6.0
+  mvn clean package -Doie.home="$OIE_HOME"
+  ```
+
+  `install-oie-jars.sh` needs `-Doie.home` as well: `install:install-file` reads `pom.xml`, and Maven stops when the default `oie.home` does not exist.
+
 ### Build
 
 ```bash
@@ -322,19 +332,20 @@ Masking is the part where a mistake hurts most: when you touch a masker, run it 
 
 ## GitHub workflows
 
-There is no build workflow in this repository; build and test locally before you push.
-
 | Workflow | Does |
 | --- | --- |
+| `build.yml` | On every push to `main`, every pull request and every version tag: builds and tests on OIE 4.6.0 with Java 17, and on 4.7.0 with Java 17 and 21. The engine jars and libraries come from the engine's GitHub release (`download-oie.sh`, `install-oie-jars.sh`, `oie-home.sh`) and are cached. The 4.6.0 build runs `check-versions.sh` and keeps the zip as an artifact. On a tag `v<version>` it creates the release with the zip and its SHA-256 (`release.sh`), then calls `catalog-pr.yml`. |
 | `catalog-pr.yml` | On a published release, files a pull request to the [OIE Community Store catalog](https://github.com/gibson9583/oie-community-catalog) from the fork `<owner>/oie-community-catalog`, using `oie.json` at the tag. Needs the secret `CATALOG_TOKEN` (a classic PAT with `public_repo`); skipped without it. |
 | `jira-issue.yml` | Creates a Jira issue for every new GitHub issue and comments its key. Needs the variables `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_PROJECT_KEY` and the secret `JIRA_API_TOKEN`. |
+
+Dependabot (`.github/dependabot.yml`) checks the Maven dependencies weekly, the Anthropic Java SDK among them, and the workflow actions monthly. It leaves alone the engine jars and the libraries the engine ships, whose versions must match the engine's.
 
 `main` is protected against force pushes and deletion (ruleset *Protect main*).
 
 ## Releasing
 
 1. **Branch and pull request.** Reference the issue (`Closes #n`).
-2. **Version.** Set the new version in all four places; nothing checks this automatically, so compare them:
+2. **Version.** Set the new version in all four places. The build checks they agree (`check-versions.sh`), and on a tag that the tag matches:
    - `pom.xml` (`<version>`)
    - `src/main/resources/plugin.xml` (`<pluginVersion>`)
    - `oie.json` (`"version"`)
@@ -342,7 +353,7 @@ There is no build workflow in this repository; build and test locally before you
 3. **Engine versions.** `<mirthVersion>` in `plugin.xml` lists every OIE version the extension may load on (now `4.6.0,4.7.0`). OIE only loads an extension whose list contains its **exact** version, so a new OIE release needs a new plugin release.
 4. **Build and test** with `mvn clean package`, and try the zip in OIE.
 5. **Merge** the pull request.
-6. **Release** on GitHub with the zip and its SHA-256 in the notes:
+6. **Release.** Push a tag `v<version>` on the merge commit: `build.yml` builds and tests it, creates the release with the zip and its SHA-256, and files the catalog pull request. Or create the release by hand, with the zip and its SHA-256 in the notes. A release that already has the zip is left as it is when the tag build runs:
 
    ```bash
    sha256sum target/claude-assistant-1.0.2.zip
