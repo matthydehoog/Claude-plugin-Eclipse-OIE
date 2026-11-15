@@ -24,8 +24,10 @@ import org.apache.logging.log4j.LogManager;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
+import com.anthropic.core.JsonValue;
 import com.anthropic.errors.AnthropicIoException;
 import com.anthropic.errors.AnthropicServiceException;
+import com.anthropic.errors.NotFoundException;
 import com.anthropic.models.beta.organization.apikeys.ApiKeyListParams;
 import com.anthropic.models.beta.organization.apikeys.BetaApiKey;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -86,10 +88,9 @@ public class SdkSpendReader implements SpendReader {
                         pluginKeyId = key.id();
                         if (key.scope().isWorkspace()) {
                             workspaceId = key.scope().workspace().get().workspaceId();
-                            // The deprecated top-level workspace_id is null for the default workspace,
-                            // which is also how the cost report labels it.
-                            defaultWorkspace = key.workspaceId().isEmpty();
-                            out.put("workspaceName", defaultWorkspace ? "Default" : client.beta().organization().workspaces().retrieve(workspaceId).name());
+                            String name = workspaceName(client, key, workspaceId);
+                            defaultWorkspace = name == null;
+                            out.put("workspaceName", defaultWorkspace ? "Default" : name);
                         }
                         break;
                     }
@@ -240,5 +241,23 @@ public class SdkSpendReader implements SpendReader {
             return "The Admin API key has no access to cost reports (individual accounts have no Admin API): " + message;
         }
         return "Cost report failed (HTTP " + status + "): " + message;
+    }
+
+    /**
+     * The name of the key's workspace, or null for the organization's default workspace, which the
+     * cost report labels with a null workspace. The key's scope always carries the real workspace ID;
+     * the older top-level workspace_id (null for the default workspace) is used while the API still
+     * sends it. Otherwise the default workspace is the one the Workspaces API does not return.
+     */
+    private static String workspaceName(AnthropicClient client, BetaApiKey key, String workspaceId) {
+        JsonValue legacy = key._additionalProperties().get("workspace_id");
+        if (legacy != null && legacy.isNull()) {
+            return null;
+        }
+        try {
+            return client.beta().organization().workspaces().retrieve(workspaceId).name();
+        } catch (NotFoundException e) {
+            return null;
+        }
     }
 }
