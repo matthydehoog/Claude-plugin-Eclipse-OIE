@@ -191,7 +191,7 @@ public class SdkModelLoop implements ModelLoop {
     private void loop(ChatJob job, String userText, State state, Usage question) throws Exception {
         List<BetaMessageParam> history = state.messages;
         synchronized (history) {
-            history.add(BetaMessageParam.builder().role(BetaMessageParam.Role.USER).content(userText).build());
+            history.add(BetaMessageParam.ofUser(userText));
         }
         int toolCalls = 0;
         int call = 0;
@@ -266,7 +266,7 @@ public class SdkModelLoop implements ModelLoop {
             }
             synchronized (history) {
                 history.add(answer);
-                history.add(BetaMessageParam.builder().role(BetaMessageParam.Role.USER).contentOfBetaContentBlockParams(results).build());
+                history.add(BetaMessageParam.ofUserOfContentBlockParams(results));
             }
             if (limitReached) {
                 job.emit("info", "Stopped after " + maxToolCalls + " tool calls. Ask a follow-up question to continue.");
@@ -350,7 +350,7 @@ public class SdkModelLoop implements ModelLoop {
             return param;
         }
         List<BetaContentBlockParam> blocks = new ArrayList<>();
-        List<BetaContentBlockParam> all = param.content().asBetaContentBlockParams();
+        List<BetaContentBlockParam> all = param.asAssistant().content().asContentBlockParams();
         for (int i = 0; i < all.size(); i++) {
             BetaContentBlockParam block = all.get(i);
             if (block.isFallback() || (i < start && !block.isText())) {
@@ -358,7 +358,7 @@ public class SdkModelLoop implements ModelLoop {
             }
             blocks.add(block);
         }
-        return BetaMessageParam.builder().role(BetaMessageParam.Role.ASSISTANT).contentOfBetaContentBlockParams(blocks).build();
+        return BetaMessageParam.ofAssistantOfContentBlockParams(blocks);
     }
 
     private MessageCreateParams params(List<BetaMessageParam> history, String previousMessageId, boolean withDiagnostics) {
