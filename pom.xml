@@ -61,6 +61,14 @@
       <scope>provided</scope>
     </dependency>
 
+    <!-- The engine's own MyBatis (server-lib/mybatis-3.1.1.jar), for a read-only database connection. -->
+    <dependency>
+      <groupId>org.mybatis</groupId>
+      <artifactId>mybatis</artifactId>
+      <version>3.1.1</version>
+      <scope>provided</scope>
+    </dependency>
+
     <!-- Already on the engine's classpath; referenced straight from the install. -->
     <dependency>
       <groupId>oie</groupId>

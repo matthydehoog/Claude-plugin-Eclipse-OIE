@@ -55,6 +55,7 @@ public class ClaudeClientPlugin extends ClientPlugin {
         // grant ("Use Claude Assistant", see ClaudeServletInterface.USE_TASKS) are left out here.
         addTask("claudeOpen", "Claude Assistant", "Ask Claude a question about this OIE server.", icon, parent.otherPane, null);
         addTask("claudeDashboard", "Ask Claude", "Let Claude analyze the selected channel(s).", icon, parent.dashboardTasks, parent.dashboardPopupMenu);
+        addTask("claudeQueues", "Check queues and storage", "Let Claude look for stuck queues and channels whose stored messages keep growing.", icon, parent.dashboardTasks, parent.dashboardPopupMenu);
         addTask("claudeMessage", "Ask Claude", "Let Claude find out what happened to the selected message.", icon, parent.messageTasks, parent.messagePopupMenu);
         addTask("claudeChannelEdit", "Ask Claude", "Let Claude explain or improve this channel and its scripts.", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
         addTask("claudeDocumentChannel", "Document channel", "Let Claude write documentation for this channel (Markdown; save it with Save answer).", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
@@ -110,6 +111,13 @@ public class ClaudeClientPlugin extends ClientPlugin {
         }
         dialog().open("Selected in the dashboard: " + String.join(", ", parts), "Analyze the status and errors of " + (selected.size() == 1 ? "this channel." : "these channels."));
     }
+
+    public void claudeQueues() {
+        dialog().open(null, QUEUES_SUGGESTION);
+    }
+
+    /** Same text as QUEUES_SUGGESTION in webadmin/web/plugin.js. */
+    static final String QUEUES_SUGGESTION = "Check the queues and message storage: which destinations are stuck, and which channels need pruning?";
 
     public void claudeMessage() {
         MessageBrowser browser = parent.activeBrowser != null ? parent.activeBrowser : parent.messageBrowser;

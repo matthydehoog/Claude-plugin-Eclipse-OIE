@@ -8,6 +8,8 @@ const STYLE_ID = "claude-assistant-style";
 // The web admin has no plugin hook on the Global Scripts view, so the Claude page offers this context itself.
 const GLOBAL_SCRIPTS_CONTEXT = "Global Scripts (deploy, undeploy, preprocessor and postprocessor). Claude sees the saved version; unsaved changes in the Global Scripts editor are not visible.";
 const GLOBAL_SCRIPTS_SUGGESTION = "Explain what the global scripts do and point out weak spots.";
+// Same text as ClaudeClientPlugin.QUEUES_SUGGESTION.
+const QUEUES_SUGGESTION = "Check the queues and message storage: which destinations are stuck, and which channels need pruning?";
 const DOCUMENT_SUGGESTION = "Write documentation for this channel as Markdown: purpose, source, filter, destinations, field mappings, scripts and code templates, Configuration Map keys and open points.";
 /** Contexts that name one channel, so it can be documented. */
 const CHANNEL_CONTEXT = /^(Channel open in the editor|Selected channel)/;
@@ -568,6 +570,12 @@ function ChatPanel() {
                 disabled: !CHANNEL_CONTEXT.test(c.context || ""),
                 onClick: () => c.open(c.context, DOCUMENT_SUGGESTION)
             }, "Document channel"),
+            mayUse("claudeQueues") ? e("button", {
+                className: "btn",
+                title: "Let Claude look for stuck queues and channels whose stored messages keep growing",
+                disabled: c.busy,
+                onClick: () => c.open(null, QUEUES_SUGGESTION)
+            }, "Queues and storage") : null,
             e("button", { className: "btn", disabled: !c.context, onClick: () => c.clearContext() }, "Clear context"),
             e("button", { className: "btn", title: "Continue one of your earlier conversations", onClick: () => c.chooseConversation() }, "Conversations…"),
             e("button", { className: "btn", title: "Save this conversation as a Markdown file", disabled: !c.conversationId, onClick: () => c.exportConversation() }, "Export"),
@@ -870,6 +878,16 @@ export function register(platform) {
     // The web admin has no hook on the Global Scripts view, so these go in the command palette.
     if (typeof platform.registerCommand === "function") {
         platform.registerCommand({ id: "claude-assistant.open", label: "Claude Assistant", icon: "claude", section: "Plugins", keywords: ["claude", "ai", "assistant"], path: "/claude", task: "claudeOpen", rbac: "other" });
+        platform.registerCommand({
+            id: "claude-assistant.queues",
+            label: "Check queues and storage",
+            icon: "claude",
+            section: "Plugins",
+            keywords: ["claude", "queue", "queued", "storage", "pruning", "pruner", "disk"],
+            task: "claudeQueues",
+            rbac: "other",
+            run: () => openWith(null, QUEUES_SUGGESTION)
+        });
         platform.registerCommand({
             id: "claude-assistant.global-scripts",
             label: "Ask Claude about Global Scripts",

@@ -106,6 +106,7 @@ Start from the place your question is about: *Ask Claude* there sends the select
 | --- | --- | --- |
 | Left menu, **Other** | *Claude Assistant* | None: questions about the whole server |
 | **Dashboard** | Task or right-click, *Ask Claude* | Selected channel(s) or connectors |
+| **Dashboard** | Task or right-click, *Check queues and storage* | None: Claude checks all queues and message storage (see *Queues and message storage*) |
 | **Message browser** | Task or right-click, *Ask Claude* | Selected message (channel, message ID, connector) |
 | **Channel editor** | Task or right-click, *Ask Claude* | The open channel (its saved version) |
 | **Channel editor** | Task or right-click, *Document channel* | The open channel; Claude writes its documentation (see *Documenting a channel*) |
@@ -139,7 +140,8 @@ The web administrator gets the same assistant once the **Web Support** extension
 | **Code Templates**, right-click | *Ask Claude* about the selected template |
 | **Claude page**, button **Global Scripts** | The global scripts as context |
 | **Claude page**, button **Document channel** | Documents the channel in the context (from the channel editor tab or the Channels view) |
-| **Command palette** (Ctrl+K) | *Claude Assistant* and *Ask Claude about Global Scripts* |
+| **Claude page**, button **Queues and storage** | Checks queues and message storage |
+| **Command palette** (Ctrl+K) | *Claude Assistant*, *Check queues and storage* and *Ask Claude about Global Scripts* |
 | **Settings**, tab **Claude Assistant** | Same settings and usage as in Swing; save with the page's own *Save* |
 
 A conversation stays open while you move between the Claude page and other views. The Claude page has the same **Conversations…**, **Export** and **Save answer** buttons as the Swing window; they download the Markdown file.
@@ -160,6 +162,7 @@ Claude uses these read tools on its own, without asking. They change nothing.
 | Channel scripts | Every script in a channel with its location |
 | Channel overview | A readable summary of a channel: per connector its settings (passwords and other secrets hidden), filter rules and transformer steps with what each really does, the channel scripts, code template libraries and Configuration Map keys used |
 | Channel statistics | Counters per connector for one channel |
+| Queues and storage | Per destination the queue size, the oldest queued message and its age, send attempts, the last error and the queue settings; per channel the stored messages, an estimate of their size, the oldest message and the pruning settings; the database type and size and whether the Data Pruner runs |
 | Search messages | Messages by status, period or text, optionally with (masked) content |
 | Get message | One message with raw, transformed, encoded, sent and response content, maps and errors |
 | Events | Audit and server events: deploys, errors, logins |
@@ -185,6 +188,20 @@ At most 25 tool calls are made per question by default (*Max tool calls*). Raise
 The answer is only the documentation. Save it as a separate file with **Save answer…** (Swing) or **Save answer** (web): the file gets the channel's name, for example `OIE XC ORM HAGA v_2_8_5.md`, and holds nothing from the rest of the conversation. Passwords and other secrets are never included: the overview hides them before Claude sees it. Patient data in the channel (for example a sample message in a script) is masked as usual.
 
 For a very large channel, Claude reads a few connectors at a time.
+
+### Queues and message storage
+
+Growing queues and a growing message database cause most slow-burning incidents: a destination that is down queues messages for days, and channels without pruning fill the disk. *Check queues and storage* (Dashboard task or right-click; in the web administrator the **Queues and storage** button on the Claude page or the command palette) asks Claude to look for both. Claude reports:
+
+- **Stuck destinations**: stopped, paused, disabled or undeployed with messages in the queue, or a queue whose oldest message has waited more than an hour, with the age of that message, its send attempts and the last error (for example *TCP Sender error: Connection refused*)
+- **Channels without pruning**, with the number of messages they keep, and an estimate of each channel's size in the database
+- The **database** type and size, the free disk space for an embedded Derby database, and whether the **Data Pruner** runs (if it is disabled, no channel is pruned, whatever its own settings say)
+
+Ask about one channel to see the queue and retry settings of each of its connectors. The tool reads counts, dates and settings only, never message content; the last error is the one line OIE stored for the oldest queued message, masked like everything else.
+
+Claude can propose starting or resuming a channel (with your approval). Pruning settings you change yourself, in the channel's *Set Data Pruning* settings.
+
+The size per channel comes from the database's own statistics (PostgreSQL, MySQL, SQL Server, Oracle, Derby); if the database user may not read them, the size shows as *?*. For an external database OIE cannot see the free disk space.
 
 ## Actions and approval
 
@@ -306,7 +323,7 @@ Claude only gets what you could see or do yourself in OIE. Every tool checks you
 | --- | --- |
 | List channels, channel statistics | View Dashboard |
 | Get channel, channel scripts | View Channels |
-| Search messages, get message | View Messages |
+| Search messages, get message, queues and storage | View Messages |
 | Events | View Events |
 | Server log | View Server Log |
 | Code templates | View Code Templates |

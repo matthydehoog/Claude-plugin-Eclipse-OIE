@@ -26,6 +26,7 @@ Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exerci
 |---|---|---|
 | Left menu, **Other** | *Claude Assistant* | none: questions about the whole server |
 | **Dashboard** (task + right-click) | *Ask Claude* | selected channel(s)/connectors |
+| **Dashboard** (task + right-click) | *Check queues and storage* | none: Claude looks for stuck queues and channels that need pruning |
 | **Message browser** (task + right-click) | *Ask Claude* | selected message (channel, message ID, connector) |
 | **Channel editor** (task + right-click) | *Ask Claude* | the channel that is open (saved version) |
 | **Channel editor** (task + right-click) | *Document channel* | the open channel; Claude writes its documentation as Markdown |
@@ -50,7 +51,8 @@ The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It
 | **Code Templates**, right-click | *Ask Claude* about the selected code template |
 | **Claude page**, button **Global Scripts** | the global scripts as context (the web admin has no hook on the Global Scripts view itself) |
 | **Claude page**, button **Document channel** | documents the channel in the context |
-| **Command palette** (Ctrl+K) | *Claude Assistant*, and *Ask Claude about Global Scripts* |
+| **Claude page**, button **Queues and storage** | checks queues and message storage |
+| **Command palette** (Ctrl+K) | *Claude Assistant*, *Check queues and storage*, and *Ask Claude about Global Scripts* |
 | **Settings**, tab **Claude Assistant** | the same settings and usage as in Swing, using the settings page's own Save |
 
 Both UIs use the same REST API, so masking, permissions, action approval and the audit log are
@@ -59,13 +61,18 @@ identical; a conversation stays open while you move between the Claude page and 
 ## What Claude can do
 
 **Read** (immediately): server info, channels with status and counters, channel configuration and
-scripts, the global scripts, statistics per connector, searching and viewing messages, events, the server log, code
+scripts, the global scripts, statistics per connector, queues and message storage, searching and viewing messages, events, the server log, code
 templates and the keys of the Configuration Map (never the values).
 
 **Channel documentation:** *Document channel* has Claude write a Markdown description of a channel
 (purpose, source, filter, destinations, field mappings, scripts, code templates, Configuration Map keys
 and open points) from a readable overview in which passwords and other secrets are hidden. Save it as
 a separate file with *Save answer*.
+
+**Queues and storage:** *Check queues and storage* has Claude look for slow-burning problems: destinations
+that are stopped or have not moved their queue for a long time (with the age of the oldest queued message
+and the last error), channels without pruning and how many messages they keep, and the database size.
+It reads counts, dates and settings only, never message content.
 
 **Actions** (only after clicking *Run* in an approval dialog): deploy/undeploy a channel,
 start/stop/pause/resume, reset statistics, reprocess a message, send a message to a channel and
