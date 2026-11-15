@@ -294,10 +294,11 @@ It uses the same REST API and the same 800 ms polling, so masking, permissions, 
 mvn test
 ```
 
-There are 84 tests (JUnit 4). They need no engine, no network and no API key.
+There are 100 tests (JUnit 4). They need no engine, no network and no API key.
 
 | Test | Covers |
 | --- | --- |
+| `AssistantServiceTest` (12) | With a scripted model loop and Mockito fakes for the OIE controllers: a tool the user has no permission for is skipped; an action is not proposed without *Run Claude Assistant actions*, is checked again for the approver, runs once when approved and not when rejected; *Review before sending* withholds data, masks edits again, and can withhold the question itself; the data audit records IDs and counts but no content; cancelling while an action waits runs nothing; a job belongs to its user |
 | `MaskerTest` (16) | HL7 ER7 and XML rules, the encoded separator after a masked last field, person segments, credentials, GDT raw and XML, BSN, own patterns |
 | `EdifactMaskerTest` (14) | MEDLAB and MEDSPE, raw and XML, trade messages untouched, ZKH and AFD readable |
 | `FhirMaskerTest` (9) | Person resources in JSON and XML, personal extensions, identifiers, reference displays, narratives, Bundles, FHIR escaped inside tool XML, other resources left readable |

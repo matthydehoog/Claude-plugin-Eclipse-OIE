@@ -137,6 +137,20 @@
       <version>4.13.2</version>
       <scope>test</scope>
     </dependency>
+    <!-- ConfigurationController refers to it, so Mockito needs it to mock that controller; the engine ships the same version. -->
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-configuration2</artifactId>
+      <version>2.13.0</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Fakes for the OIE controllers in AssistantServiceTest (ControllerFactory and the controllers are abstract classes). -->
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>5.24.0</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>

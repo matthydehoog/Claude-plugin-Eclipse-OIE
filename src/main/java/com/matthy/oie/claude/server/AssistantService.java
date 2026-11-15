@@ -118,13 +118,30 @@ public class AssistantService {
     private String cachedModelsKey;
     private long cachedModelsAt;
 
+    /** Creates the model loop for a configuration: the engine's in OIE, a fake one in tests. */
+    interface LoopFactory {
+        ModelLoop create(Settings settings, String systemPrompt, List<Map<String, Object>> tools, ModelLoop.ToolCaller caller) throws Exception;
+    }
+
+    /** Null when the engine could not be loaded. */
+    private final LoopFactory loopFactory;
+
     public AssistantService(Settings settings) {
-        try {
-            engine = new EngineLoader();
-        } catch (Exception e) {
-            engineError = e.getMessage();
-            logger.error("Claude Assistant: engine could not be loaded", e);
+        this(settings, null);
+    }
+
+    /** With a loop factory (tests), the engine is not loaded: spend and the model list are then unavailable. */
+    AssistantService(Settings settings, LoopFactory loopFactory) {
+        if (loopFactory == null) {
+            try {
+                engine = new EngineLoader();
+                loopFactory = engine::create;
+            } catch (Exception e) {
+                engineError = e.getMessage();
+                logger.error("Claude Assistant: engine could not be loaded", e);
+            }
         }
+        this.loopFactory = loopFactory;
         configure(settings);
         housekeeping.scheduleWithFixedDelay(this::expire, 10, 10, TimeUnit.MINUTES);
     }
@@ -134,7 +151,7 @@ public class AssistantService {
         Masker newMasker = new Masker(settings.maskPatterns);
         OieTools newTools = new OieTools(newMasker);
         ModelLoop newLoop = null;
-        if (engine != null && !settings.apiKey.isEmpty()) {
+        if (loopFactory != null && !settings.apiKey.isEmpty()) {
             List<Map<String, Object>> specs = new ArrayList<>();
             for (OieTools.Spec spec : newTools.specs()) {
                 Map<String, Object> m = new LinkedHashMap<>();
@@ -145,7 +162,7 @@ public class AssistantService {
                 specs.add(m);
             }
             try {
-                newLoop = engine.create(settings, systemPrompt(settings), specs, this::callTool);
+                newLoop = loopFactory.create(settings, systemPrompt(settings), specs, this::callTool);
             } catch (Exception e) {
                 logger.error("Claude Assistant: could not create the model client", e);
                 engineError = "Cannot start the Claude client: " + e;
