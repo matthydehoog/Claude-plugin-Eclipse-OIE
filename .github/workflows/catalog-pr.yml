@@ -101,7 +101,7 @@ jobs:
           repository: gibson9583/oie-community-catalog
           persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.token.outputs.skip != 'true'
         with:
           node-version: '20'
