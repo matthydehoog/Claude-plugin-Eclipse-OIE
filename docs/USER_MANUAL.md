@@ -199,7 +199,7 @@ Growing queues and a growing message database cause most slow-burning incidents:
 
 Ask about one channel to see the queue and retry settings of each of its connectors. The tool reads counts, dates and settings only, never message content; the last error is the one line OIE stored for the oldest queued message, masked like everything else.
 
-Claude can propose starting or resuming a channel (with your approval). Pruning settings you change yourself, in the channel's *Set Data Pruning* settings.
+Claude can propose starting or resuming a channel (with your approval). Pruning settings you change yourself: in the channel editor, tab *Summary*, section *Message Pruning*, choose *Prune metadata older than* a number of days. Queued and errored messages are kept unless you tick *Prune Errored Messages*.
 
 The size per channel comes from the database's own statistics (PostgreSQL, MySQL, SQL Server, Oracle, Derby); if the database user may not read them, the size shows as *?*. For an external database OIE cannot see the free disk space.
 

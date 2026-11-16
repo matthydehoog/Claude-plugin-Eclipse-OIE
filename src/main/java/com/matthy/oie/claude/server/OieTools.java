@@ -269,7 +269,7 @@ public class OieTools {
                 + "and whether queueing and retries are on. Per channel: number of stored messages, an estimate of their size in the database, the oldest stored message, the pruning settings (or none) and the storage mode. "
                 + "Also the database type and size and whether the Data Pruner runs. Reads counts, dates and settings only, never message content. "
                 + "Point out destinations that are stuck (stopped, or a queue that has not moved for a long time, with the error) and channels without pruning that keep growing. "
-                + "You can propose starting or resuming a channel with the action tools; pruning settings are changed by the user in the channel's Set Data Pruning settings.", props(
+                + "You can propose starting or resuming a channel with the action tools; pruning settings are changed by the user: channel editor, tab Summary, section Message Pruning (Prune metadata older than ... days; queued and errored messages are kept unless Prune Errored Messages is ticked), and they only apply while the Data Pruner runs.", props(
                 "channel", str("Only this channel (ID or name), with the queue settings of every connector; default all channels")), this::queuesAndStorage);
 
         read("oie_search_messages", "Searches messages in a channel by status, period or text. Returns per message the ID, date, status per connector and error. With includeContent also the content (masked).", props(
