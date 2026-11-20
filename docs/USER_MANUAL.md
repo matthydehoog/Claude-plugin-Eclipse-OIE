@@ -308,6 +308,7 @@ Conversations are visible only to the user who started them. By default they liv
 - Saved are the questions, answers, tool calls and action results, and the history Claude needs to continue, all exactly as sent to Claude, so masked. Unmasked data is never saved.
 - The files are in the OIE application data folder, under `claude-assistant/conversations/<user ID>/`, one file per conversation. Each user only sees and continues their own.
 - A conversation not used for longer than the setting is removed automatically (checked every 10 minutes). Setting it back to 0 stops saving and removes all saved conversations.
+- Uninstalling the plugin removes all saved conversations right away, and its settings (including the API keys) at the next server restart.
 
 ## Permissions
 

@@ -94,6 +94,8 @@ public class AssistantService {
     private final Map<String, Conversation> conversations = new ConcurrentHashMap<>();
     /** Saved conversations, in the OIE application data folder; only used when Settings.keepConversationsDays > 0. */
     private volatile ConversationStore store;
+    /** Set when the plugin is uninstalled: until the restart, nothing new is saved. */
+    private volatile boolean uninstalled;
     private final Map<String, ChatJob> jobs = new ConcurrentHashMap<>();
 
     private EngineLoader engine;
@@ -383,15 +385,24 @@ public class AssistantService {
     private ConversationStore store() {
         ConversationStore s = store;
         if (s == null) {
-            File dir = new File(new File(ControllerFactory.getFactory().createConfigurationController().getApplicationDataDir(), "claude-assistant"), "conversations");
-            s = store = new ConversationStore(dir);
+            s = store = new ConversationStore(new File(dataDir(), "conversations"));
         }
         return s;
     }
 
+    /** The plugin's folder in the OIE application data folder. */
+    static File dataDir() {
+        return new File(ControllerFactory.getFactory().createConfigurationController().getApplicationDataDir(), "claude-assistant");
+    }
+
+    /** The plugin is being uninstalled: stop saving conversations until the server restarts. */
+    void uninstalled() {
+        uninstalled = true;
+    }
+
     /** Saves the conversation when saving is on; a failure is logged, never shown as a chat error. */
     private void save(Conversation conversation, ModelLoop l) {
-        if (settings.keepConversationsDays <= 0) {
+        if (settings.keepConversationsDays <= 0 || uninstalled) {
             return;
         }
         try {
