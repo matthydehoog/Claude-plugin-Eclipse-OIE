@@ -24,7 +24,7 @@ Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exerci
 
 | Place | Task | Context sent along |
 |---|---|---|
-| Left menu, **Other** | *Claude Assistant* | none: questions about the whole server |
+| Left menu, **Other** | *AI Assistant* | none: questions about the whole server |
 | **Dashboard** (task + right-click) | *Ask AI Assistant* | selected channel(s)/connectors |
 | **Dashboard** (task + right-click) | *Check queues and storage* | none: Claude looks for stuck queues and channels that need pruning |
 | **Message browser** (task + right-click) | *Ask AI Assistant* | selected message (channel, message ID, connector) |
@@ -53,7 +53,7 @@ The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It
 | **Claude page**, button **Document channel** | documents the channel in the context |
 | **Claude page**, button **Queues and storage** | checks queues and message storage |
 | **Command palette** (Ctrl+K) | *AI Assistant*, *Check queues and storage*, and *Ask AI Assistant about Global Scripts* |
-| **Settings**, tab **Claude Assistant** | the same settings and usage as in Swing, using the settings page's own Save |
+| **Settings**, tab **AI Assistant** | the same settings and usage as in Swing, using the settings page's own Save |
 
 Both UIs use the same REST API, so masking, permissions, action approval and the audit log are
 identical; a conversation stays open while you move between the Claude page and other views.
@@ -83,7 +83,7 @@ A script, filter or transformer change saves the channel with a new revision but
 if the channel changed in the meantime, nothing is saved. The approval dialog shows the current and
 new rules or steps, and the script OIE generates for each new one. A new channel is created disabled
 and undeployed, with credentials left empty for you to fill in. Every executed action is written to the audit log as
-event `Claude Assistant: …`, in the name of the user who approved it.
+event `AI Assistant: …`, in the name of the user who approved it.
 
 ## Privacy
 
@@ -106,7 +106,7 @@ oie-mcp-server:
   results (BEP) stay readable; trade messages (ORDERS, INVOIC) are not masked
 - 9-digit numbers that pass the eleven-test (Dutch BSN)
 - credentials in channel configuration: elements named like password, passphrase, secret, token or apiKey
-- your own patterns under *Settings > Claude Assistant*
+- your own patterns under *Settings > AI Assistant*
 
 **Review before sending.** Before message content, log lines or events go to Claude, a dialog shows
 exactly what would be sent, after masking. You can edit the text, send it (*Send to the AI model*) or
@@ -144,7 +144,7 @@ was reviewed. The content itself is never logged.
 1. Install `claude-assistant-<version>.zip` via *Settings > Extensions > Install Extension* (or unzip
    it into `<OIE_HOME>/extensions/`) and restart the OIE service. Check that
    `extensions/claude-assistant/lib/` contains the engine jars.
-2. Go to *Settings > Claude Assistant*, enter an Anthropic API key (from
+2. Go to *Settings > AI Assistant*, enter an Anthropic API key (from
    [console.anthropic.com](https://console.anthropic.com)) and click *Save*. The key is stored
    encrypted and never sent back to the Administrator; the field is emptied after saving and the
    line below it shows *Set: sk-ant-…xxxx*.
@@ -171,7 +171,7 @@ apply to Anthropic, and answers appear at once instead of streaming. Contributed
 
 ### Usage: spend and credits
 
-The *Usage* section of *Settings > Claude Assistant* shows **Spend this month** for the whole
+The *Usage* section of *Settings > AI Assistant* shows **Spend this month** for the whole
 organization and, separately, for the workspace the plugin's API key belongs to. It comes from the
 Anthropic [Cost API](https://platform.claude.com/docs/en/manage-claude/usage-cost-api) and needs an
 optional **Admin API key** (`sk-ant-admin01-…`), which only an organization admin can create in the

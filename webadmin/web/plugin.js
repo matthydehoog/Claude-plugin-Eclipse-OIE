@@ -376,7 +376,7 @@ const chat = {
         const list = res.conversations || [];
         const note = res.keepDays > 0
             ? "Conversations are saved on the server for " + res.keepDays + " days."
-            : "Conversations are not saved on the server: they are kept for 4 hours and lost on a restart (Settings > Claude Assistant).";
+            : "Conversations are not saved on the server: they are kept for 4 hours and lost on a restart (Settings > AI Assistant).";
         const { h, modal } = P.ui;
         if (list.length === 0) {
             modal({ title: "Conversations", body: h("div", null, "You have no earlier conversations. " + note), buttons: [{ label: "Close", primary: true, onClick: () => true }] });
@@ -634,7 +634,7 @@ function ChannelTab(props) {
 }
 
 /**
- * Settings > Claude Assistant. Hooks into the settings shell like the built-in tabs: setSave for
+ * Settings > AI Assistant. Hooks into the settings shell like the built-in tabs: setSave for
  * the shell's Save (and its unsaved-changes prompt), markDirty/markClean, and a task pane.
  */
 function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
@@ -967,6 +967,6 @@ export function register(platform) {
         });
     }
 
-    // Hidden by the shell unless "settings_Claude Assistant" doRefresh/doSave is allowed ("Manage Claude Assistant settings").
-    platform.registerSettingsPanel({ label: "Claude Assistant", component: SettingsPanel });
+    // Hidden by the shell unless "settings_AI Assistant" doRefresh/doSave is allowed ("Manage Claude Assistant settings").
+    platform.registerSettingsPanel({ label: "AI Assistant", component: SettingsPanel });
 }

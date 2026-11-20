@@ -10,14 +10,14 @@ import com.matthy.oie.claude.shared.ClaudeServletInterface;
 import com.mirth.connect.client.ui.AbstractSettingsPanel;
 import com.mirth.connect.plugins.SettingsPanelPlugin;
 
-/** Adds the "Claude Assistant" tab under Settings. */
+/** Adds the "AI Assistant" tab under Settings. */
 public class ClaudeSettingsPlugin extends SettingsPanelPlugin {
 
     private final ClaudeSettingsPanel panel;
 
     public ClaudeSettingsPlugin(String name) {
         super(name);
-        panel = new ClaudeSettingsPanel("Claude Assistant");
+        panel = new ClaudeSettingsPanel(ClaudeServletInterface.DISPLAY_NAME);
     }
 
     @Override

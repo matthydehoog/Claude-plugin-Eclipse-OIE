@@ -66,7 +66,7 @@ Download `claude-assistant-<version>.zip` from the [GitHub releases](https://git
    - Alternative: unzip it into `<OIE_HOME>/extensions/`.
 2. Restart the OIE service.
 3. Check that `extensions/claude-assistant/lib/` contains the engine jars.
-4. Log in to the Administrator again. *Claude Assistant* now appears under *Other* in the left menu.
+4. Log in to the Administrator again. *AI Assistant* now appears under *Other* in the left menu.
 
 **Upgrade:** install the new zip the same way and restart the service. Settings and API keys are kept.
 
@@ -74,7 +74,7 @@ Each release lists the SHA-256 checksum of its zip. Compare it before installing
 
 ## First-time setup
 
-Open *Settings > Claude Assistant*, enter the API key and click *Save*. That is all you need to start chatting.
+Open *Settings > AI Assistant*, enter the API key and click *Save*. That is all you need to start chatting.
 
 The key is stored encrypted on the server and never sent back to the Administrator. After saving, the field empties and the line below it shows *Set: sk-ant-…xxxx*. An empty field on reopening is normal.
 
@@ -108,7 +108,7 @@ Start from the place your question is about: *Ask AI Assistant* there sends the 
 
 | Place | How | Context sent along |
 | --- | --- | --- |
-| Left menu, **Other** | *Claude Assistant* | None: questions about the whole server |
+| Left menu, **Other** | *AI Assistant* | None: questions about the whole server |
 | **Dashboard** | Task or right-click, *Ask AI Assistant* | Selected channel(s) or connectors |
 | **Dashboard** | Task or right-click, *Check queues and storage* | None: Claude checks all queues and message storage (see *Queues and message storage*) |
 | **Message browser** | Task or right-click, *Ask AI Assistant* | Selected message (channel, message ID, connector) |
@@ -146,7 +146,7 @@ The web administrator gets the same assistant once the **Web Support** extension
 | **Claude page**, button **Document channel** | Documents the channel in the context (from the channel editor tab or the Channels view) |
 | **Claude page**, button **Queues and storage** | Checks queues and message storage |
 | **Command palette** (Ctrl+K) | *AI Assistant*, *Check queues and storage* and *Ask AI Assistant about Global Scripts* |
-| **Settings**, tab **Claude Assistant** | Same settings and usage as in Swing; save with the page's own *Save* |
+| **Settings**, tab **AI Assistant** | Same settings and usage as in Swing; save with the page's own *Save* |
 
 A conversation stays open while you move between the Claude page and other views. The Claude page has the same **Conversations…**, **Export** and **Save answer** buttons as the Swing window; they download the Markdown file.
 
@@ -241,7 +241,7 @@ For a **filter or transformer change** the dialog lists the current and the new 
 
 A **new channel** is created disabled and not deployed, with a new ID. The dialog lists every connector with its type, data types, filter rules and transformer steps, exactly as OIE read them; check that nothing is missing. Passwords and other credentials are always left empty: fill them in in the channel editor, then enable and deploy the channel.
 
-**Audit:** every executed action is logged under *Events* as `Claude Assistant: <action>`, in the name of the user who approved it.
+**Audit:** every executed action is logged under *Events* as `AI Assistant: <action>`, in the name of the user who approved it.
 
 Every time message data, log lines or events are sent to Anthropic, *Events* also gets `AI Assistant: data sent to Anthropic` (or to the host of the OpenAI-compatible server), with the user, IP address, tool, channel, message IDs and whether the data was reviewed or edited. The content itself is never logged.
 
@@ -261,7 +261,7 @@ Masked by default:
 - EDIFACT health messages, raw and as XML from the EDIFACT data type plugin. In MEDLAB laboratory messages: the patient's birth date, name and numbers (PID), the patient address and phone (PAD), the doctor's name and address (ART), the names in ARA and KOP, and the sample or request number (IDE). In other health messages (MEDSPE, MEDVRY, MEDEUR, MEDRPT, …): PID and NAD after their qualifier, PNA, ADR, COM, the date of birth (DTM+BTH) and the letter text (FTX). In both, every value longer than 30 characters, except the hospital and laboratory names (ZKH, AFD). The segment tags, qualifiers, sequence numbers (ARA:1) and the results (BEP) stay readable. Trade messages such as ORDERS and INVOIC are not masked
 - 9-digit numbers that pass the eleven-test (Dutch BSN)
 - Credentials in channel configuration: elements named like password, passphrase, secret, token or apiKey
-- Your own regular expressions under *Settings > Claude Assistant > Mask patterns*
+- Your own regular expressions under *Settings > AI Assistant > Mask patterns*
 
 The HL7 rules apply to raw (ER7) messages and to OIE's XML form, also when they are embedded (escaped) in the XML the tools return. The 30-character check applies per component, so short coded values stay readable and Claude can still debug the message:
 
@@ -285,7 +285,7 @@ Before message content, log lines or events go to Claude, a dialog shows exactly
 - **Don't send**, or closing the dialog, withholds it. Claude is told the data was withheld and continues without it.
 - No decision within 15 minutes counts as *Don't send*.
 
-The scope is set under *Settings > Claude Assistant > Review before sending*:
+The scope is set under *Settings > AI Assistant > Review before sending*:
 
 | Option | What you review |
 | --- | --- |
@@ -303,7 +303,7 @@ Conversations are visible only to the user who started them. By default they liv
 
 **Export** saves a conversation as a Markdown file: every question, the tools Claude used, its answers and the actions you approved. The file contains what Claude received, so patient data appears masked as `***`. Use it to keep an analysis or share it with a colleague.
 
-**Continue later.** *Conversations…* lists your own conversations, most recent first. Without saving that is only the ones still in memory. With *Settings > Claude Assistant > Keep conversations* set to a number of days, each conversation is also saved on the server after every question, and can be continued after a restart of OIE:
+**Continue later.** *Conversations…* lists your own conversations, most recent first. Without saving that is only the ones still in memory. With *Settings > AI Assistant > Keep conversations* set to a number of days, each conversation is also saved on the server after every question, and can be continued after a restart of OIE:
 
 - Saved are the questions, answers, tool calls and action results, and the history Claude needs to continue, all exactly as sent to Claude, so masked. Unmasked data is never saved.
 - The files are in the OIE application data folder, under `claude-assistant/conversations/<user ID>/`, one file per conversation. Each user only sees and continues their own.
@@ -351,7 +351,7 @@ Users with channel restrictions cannot use the assistant, because its tools see 
 
 Every question is billed by Anthropic per token on the account of the API key. A question with several tool calls costs more than a single answer.
 
-**Spend this month.** The *Usage* section of *Settings > Claude Assistant* shows spend for the whole organization and for the workspace of the plugin's API key. It needs the optional Admin API key:
+**Spend this month.** The *Usage* section of *Settings > AI Assistant* shows spend for the whole organization and for the workspace of the plugin's API key. It needs the optional Admin API key:
 
 1. Sign in to the [Claude Console](https://console.anthropic.com) as an organization admin.
 2. Open *Settings > Admin keys* and create a key (`sk-ant-admin01-…`).
@@ -396,13 +396,13 @@ Connecting times out after 10 seconds and is tried three times, so you get the m
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| *Claude Assistant* missing under *Other* | Extension not loaded or service not restarted | Check *Settings > Extensions*, restart the OIE service, log in again |
+| *AI Assistant* missing under *Other* | Extension not loaded or service not restarted | Check *Settings > Extensions*, restart the OIE service, log in again |
 | API key field is empty after *Save* | By design: the key is never sent back | Check the line *Set: sk-ant-…xxxx* below the field |
 | *Cannot reach the Anthropic API* | No internet, firewall or proxy on the OIE server | Allow `api.anthropic.com`, or set `oie.claude.baseUrl` |
 | Authentication error | Wrong, revoked or expired API key | Create a new key in the Console and save it |
 | Error about credits or billing | No credit left on the Anthropic account | Add credits under Billing in the Console |
 | *No context* in the chat header | Opened from *Other*, not from a view | Normal: Claude looks at the whole server; use *Ask AI Assistant* in a view for a specific item |
-| Answers in the wrong language | *Response language* is *Automatic* and follows the question or data | Pick a fixed language in *Settings > Claude Assistant* |
+| Answers in the wrong language | *Response language* is *Automatic* and follows the question or data | Pick a fixed language in *Settings > AI Assistant* |
 | Claude doesn't see my latest change | The channel editor has unsaved changes | Save the channel, then ask again |
 | *Run* is refused | Missing *Run Claude Assistant actions* permission | Ask an administrator to add it to your role |
 | "Skipped …: you do not have the OIE permission" | Your role lacks the OIE permission for that tool | Ask an administrator for the permission (see *Permissions*), or ask something else |

@@ -233,7 +233,7 @@ public final class OpenAiCompatibleLoop implements ModelLoop {
         if (t instanceof ApiException) {
             ApiException e = (ApiException) t;
             if (e.status == 401) {
-                return "The model server did not accept the API key (HTTP 401). Change it under Settings > Claude Assistant.";
+                return "The model server did not accept the API key (HTTP 401). Change it under Settings > AI Assistant.";
             }
             if (e.status == 404) {
                 return "The model server returned HTTP 404: check the API base URL and the model ID. " + shorten(e.body);

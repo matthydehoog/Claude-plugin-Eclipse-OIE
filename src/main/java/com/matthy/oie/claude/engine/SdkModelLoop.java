@@ -458,7 +458,7 @@ public class SdkModelLoop implements ModelLoop {
 
     private static String describe(Throwable t) {
         if (t instanceof UnauthorizedException) {
-            return "The Anthropic API key is invalid or revoked. Change it under Settings > Claude Assistant.";
+            return "The Anthropic API key is invalid or revoked. Change it under Settings > AI Assistant.";
         }
         if (t instanceof PermissionDeniedException) {
             return "The API key has no access to this model or feature: " + t.getMessage();

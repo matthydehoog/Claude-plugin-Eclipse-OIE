@@ -330,9 +330,9 @@ public class AssistantService {
                 throw new IllegalStateException("The AI Assistant cannot start: " + engineError);
             }
             if (settings.openAiCompatible()) {
-                throw new IllegalStateException("No API base URL is set for the OpenAI-compatible provider yet. Enter one under Settings > Claude Assistant.");
+                throw new IllegalStateException("No API base URL is set for the OpenAI-compatible provider yet. Enter one under Settings > AI Assistant.");
             }
-            throw new IllegalStateException("No Anthropic API key is set yet. Enter one under Settings > Claude Assistant.");
+            throw new IllegalStateException("No Anthropic API key is set yet. Enter one under Settings > AI Assistant.");
         }
         Conversation conversation;
         if (conversationId == null || conversationId.isBlank()) {

@@ -57,7 +57,7 @@ public class PermissionsTest {
 
     @Test
     public void settingsTabTasksMatchTheAdministratorTaskGroup() {
-        assertEquals(Arrays.asList("settings_Claude Assistant/doRefresh", "settings_Claude Assistant/doSave"), Arrays.asList(ClaudeServletInterface.SETTINGS_TASKS));
+        assertEquals(Arrays.asList("settings_AI Assistant/doRefresh", "settings_AI Assistant/doSave"), Arrays.asList(ClaudeServletInterface.SETTINGS_TASKS));
     }
 
     @Test

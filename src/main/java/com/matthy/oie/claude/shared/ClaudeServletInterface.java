@@ -36,7 +36,11 @@ import com.mirth.connect.client.core.api.Param;
 @Produces(MediaType.TEXT_PLAIN)
 public interface ClaudeServletInterface extends BaseServletInterface {
 
+    /** Plugin point: the key of the saved settings and of the permissions, so it keeps its original name. */
     String PLUGIN_POINT = "Claude Assistant";
+
+    /** Name shown in the Administrator (Settings tab, menus). */
+    String DISPLAY_NAME = "AI Assistant";
 
     String PERMISSION_USE = "Use Claude Assistant";
     String PERMISSION_ACTIONS = "Run Claude Assistant actions";
@@ -49,7 +53,7 @@ public interface ClaudeServletInterface extends BaseServletInterface {
     String[] USE_TASKS = { "claudeOpen", "claudeDashboard", "claudeQueues", "claudeMessage", "claudeChannelEdit", "claudeDocumentChannel", "claudeGlobalScripts", "claudeCodeTemplate" };
 
     /** Task group of the Settings tab (Swing names it "settings_" + tab name; the web UI does the same). */
-    String SETTINGS_TASK_GROUP = "settings_" + PLUGIN_POINT;
+    String SETTINGS_TASK_GROUP = "settings_" + DISPLAY_NAME;
 
     /** Settings tab tasks, published with {@link #PERMISSION_SETTINGS}: without them the tab is hidden. */
     String[] SETTINGS_TASKS = { SETTINGS_TASK_GROUP + "/doRefresh", SETTINGS_TASK_GROUP + "/doSave" };

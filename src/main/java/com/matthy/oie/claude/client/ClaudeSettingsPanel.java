@@ -45,7 +45,7 @@ import com.mirth.connect.client.ui.PlatformUI;
 import net.miginfocom.swing.MigLayout;
 
 /**
- * Settings > Claude Assistant: API keys, model, effort, tool-call limit, extra mask patterns, and
+ * Settings > AI Assistant: API keys, model, effort, tool-call limit, extra mask patterns, and
  * this month's spend from the Anthropic Cost API.
  */
 public class ClaudeSettingsPanel extends AbstractSettingsPanel {

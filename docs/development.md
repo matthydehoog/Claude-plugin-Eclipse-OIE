@@ -104,7 +104,7 @@ claude-assistant/
 | --- | --- | --- |
 | `serverClasses` | `server.ClaudeServicePlugin` | A `ServicePlugin`: loads the settings, creates the `AssistantService`, declares the three permissions. |
 | `clientClasses` | `client.ClaudeClientPlugin` | The tasks in the Swing Administrator. |
-| `clientClasses` | `client.ClaudeSettingsPlugin` | The *Settings > Claude Assistant* tab. |
+| `clientClasses` | `client.ClaudeSettingsPlugin` | The *Settings > AI Assistant* tab. |
 | `apiProvider` `SERVLET_INTERFACE` | `shared.ClaudeServletInterface` | The REST interface under `/api/extensions/claude`. |
 | `apiProvider` `SERVER_CLASS` | `server.ClaudeServlet` | Its implementation. |
 
@@ -327,7 +327,7 @@ Masking is the part where a mistake hurts most: when you touch a masker, run it 
 
 1. `mvn clean package`.
 2. Install `target/claude-assistant-<version>.zip` on a **test** server and restart the service. Check that `extensions/claude-assistant/lib/` holds the engine jars.
-3. Set an API key under *Settings > Claude Assistant*. Use test data only.
+3. Set an API key under *Settings > AI Assistant*. Use test data only.
 4. Ask a question from each place (Other, dashboard, message browser, channel editor, code templates, global scripts), and in the web administrator if Web Support is installed.
 5. Check: the review dialog shows masked data; an approved action runs and appears in the audit log; a change keeps the channel's tags and enabled state; the server log has one usage line per API call.
 
@@ -374,5 +374,5 @@ Dependabot (`.github/dependabot.yml`) checks the Maven dependencies weekly, the 
 - A tool never gives Claude more than the user could see or do in OIE.
 - Secrets (API keys, credentials) are never sent to a client, logged or audited; audit events hold IDs, never content.
 - Requests and responses are JSON text, never plugin classes.
-- Error messages say what is wrong and what to do, for example *"No Anthropic API key is set yet. Enter one under Settings > Claude Assistant."*
+- Error messages say what is wrong and what to do, for example *"No Anthropic API key is set yet. Enter one under Settings > AI Assistant."*
 - Comments explain *why*; keep them short.
