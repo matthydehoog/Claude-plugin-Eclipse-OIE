@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 /**
- * Best-effort masking of patient identifiers before anything is sent to Claude. Port of mask.ts from
+ * Best-effort masking of patient identifiers before anything is sent to the AI model. Port of mask.ts from
  * the oie-mcp-server. This is a safety net, not an anonymisation guarantee.
  */
 public class Masker {

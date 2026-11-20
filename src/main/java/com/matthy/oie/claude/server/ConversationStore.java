@@ -23,7 +23,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * Saved conversations: one JSON file per conversation, in a folder per user. A file holds the
- * readable log and the model history, both exactly as sent to Claude, so masked.
+ * readable log and the model history, both exactly as sent to the AI model, so masked.
  */
 class ConversationStore {
 
@@ -140,12 +140,12 @@ class ConversationStore {
 
     /** Readable Markdown of a conversation log, for export. */
     static String markdown(String title, String server, long created, List<Conversation.Entry> log) {
-        StringBuilder sb = new StringBuilder("# Claude Assistant conversation\n\n");
+        StringBuilder sb = new StringBuilder("# AI Assistant conversation\n\n");
         sb.append("- **Server:** ").append(server).append('\n');
         sb.append("- **Started:** ").append(java.time.Instant.ofEpochMilli(created).atZone(java.time.ZoneId.systemDefault())
                 .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))).append('\n');
         sb.append("- **Subject:** ").append(title).append("\n\n");
-        sb.append("> Everything below is what Claude received and answered. Patient data was masked before sending and appears as `***`.\n");
+        sb.append("> Everything below is what the AI model received and answered. Patient data was masked before sending and appears as `***`.\n");
         int question = 0;
         boolean inTools = false;
         for (Conversation.Entry e : log) {
@@ -157,7 +157,7 @@ class ConversationStore {
                     sb.append("\n## Question ").append(++question).append("\n\n").append(e.text.strip()).append('\n');
                     break;
                 case "text":
-                    sb.append("\n### Claude\n\n").append(e.text.strip()).append('\n');
+                    sb.append("\n### AI Assistant\n\n").append(e.text.strip()).append('\n');
                     break;
                 case "tool":
                     if (!inTools) {

@@ -36,7 +36,7 @@ public class ClaudeServlet extends MirthServlet implements ClaudeServletInterfac
         }
         if (doesUserHaveChannelRestrictions()) {
             // Claude's tools see every channel, so users limited to some channels cannot use it.
-            throw new MirthApiException(Response.status(Response.Status.FORBIDDEN).entity("The Claude assistant is not available to users with channel restrictions.").build());
+            throw new MirthApiException(Response.status(Response.Status.FORBIDDEN).entity("The AI Assistant is not available to users with channel restrictions.").build());
         }
         try {
             ChatJob job = service().startChat(getCurrentUserId(), request.getRemoteAddr(), in.path("conversationId").asText(null), message, in.path("context").asText(null));

@@ -53,24 +53,24 @@ public class ClaudeClientPlugin extends ClientPlugin {
         ImageIcon icon = new ImageIcon(Frame.class.getResource("images/help.png"));
         // Frame.addTask does not ask the AuthorizationController, so tasks the user's role does not
         // grant ("Use Claude Assistant", see ClaudeServletInterface.USE_TASKS) are left out here.
-        addTask("claudeOpen", "Claude Assistant", "Ask Claude a question about this OIE server.", icon, parent.otherPane, null);
-        addTask("claudeDashboard", "Ask Claude", "Let Claude analyze the selected channel(s).", icon, parent.dashboardTasks, parent.dashboardPopupMenu);
-        addTask("claudeQueues", "Check queues and storage", "Let Claude look for stuck queues and channels whose stored messages keep growing.", icon, parent.dashboardTasks, parent.dashboardPopupMenu);
-        addTask("claudeMessage", "Ask Claude", "Let Claude find out what happened to the selected message.", icon, parent.messageTasks, parent.messagePopupMenu);
-        addTask("claudeChannelEdit", "Ask Claude", "Let Claude explain or improve this channel and its scripts.", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
-        addTask("claudeDocumentChannel", "Document channel", "Let Claude write documentation for this channel (Markdown; save it with Save answer).", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
+        addTask("claudeOpen", "AI Assistant", "Ask the AI Assistant a question about this OIE server.", icon, parent.otherPane, null);
+        addTask("claudeDashboard", "Ask AI Assistant", "Let the AI Assistant analyze the selected channel(s).", icon, parent.dashboardTasks, parent.dashboardPopupMenu);
+        addTask("claudeQueues", "Check queues and storage", "Let the AI Assistant look for stuck queues and channels whose stored messages keep growing.", icon, parent.dashboardTasks, parent.dashboardPopupMenu);
+        addTask("claudeMessage", "Ask AI Assistant", "Let the AI Assistant find out what happened to the selected message.", icon, parent.messageTasks, parent.messagePopupMenu);
+        addTask("claudeChannelEdit", "Ask AI Assistant", "Let the AI Assistant explain or improve this channel and its scripts.", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
+        addTask("claudeDocumentChannel", "Document channel", "Let the AI Assistant write documentation for this channel (Markdown; save it with Save answer).", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
 
-        addTask("claudeGlobalScripts", "Ask Claude", "Let Claude explain or improve the global scripts.", icon, parent.globalScriptsTasks, parent.globalScriptsPopupMenu);
+        addTask("claudeGlobalScripts", "Ask AI Assistant", "Let the AI Assistant explain or improve the global scripts.", icon, parent.globalScriptsTasks, parent.globalScriptsPopupMenu);
 
         // The code template panel has its own hook; the task shows only when one template is selected.
         if (parent.codeTemplatePanel != null && allowed("codeTemplate", "claudeCodeTemplate")) {
-            AbstractAction askAboutTemplate = new AbstractAction("Ask Claude", icon) {
+            AbstractAction askAboutTemplate = new AbstractAction("Ask AI Assistant", icon) {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     claudeCodeTemplate();
                 }
             };
-            askAboutTemplate.putValue(Action.SHORT_DESCRIPTION, "Let Claude explain or improve the selected code template.");
+            askAboutTemplate.putValue(Action.SHORT_DESCRIPTION, "Let the AI Assistant explain or improve the selected code template.");
             parent.codeTemplatePanel.addAction(askAboutTemplate, Collections.singleton(CodeTemplatePanel.OPTION_ONLY_SINGLE_CODE_TEMPLATES), "claudeCodeTemplate");
         }
     }
@@ -140,7 +140,7 @@ public class ClaudeClientPlugin extends ClientPlugin {
             return;
         }
         String context = "Channel open in the editor: '" + channel.getName() + "' (" + channel.getId() + ", revision " + channel.getRevision() + ")."
-                + " Claude sees the saved version; unsaved changes in the editor are not visible.";
+                + " The AI Assistant sees the saved version; unsaved changes in the editor are not visible.";
         dialog().open(context, "Explain what this channel does and point out weak spots in its scripts.");
     }
 
@@ -151,12 +151,12 @@ public class ClaudeClientPlugin extends ClientPlugin {
             return;
         }
         String context = "Channel open in the editor: '" + channel.getName() + "' (" + channel.getId() + ", revision " + channel.getRevision() + ")."
-                + " Claude sees the saved version; unsaved changes in the editor are not visible.";
+                + " The AI Assistant sees the saved version; unsaved changes in the editor are not visible.";
         dialog().open(context, "Write documentation for this channel as Markdown: purpose, source, filter, destinations, field mappings, scripts and code templates, Configuration Map keys and open points.");
     }
 
     public void claudeGlobalScripts() {
-        dialog().open("Global Scripts (deploy, undeploy, preprocessor and postprocessor). Claude sees the saved version; unsaved changes in the Global Scripts editor are not visible.",
+        dialog().open("Global Scripts (deploy, undeploy, preprocessor and postprocessor). The AI Assistant sees the saved version; unsaved changes in the Global Scripts editor are not visible.",
                 "Explain what the global scripts do and point out weak spots.");
     }
 
@@ -179,7 +179,7 @@ public class ClaudeClientPlugin extends ClientPlugin {
             }
         }
         String context = "Selected code template: '" + template.getName() + "' (" + id + ")" + (library == null ? "" : " in library '" + library + "'")
-                + ". Claude sees the saved version; unsaved changes in the code template editor are not visible.";
+                + ". The AI Assistant sees the saved version; unsaved changes in the code template editor are not visible.";
         dialog().open(context, "Explain what this code template does, which channels use it, and point out weak spots.");
     }
 

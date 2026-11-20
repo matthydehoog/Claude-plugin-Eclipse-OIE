@@ -78,7 +78,7 @@ final class EngineLoader {
             File jar = new File(EngineLoader.class.getProtectionDomain().getCodeSource().getLocation().toURI());
             return new File(jar.getParentFile(), "lib");
         } catch (Exception e) {
-            throw new IOException("Cannot determine the folder of the Claude Assistant extension", e);
+            throw new IOException("Cannot determine the folder of the AI Assistant extension", e);
         }
     }
 

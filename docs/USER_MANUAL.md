@@ -40,8 +40,8 @@ The assistant is available in two places, and both use the same server and setti
 
 | Client | Where to start |
 | --- | --- |
-| OIE Administrator (Swing) | *Other > Claude Assistant*, or *Ask Claude* in a view |
-| OIE web administrator | *Plugins > Claude Assistant*, or *Ask Claude* in a view |
+| OIE Administrator (Swing) | *Other > AI Assistant*, or *Ask AI Assistant* in a view |
+| OIE web administrator | *Plugins > AI Assistant*, or *Ask AI Assistant* in a view |
 
 Patient data is masked before anything leaves the server (see *Privacy and masking*).
 
@@ -104,18 +104,18 @@ To get an API key, sign in at [console.anthropic.com](https://console.anthropic.
 
 ## Using the Administrator (Swing) client
 
-Start from the place your question is about: *Ask Claude* there sends the selection along as context, so you don't have to name it.
+Start from the place your question is about: *Ask AI Assistant* there sends the selection along as context, so you don't have to name it.
 
 | Place | How | Context sent along |
 | --- | --- | --- |
 | Left menu, **Other** | *Claude Assistant* | None: questions about the whole server |
-| **Dashboard** | Task or right-click, *Ask Claude* | Selected channel(s) or connectors |
+| **Dashboard** | Task or right-click, *Ask AI Assistant* | Selected channel(s) or connectors |
 | **Dashboard** | Task or right-click, *Check queues and storage* | None: Claude checks all queues and message storage (see *Queues and message storage*) |
-| **Message browser** | Task or right-click, *Ask Claude* | Selected message (channel, message ID, connector) |
-| **Channel editor** | Task or right-click, *Ask Claude* | The open channel (its saved version) |
+| **Message browser** | Task or right-click, *Ask AI Assistant* | Selected message (channel, message ID, connector) |
+| **Channel editor** | Task or right-click, *Ask AI Assistant* | The open channel (its saved version) |
 | **Channel editor** | Task or right-click, *Document channel* | The open channel; Claude writes its documentation (see *Documenting a channel*) |
 | **Code Templates** | Task or right-click, one template selected | The template and its library |
-| **Global Scripts** | Task or right-click, *Ask Claude* | The deploy, undeploy, preprocessor and postprocessor scripts |
+| **Global Scripts** | Task or right-click, *Ask AI Assistant* | The deploy, undeploy, preprocessor and postprocessor scripts |
 
 The context shows at the top of the chat window. *No context* means Claude looks at the whole server.
 
@@ -137,20 +137,20 @@ The web administrator gets the same assistant once the **Web Support** extension
 
 | Place | What you get |
 | --- | --- |
-| Left rail, **Plugins > Claude Assistant** | The chat as a full page |
+| Left rail, **Plugins > AI Assistant** | The chat as a full page |
 | **Channel editor**, tab **Claude** | The chat with the open channel as context |
-| **Channels** view, right-click | *Ask Claude* about the selected channel, or *Document channel* |
-| **Message browser**, right-click | *Ask Claude* about the selected message (web admin API 4.7+) |
-| **Code Templates**, right-click | *Ask Claude* about the selected template |
+| **Channels** view, right-click | *Ask AI Assistant* about the selected channel, or *Document channel* |
+| **Message browser**, right-click | *Ask AI Assistant* about the selected message (web admin API 4.7+) |
+| **Code Templates**, right-click | *Ask AI Assistant* about the selected template |
 | **Claude page**, button **Global Scripts** | The global scripts as context |
 | **Claude page**, button **Document channel** | Documents the channel in the context (from the channel editor tab or the Channels view) |
 | **Claude page**, button **Queues and storage** | Checks queues and message storage |
-| **Command palette** (Ctrl+K) | *Claude Assistant*, *Check queues and storage* and *Ask Claude about Global Scripts* |
+| **Command palette** (Ctrl+K) | *AI Assistant*, *Check queues and storage* and *Ask AI Assistant about Global Scripts* |
 | **Settings**, tab **Claude Assistant** | Same settings and usage as in Swing; save with the page's own *Save* |
 
 A conversation stays open while you move between the Claude page and other views. The Claude page has the same **Conversations…**, **Export** and **Save answer** buttons as the Swing window; they download the Markdown file.
 
-The Global Scripts view in the web administrator has no *Ask Claude* action. Use the **Global Scripts** button on the Claude page instead.
+The Global Scripts view in the web administrator has no *Ask AI Assistant* action. Use the **Global Scripts** button on the AI Assistant page instead.
 
 **Command palette:** open the Dashboard once before searching for "Claude" with Ctrl+K. Searching earlier crashes the palette ([oie-web-client#65](https://github.com/gibson9583/oie-web-client/issues/65)).
 
@@ -195,7 +195,7 @@ For a very large channel, Claude reads a few connectors at a time.
 
 ### Queues and message storage
 
-Growing queues and a growing message database cause most slow-burning incidents: a destination that is down queues messages for days, and channels without pruning fill the disk. *Check queues and storage* (Dashboard task or right-click; in the web administrator the **Queues and storage** button on the Claude page or the command palette) asks Claude to look for both. Claude reports:
+Growing queues and a growing message database cause most slow-burning incidents: a destination that is down queues messages for days, and channels without pruning fill the disk. *Check queues and storage* (Dashboard task or right-click; in the web administrator the **Queues and storage** button on the AI Assistant page or the command palette) asks Claude to look for both. Claude reports:
 
 - **Stuck destinations**: stopped, paused, disabled or undeployed with messages in the queue, or a queue whose oldest message has waited more than an hour, with the age of that message, its send attempts and the last error (for example *TCP Sender error: Connection refused*)
 - **Channels without pruning**, with the number of messages they keep, and an estimate of each channel's size in the database
@@ -243,7 +243,7 @@ A **new channel** is created disabled and not deployed, with a new ID. The dialo
 
 **Audit:** every executed action is logged under *Events* as `Claude Assistant: <action>`, in the name of the user who approved it.
 
-Every time message data, log lines or events are sent to Anthropic, *Events* also gets `Claude Assistant: data sent to Anthropic`, with the user, IP address, tool, channel, message IDs and whether the data was reviewed or edited. The content itself is never logged.
+Every time message data, log lines or events are sent to Anthropic, *Events* also gets `AI Assistant: data sent to Anthropic` (or to the host of the OpenAI-compatible server), with the user, IP address, tool, channel, message IDs and whether the data was reviewed or edited. The content itself is never logged.
 
 ## Privacy and masking
 
@@ -281,7 +281,7 @@ Add a mask pattern for any identifier the defaults miss, such as a hospital pati
 
 Before message content, log lines or events go to Claude, a dialog shows exactly what would be sent, after masking. Nothing leaves the server until you decide.
 
-- **Send to Claude** sends the text as shown, including any edits you made. Edited text is masked again.
+- **Send to the AI model** sends the text as shown, including any edits you made. Edited text is masked again.
 - **Don't send**, or closing the dialog, withholds it. Claude is told the data was withheld and continues without it.
 - No decision within 15 minutes counts as *Don't send*.
 
@@ -367,7 +367,7 @@ Amounts are in USD since the 1st of the month (UTC), today included. They run up
 
 **Keeping costs down:**
 
-- Start from *Ask Claude* in the right view, so Claude needs fewer lookups.
+- Start from *Ask AI Assistant* in the right view, so Claude needs fewer lookups.
 - Use *New conversation* for a new topic; long histories are resent with every question.
 - Lower *Effort* or pick a smaller model for routine questions.
 - Prompt caching is on automatically. The system prompt and tool definitions are the same for every question, and each tool call reads the conversation so far from the cache, so only what is new is billed at the full rate. The cache lasts about 5 minutes after its last use.
@@ -401,7 +401,7 @@ Connecting times out after 10 seconds and is tried three times, so you get the m
 | *Cannot reach the Anthropic API* | No internet, firewall or proxy on the OIE server | Allow `api.anthropic.com`, or set `oie.claude.baseUrl` |
 | Authentication error | Wrong, revoked or expired API key | Create a new key in the Console and save it |
 | Error about credits or billing | No credit left on the Anthropic account | Add credits under Billing in the Console |
-| *No context* in the chat header | Opened from *Other*, not from a view | Normal: Claude looks at the whole server; use *Ask Claude* in a view for a specific item |
+| *No context* in the chat header | Opened from *Other*, not from a view | Normal: Claude looks at the whole server; use *Ask AI Assistant* in a view for a specific item |
 | Answers in the wrong language | *Response language* is *Automatic* and follows the question or data | Pick a fixed language in *Settings > Claude Assistant* |
 | Claude doesn't see my latest change | The channel editor has unsaved changes | Save the channel, then ask again |
 | *Run* is refused | Missing *Run Claude Assistant actions* permission | Ask an administrator to add it to your role |
@@ -420,7 +420,7 @@ For anything else, look in *Dashboard > Server Log* for lines starting with `Cla
 - Configuration Map values are never readable, only the keys.
 - Users with channel restrictions cannot use the assistant.
 - Script changes are saved, not deployed; deploying is a separate approved action.
-- The web Global Scripts view has no *Ask Claude*; use the button on the Claude page.
+- The web Global Scripts view has no *Ask AI Assistant*; use the button on the AI Assistant page.
 - The credit balance cannot be shown in OIE; use the Console.
 - Claude can be wrong. Check its conclusions and proposed changes before you click *Run*.
 

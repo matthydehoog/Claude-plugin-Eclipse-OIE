@@ -6,7 +6,7 @@
 const EXT = "/extensions/claude";
 const STYLE_ID = "claude-assistant-style";
 // The web admin has no plugin hook on the Global Scripts view, so the Claude page offers this context itself.
-const GLOBAL_SCRIPTS_CONTEXT = "Global Scripts (deploy, undeploy, preprocessor and postprocessor). Claude sees the saved version; unsaved changes in the Global Scripts editor are not visible.";
+const GLOBAL_SCRIPTS_CONTEXT = "Global Scripts (deploy, undeploy, preprocessor and postprocessor). The AI Assistant sees the saved version; unsaved changes in the Global Scripts editor are not visible.";
 const GLOBAL_SCRIPTS_SUGGESTION = "Explain what the global scripts do and point out weak spots.";
 // Same text as ClaudeClientPlugin.QUEUES_SUGGESTION.
 const QUEUES_SUGGESTION = "Check the queues and message storage: which destinations are stuck, and which channels need pruning?";
@@ -200,7 +200,7 @@ function markdown(md) {
 
 // ------------------------------------------------------------------ chat controller
 // One conversation per browser tab, kept outside React so it survives navigating between
-// the Claude page, the channel tab and other views while Claude is still working.
+// the Claude page, the channel tab and other views while the AI Assistant is still working.
 
 const chat = {
     conversationId: null,
@@ -256,7 +256,7 @@ const chat = {
             this.jobId = res.jobId;
             this.lastSeq = 0;
             this.shownActionId = null;
-            this.setStatus("Claude is thinking…");
+            this.setStatus("AI Assistant is thinking…");
             this.timer = setInterval(() => this.poll(), POLL_MS);
         } catch (err) {
             this.busy = false;
@@ -283,11 +283,11 @@ const chat = {
     handle(job) {
         for (const ev of job.events || []) {
             this.lastSeq = Math.max(this.lastSeq, ev.seq || 0);
-            if (ev.type === "tool") this.status = "Claude is querying the server…";
+            if (ev.type === "tool") this.status = "AI Assistant is querying the server…";
             this.entries = [...this.entries, { kind: ev.type, text: ev.text }];
         }
         this.partial = job.partial || "";
-        if (this.partial) this.status = "Claude is writing…";
+        if (this.partial) this.status = "AI Assistant is writing…";
         const pending = job.pendingAction;
         if (job.state === "WAITING" && pending && pending.id !== this.shownActionId) {
             this.shownActionId = pending.id;
@@ -363,7 +363,7 @@ const chat = {
     /** Lists the user's conversations (current and saved) and continues the chosen one. */
     async chooseConversation() {
         if (this.jobId) {
-            this.add("info", "Wait until Claude has finished, or click Stop.");
+            this.add("info", "Wait until the AI Assistant has finished, or click Stop.");
             return;
         }
         let res;
@@ -429,10 +429,10 @@ const chat = {
         const decide = async (approved) => {
             if (decided) return true;
             decided = true;
-            this.setStatus(approved ? "Running action…" : "Claude continues…");
+            this.setStatus(approved ? "Running action…" : "AI Assistant continues…");
             try {
                 await call("POST", "/jobs/" + encodeURIComponent(jobId) + "/confirm", { actionId: pending.id, approved });
-                this.setStatus("Claude continues…");
+                this.setStatus("AI Assistant continues…");
             } catch (err) {
                 this.add("error", "Approval failed: " + errorText(err));
             }
@@ -442,7 +442,7 @@ const chat = {
             title: "Approve: " + pending.title,
             size: "lg",
             body: h("div", null,
-                h("div", null, "Claude wants to run the following action on this server:"),
+                h("div", null, "The AI Assistant wants to run the following action on this server:"),
                 h("pre.claude-detail", null, pending.detail || "")),
             buttons: [
                 { label: "Reject", onClick: () => decide(false) },
@@ -466,7 +466,7 @@ const chat = {
         const decide = async (approved) => {
             if (decided) return true;
             decided = true;
-            this.setStatus("Claude continues…");
+            this.setStatus("AI Assistant continues…");
             try {
                 await call("POST", "/jobs/" + encodeURIComponent(jobId) + "/review", approved ? { reviewId: review.id, approved, text: text.value } : { reviewId: review.id, approved });
             } catch (err) {
@@ -478,12 +478,12 @@ const chat = {
             title: "Review before sending: " + review.title,
             size: "lg",
             body: h("div", null,
-                h("div", null, "This is exactly what will be sent to Claude (Anthropic), after masking. Edit it to remove anything Claude should not see; edited text is masked again before sending."),
+                h("div", null, "This is exactly what will be sent to the AI model, after masking. Edit it to remove anything the AI model should not see; edited text is masked again before sending."),
                 text,
                 h("div.claude-hint", null, (review.detail || "").length + " characters. Closing this dialog sends nothing.")),
             buttons: [
                 { label: "Don't send", onClick: () => decide(false) },
-                { label: "Send to Claude", primary: true, onClick: () => decide(true) }
+                { label: "Send to the AI model", primary: true, onClick: () => decide(true) }
             ],
             // Closing the dialog (X, Escape, clicking outside) sends nothing.
             onClose: () => { decide(false); }
@@ -551,13 +551,13 @@ function ChatPanel() {
     const welcome = c.entries.length === 0
         ? e("div", { className: "claude-info" },
             "Ask a question about your OIE server, for example ", e("i", null, "Which channels have errors?"), " or ", e("i", null, "Why does this message fail?"),
-            e("br"), "Message content is masked before it is sent to Claude. Actions such as deploying only run after you approve them.")
+            e("br"), "Message content is masked before it is sent to the AI model. Actions such as deploying only run after you approve them.")
         : null;
 
     return e("div", { className: "claude-panel" },
         e("div", { className: "claude-contextbar" },
             e("span", { className: "claude-context", title: c.context || "" },
-                c.context ? [e("b", { key: "l" }, "Context: "), c.context] : "No context: Claude looks at the whole server."),
+                c.context ? [e("b", { key: "l" }, "Context: "), c.context] : "No context: the AI Assistant looks at the whole server."),
             e("button", {
                 className: "btn",
                 title: "Ask about the global deploy, undeploy, preprocessor and postprocessor scripts",
@@ -566,20 +566,20 @@ function ChatPanel() {
             }, "Global Scripts"),
             e("button", {
                 className: "btn",
-                title: "Let Claude write documentation for the channel in the context; save it with Save answer",
+                title: "Let the AI Assistant write documentation for the channel in the context; save it with Save answer",
                 disabled: !CHANNEL_CONTEXT.test(c.context || ""),
                 onClick: () => c.open(c.context, DOCUMENT_SUGGESTION)
             }, "Document channel"),
             mayUse("claudeQueues") ? e("button", {
                 className: "btn",
-                title: "Let Claude look for stuck queues and channels whose stored messages keep growing",
+                title: "Let the AI Assistant look for stuck queues and channels whose stored messages keep growing",
                 disabled: c.busy,
                 onClick: () => c.open(null, QUEUES_SUGGESTION)
             }, "Queues and storage") : null,
             e("button", { className: "btn", disabled: !c.context, onClick: () => c.clearContext() }, "Clear context"),
             e("button", { className: "btn", title: "Continue one of your earlier conversations", onClick: () => c.chooseConversation() }, "Conversations…"),
             e("button", { className: "btn", title: "Save this conversation as a Markdown file", disabled: !c.conversationId, onClick: () => c.exportConversation() }, "Export"),
-            e("button", { className: "btn", title: "Save only Claude's last answer as a Markdown file, for example a channel's documentation", disabled: c.busy || !c.lastAnswer(), onClick: () => c.saveAnswer() }, "Save answer"),
+            e("button", { className: "btn", title: "Save only the AI Assistant's last answer as a Markdown file, for example a channel's documentation", disabled: c.busy || !c.lastAnswer(), onClick: () => c.saveAnswer() }, "Save answer"),
             e("button", { className: "btn", onClick: () => c.newConversation() }, "New conversation")),
         e("div", { className: "claude-transcript", ref: transcriptRef },
             welcome,
@@ -589,7 +589,7 @@ function ChatPanel() {
             e("textarea", {
                 ref: inputRef,
                 value: input,
-                placeholder: "Ask Claude… (Ctrl+Enter to send)",
+                placeholder: "Ask the AI Assistant… (Ctrl+Enter to send)",
                 onChange: (ev) => setInput(ev.target.value),
                 onKeyDown: (ev) => {
                     if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
@@ -627,7 +627,7 @@ function ChannelTab(props) {
     const allowed = mayUse("claudeChannelEdit");
     React.useEffect(() => {
         if (!channel.id || !allowed) return;
-        const context = `Channel open in the editor: '${channel.name}' (${channel.id}, revision ${channel.revision}). Claude sees the saved version; unsaved changes in the editor are not visible.`;
+        const context = `Channel open in the editor: '${channel.name}' (${channel.id}, revision ${channel.revision}). The AI Assistant sees the saved version; unsaved changes in the editor are not visible.`;
         if (chat.context !== context) chat.open(context, "Explain what this channel does and point out weak spots in its scripts.");
     }, [channel.id, allowed]);
     return e("div", { className: "claude-panel claude-embedded" }, allowed ? e(ChatPanel) : e(NoAccess));
@@ -694,7 +694,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
         try {
             show(await call("PUT", "/settings", { ...f, maxToolCalls: Number(f.maxToolCalls) || 25, keepConversationsDays: Math.max(0, Math.min(365, Number(f.keepConversationsDays) || 0)) }));
             setError(null);
-            P.ui.toast("Claude Assistant settings saved.", "success");
+            P.ui.toast("AI Assistant settings saved.", "success");
             return true;
         } catch (err) {
             setError("Saving failed: " + errorText(err));
@@ -711,7 +711,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
         if (setSave) setSave(() => saveRef.current());
         if (setTasks) {
             const { taskButton } = P.ui;
-            setTasks("Claude Assistant Tasks", [
+            setTasks("AI Assistant Tasks", [
                 taskButton("Refresh", "refresh", () => loadRef.current()),
                 taskButton("Save", "save", () => saveRef.current(), { primary: true })
             ]);
@@ -816,9 +816,9 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
         row("Response language:", e("select", { value: form.responseLanguage, onChange: set("responseLanguage") }, LANGUAGES.map(([value, label]) => e("option", { key: value, value }, label)))),
         row("Max. tool calls per question:", e("input", { type: "number", min: 1, max: 100, value: form.maxToolCalls, onChange: set("maxToolCalls"), style: { width: 80 } })),
         row("Review before sending:", e("select", { value: form.reviewBeforeSending, onChange: set("reviewBeforeSending") }, REVIEWS.map(([value, label]) => e("option", { key: value, value }, label))),
-            "Shows exactly what will be sent to Claude, after masking, so each user can edit it or withhold it first."),
+            "Shows exactly what will be sent to the AI model, after masking, so each user can edit it or withhold it first."),
         row("Keep conversations (days):", e("input", { type: "number", min: 0, max: 365, value: form.keepConversationsDays, onChange: set("keepConversationsDays"), style: { width: 80 } }),
-            "Days a conversation is kept on the server after its last use, so it can be continued after a restart of OIE (Conversations…). Only what was sent to Claude is kept, so masked. 0 = not saved: conversations are gone 4 hours after their last use or on a restart, and saved ones are removed."),
+            "Days a conversation is kept on the server after its last use, so it can be continued after a restart of OIE (Conversations…). Only what was sent to the AI model is kept, so masked. 0 = not saved: conversations are gone 4 hours after their last use or on a restart, and saved ones are removed."),
         row("Extra mask patterns:", e("textarea", { rows: 4, value: form.maskPatterns, onChange: set("maskPatterns") }),
             "Regular expressions, separated by ;; . They are masked in addition to the built-in rules (HL7 PID, NTE and text over 30 characters, GDT 3000-3107, BSN). The API keys are stored encrypted on the server and never sent back to the Administrator. Leave a key field empty to keep the current key."),
         e("h3", null, "Usage"),
@@ -877,17 +877,17 @@ export function register(platform) {
 
     // task/rbac: the shell hides the entry when an RBAC plugin denies the task; the server publishes
     // these task names with "Use Claude Assistant" (ClaudeServletInterface.USE_TASKS).
-    platform.registerNavItem({ id: "claude-assistant", label: "Claude Assistant", icon: "claude", path: "/claude", section: "Plugins", order: 30, task: "claudeOpen", rbac: "other" });
-    platform.registerView("/claude", platform.reactView(ChatView), { title: "Claude Assistant" });
+    platform.registerNavItem({ id: "claude-assistant", label: "AI Assistant", icon: "claude", path: "/claude", section: "Plugins", order: 30, task: "claudeOpen", rbac: "other" });
+    platform.registerView("/claude", platform.reactView(ChatView), { title: "AI Assistant" });
 
     // Channel tabs have no task gate in the shell, so the tab is only registered when allowed.
     if (mayUse("claudeChannelEdit")) {
-        platform.registerChannelTab({ id: "claude-assistant", label: "Claude", order: 90, component: ChannelTab });
+        platform.registerChannelTab({ id: "claude-assistant", label: "AI Assistant", order: 90, component: ChannelTab });
     }
 
     platform.registerChannelAction({
         id: "claude-assistant.ask",
-        label: "Ask Claude",
+        label: "Ask AI Assistant",
         icon: "claude",
         order: 60,
         task: "claudeDashboard",
@@ -911,7 +911,7 @@ export function register(platform) {
 
     // The web admin has no hook on the Global Scripts view, so these go in the command palette.
     if (typeof platform.registerCommand === "function") {
-        platform.registerCommand({ id: "claude-assistant.open", label: "Claude Assistant", icon: "claude", section: "Plugins", keywords: ["claude", "ai", "assistant"], path: "/claude", task: "claudeOpen", rbac: "other" });
+        platform.registerCommand({ id: "claude-assistant.open", label: "AI Assistant", icon: "claude", section: "Plugins", keywords: ["claude", "ai", "assistant"], path: "/claude", task: "claudeOpen", rbac: "other" });
         platform.registerCommand({
             id: "claude-assistant.queues",
             label: "Check queues and storage",
@@ -924,7 +924,7 @@ export function register(platform) {
         });
         platform.registerCommand({
             id: "claude-assistant.global-scripts",
-            label: "Ask Claude about Global Scripts",
+            label: "Ask AI Assistant about Global Scripts",
             icon: "claude",
             section: "Plugins",
             keywords: ["claude", "global scripts", "deploy", "preprocessor", "postprocessor"],
@@ -936,14 +936,14 @@ export function register(platform) {
 
     platform.registerCodeTemplateAction({
         id: "claude-assistant.ask",
-        label: "Ask Claude",
+        label: "Ask AI Assistant",
         icon: "claude",
         order: 60,
         task: "claudeCodeTemplate",
         onInvoke: (template, ctx) => {
             if (!template || !template.id) return;
             const library = ctx && ctx.library && ctx.library.name ? ` in library '${ctx.library.name}'` : "";
-            openWith(`Selected code template: '${template.name}' (${template.id})${library}. Claude sees the saved version; unsaved changes in the code template editor are not visible.`,
+            openWith(`Selected code template: '${template.name}' (${template.id})${library}. The AI Assistant sees the saved version; unsaved changes in the code template editor are not visible.`,
                 "Explain what this code template does, which channels use it, and point out weak spots.");
         }
     });
@@ -952,7 +952,7 @@ export function register(platform) {
     if (typeof platform.registerMessageAction === "function") {
         platform.registerMessageAction({
             id: "claude-assistant.ask",
-            label: "Ask Claude",
+            label: "Ask AI Assistant",
             icon: "claude",
             order: 60,
             task: "claudeMessage",

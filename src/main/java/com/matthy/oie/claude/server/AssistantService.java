@@ -167,7 +167,7 @@ public class AssistantService {
                 newLoop = loopFactory.create(settings, systemPrompt(settings), specs, this::callTool);
             } catch (Exception e) {
                 logger.error("Claude Assistant: could not create the model client", e);
-                engineError = "Cannot start the Claude client: " + e;
+                engineError = "Cannot start the AI Assistant: " + e;
             }
         }
         ModelLoop old = this.loop;
@@ -198,7 +198,7 @@ public class AssistantService {
         String identity = settings.openAiCompatible()
                 ? "You are an AI assistant inside the Administrator of Open Integration Engine (OIE, a fork of Mirth Connect), running as the model "
                         + settings.model + " through an OpenAI-compatible API at " + modelServer(settings)
-                        + ". The plugin is called Claude Assistant, but you are not Claude and not made by Anthropic: when asked which AI or model you are, say you are "
+                        + ". The plugin is called AI Assistant, but you are not Claude and not made by Anthropic: when asked which AI or model you are, say you are "
                         + settings.model + "."
                 : "You are the Claude assistant inside the Administrator of Open Integration Engine (OIE, a fork of Mirth Connect).";
         return SYSTEM_PROMPT.replace(IDENTITY_LINE, identity).replace(LANGUAGE_LINE, language);
@@ -231,7 +231,7 @@ public class AssistantService {
             throw new IllegalStateException("No Admin API key is set. Spend this month needs an Admin API key (sk-ant-admin...).");
         }
         if (engine == null) {
-            throw new IllegalStateException("The Claude assistant cannot start: " + engineError);
+            throw new IllegalStateException("The AI Assistant cannot start: " + engineError);
         }
         String cacheKey = s.adminApiKey + '\n' + s.apiKey;
         long now = System.currentTimeMillis();
@@ -262,7 +262,7 @@ public class AssistantService {
             return ModelList.build(null, "Set an Anthropic API key to load the model list from Anthropic; a fixed list is shown.", s.model, 0).toString();
         }
         if (engine == null) {
-            return ModelList.build(null, "The Claude assistant cannot start: " + engineError, s.model, 0).toString();
+            return ModelList.build(null, "The AI Assistant cannot start: " + engineError, s.model, 0).toString();
         }
         synchronized (modelsLock) {
             long now = System.currentTimeMillis();
@@ -290,7 +290,7 @@ public class AssistantService {
             return ModelList.build(null, "Set the API base URL to load the model list.", s.model, 0, true).toString();
         }
         if (engine == null) {
-            return ModelList.build(null, "The Claude assistant cannot start: " + engineError, s.model, 0, true).toString();
+            return ModelList.build(null, "The AI Assistant cannot start: " + engineError, s.model, 0, true).toString();
         }
         String key = Settings.PROVIDER_OPENAI + '\n' + s.baseUrl + '\n' + s.apiKey;
         synchronized (modelsLock) {
@@ -327,7 +327,7 @@ public class AssistantService {
         ModelLoop l = loop;
         if (l == null) {
             if (engineError != null) {
-                throw new IllegalStateException("The Claude assistant cannot start: " + engineError);
+                throw new IllegalStateException("The AI Assistant cannot start: " + engineError);
             }
             if (settings.openAiCompatible()) {
                 throw new IllegalStateException("No API base URL is set for the OpenAI-compatible provider yet. Enter one under Settings > Claude Assistant.");
@@ -347,7 +347,7 @@ public class AssistantService {
         ChatJob job;
         synchronized (conversation) {
             if (conversation.activeJob != null && !isFinished(conversation.activeJob)) {
-                throw new IllegalStateException("Claude is still working on your previous question.");
+                throw new IllegalStateException("The AI Assistant is still working on your previous question.");
             }
             job = new ChatJob(conversation, address);
             conversation.activeJob = job;
@@ -362,7 +362,7 @@ public class AssistantService {
                 if (reviewQuestion) {
                     userText = review(job, "question", "Your question", builtText);
                     if (userText == null) {
-                        job.emit("info", "Your question was not sent to Claude.");
+                        job.emit("info", "Your question was not sent to the AI model.");
                         job.finish(ChatJob.State.CANCELLED);
                         return;
                     }
@@ -478,7 +478,7 @@ public class AssistantService {
                 throw new IllegalArgumentException("Conversation not found or expired.");
             }
             if (l == null) {
-                throw new IllegalStateException("The Claude assistant is not configured, so a saved conversation cannot be continued.");
+                throw new IllegalStateException("The AI Assistant is not configured, so a saved conversation cannot be continued.");
             }
             c = new Conversation(saved.id, userId, saved.created);
             for (Conversation.Entry e : saved.log) {
@@ -562,9 +562,9 @@ public class AssistantService {
             String edited = text == null ? pending.prepared.detail : masker.mask(text);
             boolean changed = !edited.equals(pending.prepared.detail);
             result = edited;
-            job.emit("info", "Sent to Claude after review" + (changed ? " (edited)" : "") + ": " + pending.prepared.title);
+            job.emit("info", "Sent to the AI model after review" + (changed ? " (edited)" : "") + ": " + pending.prepared.title);
         } else {
-            job.emit("info", "Not sent to Claude: " + pending.prepared.title);
+            job.emit("info", "Not sent to the AI model: " + pending.prepared.title);
         }
         job.resumed();
         pending.decision.complete(result);
@@ -586,8 +586,8 @@ public class AssistantService {
         if (t.isAction(name) && !mayRunActions(job.conversation.userId, job.address)) {
             // Approving and rejecting both need "Run Claude Assistant actions"; without it the
             // confirmation would wait until the timeout, so it is not proposed at all.
-            job.emit("info", "Skipped " + name + ": you do not have the Claude Assistant permission \"" + ClaudeServletInterface.PERMISSION_ACTIONS + "\".");
-            return "The user does not have the Claude Assistant permission \"" + ClaudeServletInterface.PERMISSION_ACTIONS
+            job.emit("info", "Skipped " + name + ": you do not have the AI Assistant permission \"" + ClaudeServletInterface.PERMISSION_ACTIONS + "\".");
+            return "The user does not have the AI Assistant permission \"" + ClaudeServletInterface.PERMISSION_ACTIONS
                     + "\", so no action can be run for them. Do not propose actions; explain what the user, or an administrator, could do instead.";
         }
         if (!t.isAction(name)) {
@@ -663,7 +663,7 @@ public class AssistantService {
     /** Whether the user has "Run Claude Assistant actions" (the permission of POST /jobs/{id}/confirm). Fails closed. */
     private boolean mayRunActions(int userId, String address) {
         try {
-            Operation confirm = new ExtensionOperation(ClaudeServletInterface.PLUGIN_POINT, new Operation(CONFIRM_OPERATION, "Run Claude action", Operation.ExecuteType.ASYNC, false));
+            Operation confirm = new ExtensionOperation(ClaudeServletInterface.PLUGIN_POINT, new Operation(CONFIRM_OPERATION, "Run AI Assistant action", Operation.ExecuteType.ASYNC, false));
             return ControllerFactory.getFactory().createAuthorizationController().isUserAuthorized(userId, confirm, new HashMap<>(), address, false);
         } catch (Exception e) {
             logger.warn("Claude Assistant: authorization check for actions failed", e);
@@ -689,7 +689,7 @@ public class AssistantService {
      */
     private void auditShared(ChatJob job, String tool, JsonNode input, String sent, String review) {
         try {
-            ServerEvent event = new ServerEvent(ControllerFactory.getFactory().createConfigurationController().getServerId(), "Claude Assistant: data sent to " + modelServer(settings));
+            ServerEvent event = new ServerEvent(ControllerFactory.getFactory().createConfigurationController().getServerId(), "AI Assistant: data sent to " + modelServer(settings));
             event.setLevel(ServerEvent.Level.INFORMATION);
             event.setOutcome(ServerEvent.Outcome.SUCCESS);
             event.setUserId(job.conversation.userId);
@@ -752,7 +752,7 @@ public class AssistantService {
 
     private void audit(ServerEventContext context, ChatJob.PendingAction pending, ServerEvent.Outcome outcome, String result) {
         try {
-            ServerEvent event = new ServerEvent(ControllerFactory.getFactory().createConfigurationController().getServerId(), "Claude Assistant: " + pending.prepared.title);
+            ServerEvent event = new ServerEvent(ControllerFactory.getFactory().createConfigurationController().getServerId(), "AI Assistant: " + pending.prepared.title);
             event.setLevel(ServerEvent.Level.INFORMATION);
             event.setOutcome(outcome);
             if (context != null && context.getUserId() != null) {

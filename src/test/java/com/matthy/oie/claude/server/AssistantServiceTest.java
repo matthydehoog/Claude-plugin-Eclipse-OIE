@@ -343,7 +343,7 @@ public class AssistantServiceTest {
 
         ServerEvent audit = dispatchedEvents().get(0);
         Map<String, String> attributes = audit.getAttributes();
-        assertEquals("Claude Assistant: data sent to Anthropic", audit.getName());
+        assertEquals("AI Assistant: data sent to Anthropic", audit.getName());
         assertEquals(USER, (int) audit.getUserId());
         assertEquals(ADDRESS, audit.getIpAddress());
         assertEquals("oie_events", attributes.get("tool"));

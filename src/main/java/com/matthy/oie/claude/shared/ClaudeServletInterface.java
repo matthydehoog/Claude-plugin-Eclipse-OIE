@@ -56,14 +56,14 @@ public interface ClaudeServletInterface extends BaseServletInterface {
 
     @POST
     @Path("/chat")
-    @Operation(summary = "Sends a user message to Claude and starts a job. Body: {conversationId?, message, context?}. Returns {conversationId, jobId}.")
-    @MirthOperation(name = "claudeChat", display = "Chat with Claude", permission = PERMISSION_USE, type = ExecuteType.ASYNC, auditable = false)
+    @Operation(summary = "Sends a user message to the AI model and starts a job. Body: {conversationId?, message, context?}. Returns {conversationId, jobId}.")
+    @MirthOperation(name = "claudeChat", display = "Chat with AI Assistant", permission = PERMISSION_USE, type = ExecuteType.ASYNC, auditable = false)
     String chat(@Param("body") @Parameter(description = "Chat request as JSON.", required = true) String body) throws ClientException;
 
     @GET
     @Path("/jobs/{jobId}")
     @Operation(summary = "Returns job status and the events after the given sequence number.")
-    @MirthOperation(name = "claudeGetJob", display = "Get Claude job", permission = PERMISSION_USE, type = ExecuteType.ASYNC, auditable = false)
+    @MirthOperation(name = "claudeGetJob", display = "Get AI Assistant job", permission = PERMISSION_USE, type = ExecuteType.ASYNC, auditable = false)
     String getJob(// @formatter:off
             @Param("jobId") @Parameter(description = "Job ID.", required = true) @PathParam("jobId") String jobId,
             @Param("after") @Parameter(description = "Only events with a greater sequence number are returned.") @QueryParam("after") int after) throws ClientException;
@@ -72,7 +72,7 @@ public interface ClaudeServletInterface extends BaseServletInterface {
     @POST
     @Path("/jobs/{jobId}/confirm")
     @Operation(summary = "Approves or rejects the action the job is waiting for. Body: {actionId, approved}.")
-    @MirthOperation(name = "claudeConfirmAction", display = "Run Claude action", permission = PERMISSION_ACTIONS, type = ExecuteType.ASYNC)
+    @MirthOperation(name = "claudeConfirmAction", display = "Run AI Assistant action", permission = PERMISSION_ACTIONS, type = ExecuteType.ASYNC)
     String confirm(// @formatter:off
             @Param("jobId") @Parameter(description = "Job ID.", required = true) @PathParam("jobId") String jobId,
             @Param("body") @Parameter(description = "Decision as JSON.", required = true) String body) throws ClientException;
@@ -81,8 +81,8 @@ public interface ClaudeServletInterface extends BaseServletInterface {
     // Not auditable: the body holds the reviewed data, which must not end up in the audit log.
     @POST
     @Path("/jobs/{jobId}/review")
-    @Operation(summary = "Sends (possibly edited) or withholds the data the job is waiting to send to Claude. Body: {reviewId, approved, text?}.")
-    @MirthOperation(name = "claudeReviewData", display = "Review data for Claude", permission = PERMISSION_USE, type = ExecuteType.ASYNC, auditable = false)
+    @Operation(summary = "Sends (possibly edited) or withholds the data the job is waiting to send to the AI model. Body: {reviewId, approved, text?}.")
+    @MirthOperation(name = "claudeReviewData", display = "Review data for AI Assistant", permission = PERMISSION_USE, type = ExecuteType.ASYNC, auditable = false)
     String review(// @formatter:off
             @Param("jobId") @Parameter(description = "Job ID.", required = true) @PathParam("jobId") String jobId,
             @Param("body") @Parameter(description = "Decision as JSON.", required = true) String body) throws ClientException;
@@ -91,48 +91,48 @@ public interface ClaudeServletInterface extends BaseServletInterface {
     @POST
     @Path("/jobs/{jobId}/cancel")
     @Operation(summary = "Stops a running job.")
-    @MirthOperation(name = "claudeCancelJob", display = "Cancel Claude job", permission = PERMISSION_USE, type = ExecuteType.ASYNC, auditable = false)
+    @MirthOperation(name = "claudeCancelJob", display = "Cancel AI Assistant job", permission = PERMISSION_USE, type = ExecuteType.ASYNC, auditable = false)
     String cancel(@Param("jobId") @Parameter(description = "Job ID.", required = true) @PathParam("jobId") String jobId) throws ClientException;
 
     @GET
     @Path("/conversations")
     @Operation(summary = "The user's conversations: current ones and, when saving is on, saved ones.")
-    @MirthOperation(name = "claudeListConversations", display = "List Claude conversations", permission = PERMISSION_USE, auditable = false)
+    @MirthOperation(name = "claudeListConversations", display = "List AI Assistant conversations", permission = PERMISSION_USE, auditable = false)
     String listConversations() throws ClientException;
 
     @GET
     @Path("/conversations/{conversationId}/export")
     @Operation(summary = "A conversation as Markdown (JSON with fileName and markdown).")
-    @MirthOperation(name = "claudeExportConversation", display = "Export Claude conversation", permission = PERMISSION_USE, auditable = false)
+    @MirthOperation(name = "claudeExportConversation", display = "Export AI Assistant conversation", permission = PERMISSION_USE, auditable = false)
     String exportConversation(@Param("conversationId") @Parameter(description = "Conversation ID.", required = true) @PathParam("conversationId") String conversationId) throws ClientException;
 
     @POST
     @Path("/conversations/{conversationId}/resume")
     @Operation(summary = "Continues a conversation, loading a saved one if needed; returns its log.")
-    @MirthOperation(name = "claudeResumeConversation", display = "Continue Claude conversation", permission = PERMISSION_USE, auditable = false)
+    @MirthOperation(name = "claudeResumeConversation", display = "Continue AI Assistant conversation", permission = PERMISSION_USE, auditable = false)
     String resumeConversation(@Param("conversationId") @Parameter(description = "Conversation ID.", required = true) @PathParam("conversationId") String conversationId) throws ClientException;
 
     @GET
     @Path("/settings")
     @Operation(summary = "Returns the plugin settings. The API key is never returned, only whether one is set.")
-    @MirthOperation(name = "claudeGetSettings", display = "Get Claude settings", permission = PERMISSION_USE, auditable = false)
+    @MirthOperation(name = "claudeGetSettings", display = "Get AI Assistant settings", permission = PERMISSION_USE, auditable = false)
     String getSettings() throws ClientException;
 
     @GET
     @Path("/models")
     @Operation(summary = "Returns the models the API key can use, from Anthropic's Models API (cached for a day), or a fixed list when it cannot be read.")
-    @MirthOperation(name = "claudeGetModels", display = "Get Claude models", permission = PERMISSION_USE, auditable = false)
+    @MirthOperation(name = "claudeGetModels", display = "Get AI Assistant models", permission = PERMISSION_USE, auditable = false)
     String getModels(@Param("refresh") @Parameter(description = "Bypass the one-day cache.") @QueryParam("refresh") boolean refresh) throws ClientException;
 
     @GET
     @Path("/spend")
     @Operation(summary = "Returns the organization's spend this month from the Anthropic Cost API. Needs an Admin API key in the settings.")
-    @MirthOperation(name = "claudeGetSpend", display = "Get Claude spend", permission = PERMISSION_SETTINGS, auditable = false)
+    @MirthOperation(name = "claudeGetSpend", display = "Get AI Assistant spend", permission = PERMISSION_SETTINGS, auditable = false)
     String getSpend(@Param("refresh") @Parameter(description = "Bypass the one-minute cache.") @QueryParam("refresh") boolean refresh) throws ClientException;
 
     @PUT
     @Path("/settings")
     @Operation(summary = "Updates the plugin settings. An absent or empty apiKey keeps the current key.")
-    @MirthOperation(name = "claudeSetSettings", display = "Set Claude settings", permission = PERMISSION_SETTINGS)
+    @MirthOperation(name = "claudeSetSettings", display = "Set AI Assistant settings", permission = PERMISSION_SETTINGS)
     String setSettings(@Param("body") @Parameter(description = "Settings as JSON.", required = true) String body) throws ClientException;
 }

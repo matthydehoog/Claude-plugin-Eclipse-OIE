@@ -143,11 +143,11 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         form.add(new JLabel("Review before sending:"));
         form.add(reviewBox, "wrap, w 360!");
         form.add(new JLabel(""));
-        form.add(new JLabel("<html>Shows exactly what will be sent to Claude, after masking, so each user can edit it or withhold it first.</html>"), "wrap, w 600!");
+        form.add(new JLabel("<html>Shows exactly what will be sent to the AI model, after masking, so each user can edit it or withhold it first.</html>"), "wrap, w 600!");
         form.add(new JLabel("Keep conversations (days):"));
         form.add(keepDays, "wrap, w 80!");
         form.add(new JLabel(""));
-        form.add(new JLabel("<html>Days a conversation is kept on the server after its last use, so it can be continued after a restart of OIE (Conversations…). Only what was sent to Claude is kept, so masked. 0 = not saved: conversations are gone 4 hours after their last use or on a restart, and saved ones are removed.</html>"), "wrap, w 600!");
+        form.add(new JLabel("<html>Days a conversation is kept on the server after its last use, so it can be continued after a restart of OIE (Conversations…). Only what was sent to the AI model is kept, so masked. 0 = not saved: conversations are gone 4 hours after their last use or on a restart, and saved ones are removed.</html>"), "wrap, w 600!");
         form.add(new JLabel("Extra mask patterns:"), "top");
         form.add(new JScrollPane(maskPatterns), "wrap, growx, h 80!");
         form.add(new JLabel(""));

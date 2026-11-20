@@ -25,13 +25,13 @@ Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exerci
 | Place | Task | Context sent along |
 |---|---|---|
 | Left menu, **Other** | *Claude Assistant* | none: questions about the whole server |
-| **Dashboard** (task + right-click) | *Ask Claude* | selected channel(s)/connectors |
+| **Dashboard** (task + right-click) | *Ask AI Assistant* | selected channel(s)/connectors |
 | **Dashboard** (task + right-click) | *Check queues and storage* | none: Claude looks for stuck queues and channels that need pruning |
-| **Message browser** (task + right-click) | *Ask Claude* | selected message (channel, message ID, connector) |
-| **Channel editor** (task + right-click) | *Ask Claude* | the channel that is open (saved version) |
+| **Message browser** (task + right-click) | *Ask AI Assistant* | selected message (channel, message ID, connector) |
+| **Channel editor** (task + right-click) | *Ask AI Assistant* | the channel that is open (saved version) |
 | **Channel editor** (task + right-click) | *Document channel* | the open channel; Claude writes its documentation as Markdown |
-| **Code Templates** (task + right-click, one template selected) | *Ask Claude* | the selected code template and its library |
-| **Global Scripts** (task + right-click) | *Ask Claude* | the global deploy/undeploy/pre/postprocessor scripts |
+| **Code Templates** (task + right-click, one template selected) | *Ask AI Assistant* | the selected code template and its library |
+| **Global Scripts** (task + right-click) | *Ask AI Assistant* | the global deploy/undeploy/pre/postprocessor scripts |
 
 The chat window stays open next to the Administrator. Ctrl+Enter sends; *New conversation* starts
 over; *Stop* aborts a running question. *Export…* saves the conversation as a Markdown file, *Save answer…* only
@@ -44,15 +44,15 @@ The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It
 
 | Place | What |
 |---|---|
-| Left rail, **Plugins > Claude Assistant** | the chat as a full page |
+| Left rail, **Plugins > AI Assistant** | the chat as a full page |
 | **Channel editor**, tab **Claude** | the chat with the open channel as context |
-| **Channels** view, right-click | *Ask Claude* about the selected channel, or *Document channel* |
-| **Message browser**, right-click | *Ask Claude* about the selected message (web admin API 4.7+) |
-| **Code Templates**, right-click | *Ask Claude* about the selected code template |
+| **Channels** view, right-click | *Ask AI Assistant* about the selected channel, or *Document channel* |
+| **Message browser**, right-click | *Ask AI Assistant* about the selected message (web admin API 4.7+) |
+| **Code Templates**, right-click | *Ask AI Assistant* about the selected code template |
 | **Claude page**, button **Global Scripts** | the global scripts as context (the web admin has no hook on the Global Scripts view itself) |
 | **Claude page**, button **Document channel** | documents the channel in the context |
 | **Claude page**, button **Queues and storage** | checks queues and message storage |
-| **Command palette** (Ctrl+K) | *Claude Assistant*, *Check queues and storage*, and *Ask Claude about Global Scripts* |
+| **Command palette** (Ctrl+K) | *AI Assistant*, *Check queues and storage*, and *Ask AI Assistant about Global Scripts* |
 | **Settings**, tab **Claude Assistant** | the same settings and usage as in Swing, using the settings page's own Save |
 
 Both UIs use the same REST API, so masking, permissions, action approval and the audit log are
@@ -109,7 +109,7 @@ oie-mcp-server:
 - your own patterns under *Settings > Claude Assistant*
 
 **Review before sending.** Before message content, log lines or events go to Claude, a dialog shows
-exactly what would be sent, after masking. You can edit the text, send it (*Send to Claude*) or
+exactly what would be sent, after masking. You can edit the text, send it (*Send to the AI model*) or
 withhold it (*Don't send*, or close the dialog); edited text is masked again. *Settings > Claude
 Assistant > Review before sending* sets the scope: *Message content, logs and events* (default),
 *Everything, including my question*, or *Off*.
@@ -136,7 +136,7 @@ again when it is approved. Users with channel restrictions cannot use the assist
 tools see all channels.
 
 Every time message data, log lines or events are sent to Anthropic, the audit log gets an event
-`Claude Assistant: data sent to Anthropic` with the user, tool, channel, message IDs and whether it
+`AI Assistant: data sent to Anthropic` (or to the host of the OpenAI-compatible server) with the user, tool, channel, message IDs and whether it
 was reviewed. The content itself is never logged.
 
 ## Setup
