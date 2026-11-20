@@ -6,7 +6,10 @@
 
 package com.matthy.oie.claude.client;
 
+import java.awt.Component;
 import java.awt.event.ActionEvent;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -15,6 +18,7 @@ import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.ImageIcon;
 import javax.swing.JPopupMenu;
+import javax.swing.SwingUtilities;
 
 import org.jdesktop.swingx.JXTaskPane;
 
@@ -54,8 +58,10 @@ public class ClaudeClientPlugin extends ClientPlugin {
         // Frame.addTask does not ask the AuthorizationController, so tasks the user's role does not
         // grant ("Use Claude Assistant", see ClaudeServletInterface.USE_TASKS) are left out here.
         addTask("claudeOpen", "AI Assistant", "Ask the AI Assistant a question about this OIE server.", icon, parent.otherPane, null);
-        addTask("claudeDashboard", "Ask AI Assistant", "Let the AI Assistant analyze the selected channel(s).", icon, parent.dashboardTasks, parent.dashboardPopupMenu);
-        addTask("claudeQueues", "Check queues and storage", "Let the AI Assistant look for stuck queues and channels whose stored messages keep growing.", icon, parent.dashboardTasks, parent.dashboardPopupMenu);
+        // The Dashboard hides every task after its own ones whenever the selection changes
+        // (DashboardPanel.updatePopupMenu), so these two show themselves again.
+        keepVisible(addTask("claudeDashboard", "Ask AI Assistant", "Let the AI Assistant analyze the selected channel(s).", icon, parent.dashboardTasks, parent.dashboardPopupMenu), parent.dashboardTasks, parent.dashboardPopupMenu);
+        keepVisible(addTask("claudeQueues", "Check queues and storage", "Let the AI Assistant look for stuck queues and channels whose stored messages keep growing.", icon, parent.dashboardTasks, parent.dashboardPopupMenu), parent.dashboardTasks, parent.dashboardPopupMenu);
         addTask("claudeMessage", "Ask AI Assistant", "Let the AI Assistant find out what happened to the selected message.", icon, parent.messageTasks, parent.messagePopupMenu);
         addTask("claudeChannelEdit", "Ask AI Assistant", "Let the AI Assistant explain or improve this channel and its scripts.", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
         addTask("claudeDocumentChannel", "Document channel", "Let the AI Assistant write documentation for this channel (Markdown; save it with Save answer).", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
@@ -183,10 +189,34 @@ public class ClaudeClientPlugin extends ClientPlugin {
         dialog().open(context, "Explain what this code template does, which channels use it, and point out weak spots.");
     }
 
-    private void addTask(String callback, String name, String toolTip, ImageIcon icon, JXTaskPane pane, JPopupMenu menu) {
+    /** Adds the task when the user's role allows it; returns its index in the pane and menu, or -1. */
+    private int addTask(String callback, String name, String toolTip, ImageIcon icon, JXTaskPane pane, JPopupMenu menu) {
         if (allowed(pane.getName(), callback)) {
-            parent.addTask(callback, name, toolTip, "", icon, pane, menu, this);
+            return parent.addTask(callback, name, toolTip, "", icon, pane, menu, this);
         }
+        return -1;
+    }
+
+    /** Shows the task at this index in the pane and its menu again whenever OIE hides it. */
+    static void keepVisible(int index, JXTaskPane pane, JPopupMenu menu) {
+        if (index < 0) {
+            return;
+        }
+        if (index < pane.getContentPane().getComponentCount()) {
+            keepVisible(pane.getContentPane().getComponent(index));
+        }
+        if (menu != null && index < menu.getComponentCount()) {
+            keepVisible(menu.getComponent(index));
+        }
+    }
+
+    static void keepVisible(Component component) {
+        component.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentHidden(ComponentEvent e) {
+                SwingUtilities.invokeLater(() -> component.setVisible(true));
+            }
+        });
     }
 
     private static boolean allowed(String taskGroup, String task) {
