@@ -80,6 +80,20 @@ mvn clean package
 
 The result is `target/claude-assistant-<version>.zip`, with the Anthropic SDK and its libraries. Use `clean`: `target/lib` keeps jars from an earlier build otherwise.
 
+### Signing
+
+Some Administrator launchers refuse extension jars that are not signed, so releases sign the shared, server and client jars (`maven-jarsigner-plugin`, just before the zip is made) with the X Connections code-signing key: a self-signed certificate, timestamped by DigiCert so the signature stays valid after the certificate expires. The engine jar and the libraries in `lib/` stay on the server and are not signed.
+
+Signing is off unless a keystore is given:
+
+```bash
+mvn clean package -Dsign.keystore=/path/to/codesign.p12 -Dsign.storepass=...
+```
+
+or with `sign.skip=false`, `sign.keystore` and `sign.storepass` in a profile of `~/.m2/settings.xml`. The alias is `x-connections` (`-Dsign.alias` to change it). The build verifies the signatures and fails if one is missing. Check a zip by hand with `jarsigner -verify -certs claude-assistant-client.jar`.
+
+On GitHub the key comes from the repository secrets `SIGNING_KEYSTORE_BASE64` (the PKCS12 file in base64) and `SIGNING_STOREPASS`. Pull requests from forks get no secrets and build unsigned; a version tag without the secrets fails, so every release is signed. The keystore itself is never committed.
+
 ### What is in the zip
 
 ```
@@ -335,7 +349,7 @@ Masking is the part where a mistake hurts most: when you touch a masker, run it 
 
 | Workflow | Does |
 | --- | --- |
-| `build.yml` | On every push to `main`, every pull request and every version tag: builds and tests on OIE 4.6.0 with Java 17, and on 4.7.0 with Java 17 and 21. The engine jars and libraries come from the engine's GitHub release (`download-oie.sh`, `install-oie-jars.sh`, `oie-home.sh`) and are cached. The 4.6.0 build runs `check-versions.sh` and keeps the zip as an artifact. On a tag `v<version>` it creates the release with the zip and its SHA-256 (`release.sh`), then calls `catalog-pr.yml`. |
+| `build.yml` | On every push to `main`, every pull request and every version tag: builds and tests on OIE 4.6.0 with Java 17, and on 4.7.0 with Java 17 and 21. The engine jars and libraries come from the engine's GitHub release (`download-oie.sh`, `install-oie-jars.sh`, `oie-home.sh`) and are cached. The jars are signed when the signing secrets are set (see *Signing*). The 4.6.0 build runs `check-versions.sh` and keeps the zip as an artifact. On a tag `v<version>` it creates the release with the zip and its SHA-256 (`release.sh`), then calls `catalog-pr.yml`. |
 | `catalog-pr.yml` | On a published release, files a pull request to the [OIE Community Store catalog](https://github.com/gibson9583/oie-community-catalog) from the fork `<owner>/oie-community-catalog`, using `oie.json` at the tag. Needs the secret `CATALOG_TOKEN` (a classic PAT with `public_repo`); skipped without it. |
 | `jira-issue.yml` | Creates a Jira issue for every new GitHub issue and comments its key. Needs the variables `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_PROJECT_KEY` and the secret `JIRA_API_TOKEN`. |
 

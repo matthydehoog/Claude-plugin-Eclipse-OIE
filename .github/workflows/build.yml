@@ -71,8 +71,35 @@ jobs:
           TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
         run: bash .github/scripts/check-versions.sh "${TAG}"
 
+      # The shared, server and client jars are signed with the X Connections code-signing key when
+      # the repository has it (secrets SIGNING_KEYSTORE_BASE64, a PKCS12 file in base64, and
+      # SIGNING_STOREPASS). Pull requests from forks get no secrets and build unsigned; a release
+      # tag without the key fails here, so a release is always signed.
+      - name: Prepare the signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+          STOREPASS: ${{ secrets.SIGNING_STOREPASS }}
+          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          if [ -n "${KEYSTORE_BASE64}" ] && [ -n "${STOREPASS}" ]; then
+            echo "${KEYSTORE_BASE64}" | base64 -d > "${RUNNER_TEMP}/codesign.p12"
+            echo "SIGN_ARGS=-Dsign.keystore=${RUNNER_TEMP}/codesign.p12" >> "${GITHUB_ENV}"
+            echo "Jars will be signed"
+          elif [ "${IS_TAG}" = "true" ]; then
+            echo "::error::A release must be signed, but the signing secrets are not set"
+            exit 1
+          else
+            echo "No signing key: the jars stay unsigned"
+          fi
+
       - name: Build and test
-        run: mvn -B package -Doie.version=${{ matrix.oie }} -Doie.home="${OIE_HOME}"
+        env:
+          SIGN_STOREPASS: ${{ secrets.SIGNING_STOREPASS }}
+        run: mvn -B package -Doie.version=${{ matrix.oie }} -Doie.home="${OIE_HOME}" ${SIGN_ARGS} ${SIGN_ARGS:+-Dsign.storepass="${SIGN_STOREPASS}"}
+
+      - name: Remove the signing key
+        if: always()
+        run: rm -f "${RUNNER_TEMP}/codesign.p12"
 
       - name: Keep the zip
         if: matrix.release
