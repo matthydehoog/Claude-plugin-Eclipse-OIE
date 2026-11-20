@@ -42,7 +42,25 @@ public class ClaudeServicePlugin implements ServicePlugin {
         // OIE's root logger is at ERROR; raise only this plugin to INFO so the per-call usage
         // lines (tokens, cache reads/writes) show up in Dashboard > Server Log.
         Configurator.setLevel("com.matthy.oie.claude", Level.INFO);
-        service = new AssistantService(load(properties));
+        service = new AssistantService(load(stored(properties)));
+    }
+
+    /**
+     * OIE hands init() the properties stored under the plugin's display name (plugin.xml),
+     * which is "AI Assistant" since 1.3.0. The settings themselves are saved under the plugin
+     * point "Claude Assistant", so read them from there; otherwise every restart or reinstall
+     * would start with the defaults.
+     */
+    private static Properties stored(Properties given) {
+        try {
+            Properties saved = ControllerFactory.getFactory().createExtensionController().getPluginProperties(PLUGIN_POINT);
+            if (saved != null && !saved.isEmpty()) {
+                return saved;
+            }
+        } catch (Exception e) {
+            logger.warn("AI Assistant: could not read the saved settings", e);
+        }
+        return given;
     }
 
     @Override
@@ -87,7 +105,7 @@ public class ClaudeServicePlugin implements ServicePlugin {
         try {
             return Settings.fromProperties(properties, encryptor());
         } catch (Exception e) {
-            logger.error("Claude Assistant: could not read settings, starting without API key", e);
+            logger.error("AI Assistant: could not read settings, starting without API key", e);
             return Settings.fromProperties(Settings.defaults(), null);
         }
     }
