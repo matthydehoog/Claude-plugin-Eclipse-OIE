@@ -14,7 +14,18 @@ const DOCUMENT_SUGGESTION = "Write documentation for this channel as Markdown: p
 /** Contexts that name one channel, so it can be documented. */
 const CHANNEL_CONTEXT = /^(Channel open in the editor|Selected channel)/;
 const POLL_MS = 800;
-const BILLING_URL = "https://platform.claude.com/settings/billing";
+const ANTHROPIC_BILLING_URL = "https://platform.claude.com/settings/billing";
+const OPENAI_BILLING_URL = "https://platform.openai.com/settings/organization/billing/overview";
+
+/** The provider's billing page: Anthropic's, OpenAI's for api.openai.com, or null for other servers (e.g. Ollama). Same rule as ClaudeSettingsPanel.billingUrl. */
+function billingUrl(openAi, baseUrl) {
+    if (!openAi) return ANTHROPIC_BILLING_URL;
+    try {
+        return new URL((baseUrl || "").trim()).hostname.toLowerCase() === "api.openai.com" ? OPENAI_BILLING_URL : null;
+    } catch (err) {
+        return null;
+    }
+}
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
 // Stored value (English name, used in the system prompt) and the label shown in the dropdown.
 const LANGUAGES = [
@@ -741,6 +752,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
 
     let spendLines;
     const openAi = form.provider === "openai-compatible";
+    const billing = billingUrl(openAi, form.baseUrl);
     if (status.provider === "openai-compatible") {
         spendLines = [row("Spend this month:", "–", "Spend this month is only available with Anthropic as the provider.")];
     } else if (!status.adminApiKeySet) {
@@ -821,14 +833,15 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
             "Days a conversation is kept on the server after its last use, so it can be continued after a restart of OIE (Conversations…). Only what was sent to the AI model is kept, so masked. 0 = not saved: conversations are gone 4 hours after their last use or on a restart, and saved ones are removed."),
         row("Extra mask patterns:", e("textarea", { rows: 4, value: form.maskPatterns, onChange: set("maskPatterns") }),
             "Regular expressions, separated by ;; . They are masked in addition to the built-in rules (HL7 PID, NTE and text over 30 characters, GDT 3000-3107, BSN). The API keys are stored encrypted on the server and never sent back to the Administrator. Leave a key field empty to keep the current key."),
-        e("h3", null, "Usage"),
-        row("Admin API key (optional):", e("input", { type: "password", value: form.adminApiKey, onChange: set("adminApiKey"), autoComplete: "off" }),
+        // The Admin API key and spend only apply to Anthropic; the billing button follows the provider.
+        billing || !openAi ? e("h3", null, "Usage") : null,
+        openAi ? null : row("Admin API key (optional):", e("input", { type: "password", value: form.adminApiKey, onChange: set("adminApiKey"), autoComplete: "off" }),
             e("span", { className: "claude-inline" },
                 status.adminApiKeySet ? "Set: " + status.adminApiKeyHint : "No Admin API key set.",
                 status.adminApiKeySet ? e("label", null, e("input", { type: "checkbox", checked: form.clearAdminApiKey, onChange: set("clearAdminApiKey") }), " Remove the Admin API key") : null)),
-        ...spendLines,
-        row("Credits:", e("a", { className: "btn", href: BILLING_URL, target: "_blank", rel: "noopener noreferrer" }, "Open Billing in Console")),
-        row("", null, "Spend comes from the Anthropic Cost API and needs an Admin API key (sk-ant-admin…, created by an organization admin in the Console). It is in USD, since the 1st of the month (UTC), and runs up to about 5 minutes behind. The credit balance is not available through the API; the button opens the Console's billing page."));
+        ...(openAi ? [] : spendLines),
+        billing ? row("Credits:", e("a", { className: "btn", href: billing, target: "_blank", rel: "noopener noreferrer" }, openAi ? "Open Billing at OpenAI" : "Open Billing in Console")) : null,
+        openAi ? null : row("", null, "Spend comes from the Anthropic Cost API and needs an Admin API key (sk-ant-admin…, created by an organization admin in the Console). It is in USD, since the 1st of the month (UTC), and runs up to about 5 minutes behind. The credit balance is not available through the API; the button opens the Console's billing page."));
 }
 
 // ------------------------------------------------------------------ registration

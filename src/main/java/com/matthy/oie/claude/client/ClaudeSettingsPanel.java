@@ -58,8 +58,21 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     /** Stored values of "Review before sending" and their labels. */
     private static final String[] REVIEWS = { "data", "all", "off" };
     private static final String[] REVIEW_LABELS = { "Message content, logs and events (recommended)", "Everything, including my question", "Off (send without review)" };
-    /** The credit balance has no API, so the tab links to the Console's billing page instead. */
-    private static final String BILLING_URL = "https://platform.claude.com/settings/billing";
+    /** The credit balance has no API, so the tab links to the provider's billing page instead. */
+    static final String ANTHROPIC_BILLING_URL = "https://platform.claude.com/settings/billing";
+    static final String OPENAI_BILLING_URL = "https://platform.openai.com/settings/organization/billing/overview";
+
+    /** The provider's billing page: Anthropic's, OpenAI's for api.openai.com, or null for other servers (e.g. Ollama). */
+    static String billingUrl(boolean openAi, String baseUrl) {
+        if (!openAi) {
+            return ANTHROPIC_BILLING_URL;
+        }
+        try {
+            return "api.openai.com".equalsIgnoreCase(URI.create(baseUrl == null ? "" : baseUrl.trim()).getHost()) ? OPENAI_BILLING_URL : null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
 
     private final JPasswordField apiKeyField = new JPasswordField(40);
     private final JLabel apiKeyStatus = new JLabel();
@@ -94,6 +107,11 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     private final JLabel spendNote = new JLabel(" ");
     private final JButton refreshSpend = new JButton("Refresh");
     private final JButton openBilling = new JButton("Open Billing in Console");
+    private final JLabel creditsLabel = new JLabel("Credits:");
+    /** Usage rows that only apply to Anthropic (Admin API key, Cost API spend). */
+    private final java.util.List<JComponent> anthropicUsage = new java.util.ArrayList<>();
+    /** Separator and heading of the Usage section: hidden when nothing in it applies. */
+    private final java.util.List<JComponent> usageHeader = new java.util.ArrayList<>();
 
     private boolean loading;
 
@@ -155,28 +173,28 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
                 + "(HL7 PID, NTE and text over 30 characters, GDT 3000-3107, BSN).<br>The API keys are stored encrypted on the server and never sent back to the Administrator. "
                 + "Leave a key field empty to keep the current key.</html>"), "wrap, w 600!");
 
-        form.add(new JSeparator(), "span, growx, gaptop 12, gapbottom 6, wrap");
-        form.add(new JLabel("<html><b>Usage</b></html>"), "span, left, wrap");
-        form.add(new JLabel("Admin API key (optional):"));
-        form.add(adminKeyField, "wrap, growx");
-        form.add(new JLabel(""));
+        form.add(header(new JSeparator()), "span, growx, gaptop 12, gapbottom 6, wrap");
+        form.add(header(new JLabel("<html><b>Usage</b></html>")), "span, left, wrap");
+        form.add(anthropic(new JLabel("Admin API key (optional):")));
+        form.add(anthropic(adminKeyField), "wrap, growx");
+        form.add(anthropic(new JLabel("")));
         // Own left-aligned rows: the checkbox and button sit next to their text instead of being
         // pushed to the edge of the stretched column, and hiding the checkbox cannot drop a "wrap".
-        form.add(leftRow(adminKeyStatus, clearAdminKey), "wrap");
-        form.add(new JLabel("Spend this month:"));
-        form.add(leftRow(spendOrganization, refreshSpend), "wrap");
-        form.add(new JLabel(""));
-        form.add(spendWorkspace, "wrap");
-        form.add(new JLabel("Tokens this month:"));
-        form.add(spendTokens, "wrap");
-        form.add(new JLabel("Credits:"));
+        form.add(anthropic(leftRow(adminKeyStatus, clearAdminKey)), "wrap");
+        form.add(anthropic(new JLabel("Spend this month:")));
+        form.add(anthropic(leftRow(spendOrganization, refreshSpend)), "wrap");
+        form.add(anthropic(new JLabel("")));
+        form.add(anthropic(spendWorkspace), "wrap");
+        form.add(anthropic(new JLabel("Tokens this month:")));
+        form.add(anthropic(spendTokens), "wrap");
+        form.add(creditsLabel);
         form.add(openBilling, "wrap, growx 0");
-        form.add(new JLabel(""));
-        form.add(spendNote, "wrap, w 600!");
-        form.add(new JLabel(""));
-        form.add(new JLabel("<html>Spend comes from the Anthropic Cost API and needs an Admin API key (<code>sk-ant-admin…</code>, "
+        form.add(anthropic(new JLabel("")));
+        form.add(anthropic(spendNote), "wrap, w 600!");
+        form.add(anthropic(new JLabel("")));
+        form.add(anthropic(new JLabel("<html>Spend comes from the Anthropic Cost API and needs an Admin API key (<code>sk-ant-admin…</code>, "
                 + "created by an organization admin in the Console). It is in USD, since the 1st of the month (UTC), and runs up to about "
-                + "5 minutes behind. The credit balance is not available through the API; the button opens the Console's billing page.</html>"), "wrap, w 600!");
+                + "5 minutes behind. The credit balance is not available through the API; the button opens the Console's billing page.</html>")), "wrap, w 600!");
         add(form, "growx, top");
 
         DocumentListener changed = new DocumentListener() {
@@ -186,6 +204,12 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         };
         apiKeyField.getDocument().addDocumentListener(changed);
         baseUrlField.getDocument().addDocumentListener(changed);
+        // The billing button depends on the base URL (OpenAI's page only for api.openai.com).
+        baseUrlField.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { showProviderFields(); }
+            public void removeUpdate(DocumentEvent e) { showProviderFields(); }
+            public void changedUpdate(DocumentEvent e) { showProviderFields(); }
+        });
         providerBox.addActionListener(e -> {
             showProviderFields();
             markChanged();
@@ -208,13 +232,32 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         return providerBox.getSelectedIndex() == 1;
     }
 
-    /** The base URL only applies to an OpenAI-compatible provider. */
+    private <T extends JComponent> T anthropic(T component) {
+        anthropicUsage.add(component);
+        return component;
+    }
+
+    private <T extends JComponent> T header(T component) {
+        usageHeader.add(component);
+        return component;
+    }
+
+    /**
+     * The base URL only applies to an OpenAI-compatible provider; the Admin API key and spend only
+     * to Anthropic. The billing button opens the selected provider's page, or is hidden when there is none.
+     */
     private void showProviderFields() {
         boolean openAi = openAiSelected();
         baseUrlLabel.setVisible(openAi);
         baseUrlField.setVisible(openAi);
         baseUrlNoteLabel.setVisible(openAi);
         baseUrlNote.setVisible(openAi);
+        anthropicUsage.forEach(c -> c.setVisible(!openAi));
+        boolean billing = billingUrl(openAi, baseUrlField.getText()) != null;
+        creditsLabel.setVisible(billing);
+        openBilling.setVisible(billing);
+        openBilling.setText(openAi ? "Open Billing at OpenAI" : "Open Billing in Console");
+        usageHeader.forEach(c -> c.setVisible(!openAi || billing));
         revalidate();
         repaint();
     }
@@ -463,10 +506,14 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     }
 
     private void openBilling() {
+        String url = billingUrl(openAiSelected(), baseUrlField.getText());
+        if (url == null) {
+            return;
+        }
         try {
-            Desktop.getDesktop().browse(new URI(BILLING_URL));
+            Desktop.getDesktop().browse(new URI(url));
         } catch (Exception e) {
-            getFrame().alertInformation(getFrame(), "Open this page in your browser to see the credit balance:\n" + BILLING_URL);
+            getFrame().alertInformation(getFrame(), "Open this page in your browser to see the credit balance:\n" + url);
         }
     }
 }

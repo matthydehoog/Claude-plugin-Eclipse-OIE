@@ -7,6 +7,7 @@
 package com.matthy.oie.claude.client;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import org.junit.Test;
 
@@ -21,5 +22,15 @@ public class ClaudeSettingsPanelTest {
         assertEquals("1.2M input, 18.4M read from the cache (92% of the input), 300.0k written to the cache, 200.0k output (the plugin's API key)",
                 ClaudeSettingsPanel.tokens(new ObjectMapper().readTree(tokens)));
         assertEquals("–", ClaudeSettingsPanel.tokens(new ObjectMapper().readTree("{}").path("tokens")));
+    }
+
+    @Test
+    public void billingFollowsTheProvider() {
+        assertEquals(ClaudeSettingsPanel.ANTHROPIC_BILLING_URL, ClaudeSettingsPanel.billingUrl(false, ""));
+        assertEquals(ClaudeSettingsPanel.OPENAI_BILLING_URL, ClaudeSettingsPanel.billingUrl(true, " https://api.openai.com/v1 "));
+        assertEquals(ClaudeSettingsPanel.OPENAI_BILLING_URL, ClaudeSettingsPanel.billingUrl(true, "https://API.openai.com"));
+        assertNull("no billing page for a local server", ClaudeSettingsPanel.billingUrl(true, "http://ollama:11434/v1"));
+        assertNull(ClaudeSettingsPanel.billingUrl(true, ""));
+        assertNull(ClaudeSettingsPanel.billingUrl(true, "not a url"));
     }
 }
