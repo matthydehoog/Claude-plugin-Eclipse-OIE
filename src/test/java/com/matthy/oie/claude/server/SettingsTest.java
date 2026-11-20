@@ -84,4 +84,33 @@ public class SettingsTest {
         assertEquals("Dutch", dutch.merge(MAPPER.readTree("{\"effort\":\"low\"}")).responseLanguage);
         assertEquals("English", dutch.merge(MAPPER.readTree("{\"responseLanguage\":\"English\"}")).responseLanguage);
     }
+
+    @Test
+    public void anthropicIsTheDefaultProvider() {
+        Settings defaults = Settings.fromProperties(Settings.defaults(), null);
+        assertEquals("anthropic", defaults.provider);
+        assertEquals("", defaults.baseUrl);
+        assertFalse(defaults.openAiCompatible());
+        assertFalse("Anthropic needs an API key", defaults.configured());
+    }
+
+    @Test
+    public void openAiProviderAndBaseUrlAreSavedAndMerged() throws Exception {
+        // No API keys, so no encryptor is needed to store it.
+        Settings openAi = new Settings("", "", "gpt-4.1", "high", 25, "", null, null, 0).merge(MAPPER.readTree("{\"provider\":\"openai-compatible\",\"baseUrl\":\"http://ollama:11434/v1/\"}"));
+        assertEquals("openai-compatible", openAi.provider);
+        assertEquals("http://ollama:11434/v1", openAi.baseUrl);
+        assertEquals("http://ollama:11434/v1", Settings.fromProperties(openAi.toProperties(null), null).baseUrl);
+        assertEquals("openai-compatible", Settings.fromProperties(openAi.toProperties(null), null).provider);
+        // Another update without these fields keeps them.
+        assertEquals("openai-compatible", openAi.merge(MAPPER.readTree("{\"effort\":\"low\"}")).provider);
+        assertEquals("anthropic", openAi.merge(MAPPER.readTree("{\"provider\":\"nonsense\"}")).provider);
+    }
+
+    @Test
+    public void anOpenAiProviderNeedsABaseUrlButNoKey() {
+        Settings local = new Settings("", "", "qwen3", "high", 25, "", null, null, 0, "openai-compatible", "http://localhost:11434/v1");
+        assertTrue(local.configured());
+        assertFalse(new Settings("sk-x", "", "gpt", "high", 25, "", null, null, 0, "openai-compatible", " ").configured());
+    }
 }

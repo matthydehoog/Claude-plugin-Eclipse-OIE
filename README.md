@@ -155,6 +155,20 @@ was reviewed. The content itself is never logged.
    **Response language** to have Claude always answer in that language, whatever language the
    question or the server data is in.
 
+### Other models: OpenAI-compatible providers
+
+Instead of Claude, the assistant can use a model behind an OpenAI-compatible Chat Completions API:
+OpenAI itself, or a local server such as Ollama or vLLM. Set **Provider** to *OpenAI-compatible*,
+enter the **API base URL** (for example `https://api.openai.com/v1`, `http://ollama-host:11434/v1`
+or `http://vllm-host:8000/v1`) and, if the server needs one, the **API key**. Save, then pick a
+model with *Refresh list*. The model must support tool calling, and the OIE server must reach the
+URL.
+
+Masking, review before sending, approval of actions and permissions work exactly as with Claude;
+the masked data then goes to that provider instead of Anthropic. Effort and spend this month only
+apply to Anthropic, and answers appear at once instead of streaming. Contributed by Miguel Duarte
+([@SoulOnFire](https://github.com/SoulOnFire)).
+
 ### Usage: spend and credits
 
 The *Usage* section of *Settings > Claude Assistant* shows **Spend this month** for the whole

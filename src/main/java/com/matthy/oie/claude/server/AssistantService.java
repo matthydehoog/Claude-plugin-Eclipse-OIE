@@ -151,7 +151,7 @@ public class AssistantService {
         Masker newMasker = new Masker(settings.maskPatterns);
         OieTools newTools = new OieTools(newMasker);
         ModelLoop newLoop = null;
-        if (loopFactory != null && !settings.apiKey.isEmpty()) {
+        if (loopFactory != null && settings.configured()) {
             List<Map<String, Object>> specs = new ArrayList<>();
             for (OieTools.Spec spec : newTools.specs()) {
                 Map<String, Object> m = new LinkedHashMap<>();
@@ -201,6 +201,9 @@ public class AssistantService {
      */
     public synchronized String spend(boolean refresh) throws Exception {
         Settings s = settings;
+        if (s.openAiCompatible()) {
+            throw new IllegalStateException("Spend this month is only available with Anthropic as the provider. Check the costs in your model provider's own dashboard.");
+        }
         if (s.adminApiKey.isEmpty()) {
             throw new IllegalStateException("No Admin API key is set. Spend this month needs an Admin API key (sk-ant-admin...).");
         }
@@ -229,6 +232,9 @@ public class AssistantService {
      */
     public String models(boolean refresh) {
         Settings s = settings;
+        if (s.openAiCompatible()) {
+            return openAiModels(s, refresh);
+        }
         if (s.apiKey.isEmpty()) {
             return ModelList.build(null, "Set an Anthropic API key to load the model list from Anthropic; a fixed list is shown.", s.model, 0).toString();
         }
@@ -255,6 +261,31 @@ public class AssistantService {
         }
     }
 
+    /** The OpenAI-compatible provider's models, cached for a day per base URL and key, like Anthropic's. */
+    private String openAiModels(Settings s, boolean refresh) {
+        if (s.baseUrl.isEmpty()) {
+            return ModelList.build(null, "Set the API base URL to load the model list.", s.model, 0, true).toString();
+        }
+        if (engine == null) {
+            return ModelList.build(null, "The Claude assistant cannot start: " + engineError, s.model, 0, true).toString();
+        }
+        String key = Settings.PROVIDER_OPENAI + '\n' + s.baseUrl + '\n' + s.apiKey;
+        synchronized (modelsLock) {
+            long now = System.currentTimeMillis();
+            if (refresh || cachedModels == null || !key.equals(cachedModelsKey) || now - cachedModelsAt >= MODELS_CACHE_MS) {
+                try {
+                    cachedModels = MAPPER.readTree(engine.createOpenAiModelReader(s.baseUrl).list(s.apiKey));
+                    cachedModelsKey = key;
+                    cachedModelsAt = now;
+                } catch (Exception e) {
+                    logger.warn("Claude Assistant: could not load the model list from " + s.baseUrl + ": " + e.getMessage());
+                    return ModelList.build(null, (e.getMessage() != null ? e.getMessage() : e.toString()) + " Type the model ID.", s.model, 0, true).toString();
+                }
+            }
+            return ModelList.build(cachedModels, null, s.model, cachedModelsAt, true).toString();
+        }
+    }
+
     public void shutdown() {
         for (ChatJob job : jobs.values()) {
             job.cancel();
@@ -274,6 +305,9 @@ public class AssistantService {
         if (l == null) {
             if (engineError != null) {
                 throw new IllegalStateException("The Claude assistant cannot start: " + engineError);
+            }
+            if (settings.openAiCompatible()) {
+                throw new IllegalStateException("No API base URL is set for the OpenAI-compatible provider yet. Enter one under Settings > Claude Assistant.");
             }
             throw new IllegalStateException("No Anthropic API key is set yet. Enter one under Settings > Claude Assistant.");
         }
@@ -428,7 +462,12 @@ public class AssistantService {
                 c.record(e.type, e.text);
             }
             if (saved.history != null) {
-                c.setHistory(l.loadHistory(saved.history));
+                try {
+                    c.setHistory(l.loadHistory(saved.history));
+                } catch (Exception e) {
+                    // Saved with the other provider: the conversation shows, but the model starts without its context.
+                    logger.info("Claude Assistant: saved conversation " + c.id + " continues without its earlier context: " + e.getMessage());
+                }
             }
             Conversation existing = conversations.putIfAbsent(c.id, c);
             if (existing != null) {

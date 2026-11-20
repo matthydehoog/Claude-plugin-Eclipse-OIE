@@ -80,7 +80,9 @@ The key is stored encrypted on the server and never sent back to the Administrat
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| API key | none | Anthropic key used for every question |
+| Provider | Anthropic (Claude) | *OpenAI-compatible* uses another model through an OpenAI-compatible API instead (see *Other models* below) |
+| API base URL | none | Only for an OpenAI-compatible provider, for example `https://api.openai.com/v1` or `http://ollama-host:11434/v1` |
+| API key | none | Anthropic key used for every question; for an OpenAI-compatible provider its key, or empty for a local server without one |
 | Model | `claude-opus-5` | The Claude model that answers. The list shows the models your API key can use, newest first, as Anthropic reports them; you can also type a model ID |
 | Effort | `high` | How hard Claude thinks; lower is faster and cheaper |
 | Max tool calls | 25 | Lookups Claude may do for one question |
@@ -97,6 +99,8 @@ To get an API key, sign in at [console.anthropic.com](https://console.anthropic.
 - *N models from Anthropic, updated …*: the current list.
 - A message and *a fixed list is shown*: Anthropic could not be asked (no API key yet, no internet, a rejected key). The plugin's own list is shown instead; the reason is in the message.
 - An orange warning: the saved model is no longer in Anthropic's list, so it may have been retired. It stays selected until you choose another model; questions may fail until you do.
+
+**Other models (OpenAI-compatible).** Set *Provider* to *OpenAI-compatible* to use OpenAI, or a local Ollama or vLLM server, instead of Claude. Enter the *API base URL* and, if needed, the API key, click *Save*, then *Refresh list* and choose a model. The list then comes from that server (newest first where it reports dates) and can include models that cannot answer questions, such as embedding, image or audio models: choose a chat model that supports tool calling. Masking, review before sending, approvals and permissions work as with Claude, but the masked data goes to that provider, so check that this is allowed. Effort and spend this month only apply to Anthropic, answers appear at once instead of streaming, and a conversation saved with one provider continues with the other without its earlier context.
 
 ## Using the Administrator (Swing) client
 

@@ -63,6 +63,15 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
 
     private final JPasswordField apiKeyField = new JPasswordField(40);
     private final JLabel apiKeyStatus = new JLabel();
+    /** Index 0 = Claude through Anthropic, 1 = an OpenAI-compatible Chat Completions API (values in PROVIDERS). */
+    private static final String[] PROVIDERS = { "anthropic", "openai-compatible" };
+    private final JComboBox<String> providerBox = new JComboBox<>(new String[] { "Anthropic (Claude)", "OpenAI-compatible (OpenAI, Ollama, vLLM)" });
+    private final javax.swing.JTextField baseUrlField = new javax.swing.JTextField(40);
+    private final JLabel baseUrlLabel = new JLabel("API base URL:");
+    private final JLabel baseUrlNote = new JLabel("<html>For example <code>https://api.openai.com/v1</code>, <code>http://ollama-host:11434/v1</code> (Ollama) or "
+            + "<code>http://vllm-host:8000/v1</code> (vLLM). The OIE server must reach it, and the model must support tool calling. "
+            + "The API key may stay empty for a local server. Spend this month is only available with Anthropic.</html>");
+    private final JLabel baseUrlNoteLabel = new JLabel("");
     /** Filled from the server's model list (Anthropic's, or a fixed list); a model ID can also be typed. */
     private final JComboBox<String> modelBox = new JComboBox<>();
     private final JButton refreshModels = new JButton("Refresh list");
@@ -111,7 +120,13 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
 
         JPanel form = new JPanel(new MigLayout("insets 0, novisualpadding, hidemode 3", "[right][grow,fill]"));
         form.setBackground(Color.WHITE);
-        form.add(new JLabel("Anthropic API key:"));
+        form.add(new JLabel("Provider:"));
+        form.add(providerBox, "wrap, w 360!");
+        form.add(baseUrlLabel);
+        form.add(baseUrlField, "wrap, growx");
+        form.add(baseUrlNoteLabel);
+        form.add(baseUrlNote, "wrap, w 600!");
+        form.add(new JLabel("API key:"));
         form.add(apiKeyField, "wrap, growx");
         form.add(new JLabel(""));
         form.add(apiKeyStatus, "wrap");
@@ -170,6 +185,11 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
             public void changedUpdate(DocumentEvent e) { markChanged(); }
         };
         apiKeyField.getDocument().addDocumentListener(changed);
+        baseUrlField.getDocument().addDocumentListener(changed);
+        providerBox.addActionListener(e -> {
+            showProviderFields();
+            markChanged();
+        });
         adminKeyField.getDocument().addDocumentListener(changed);
         maskPatterns.getDocument().addDocumentListener(changed);
         modelBox.addActionListener(e -> markChanged());
@@ -182,6 +202,21 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         refreshSpend.addActionListener(e -> loadSpend(true));
         refreshModels.addActionListener(e -> loadModels(true));
         openBilling.addActionListener(e -> openBilling());
+    }
+
+    private boolean openAiSelected() {
+        return providerBox.getSelectedIndex() == 1;
+    }
+
+    /** The base URL only applies to an OpenAI-compatible provider. */
+    private void showProviderFields() {
+        boolean openAi = openAiSelected();
+        baseUrlLabel.setVisible(openAi);
+        baseUrlField.setVisible(openAi);
+        baseUrlNoteLabel.setVisible(openAi);
+        baseUrlNote.setVisible(openAi);
+        revalidate();
+        repaint();
     }
 
     private void markChanged() {
@@ -219,6 +254,8 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     public boolean doSave() {
         final ObjectNode body = ClaudeApi.MAPPER.createObjectNode();
         body.put("apiKey", new String(apiKeyField.getPassword()).trim());
+        body.put("provider", PROVIDERS[Math.max(0, providerBox.getSelectedIndex())]);
+        body.put("baseUrl", baseUrlField.getText().trim());
         body.put("adminApiKey", new String(adminKeyField.getPassword()).trim());
         body.put("clearAdminApiKey", clearAdminKey.isSelected());
         body.put("model", String.valueOf(modelBox.getSelectedItem()).trim());
@@ -255,6 +292,9 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         loading = true;
         try {
             apiKeyField.setText("");
+            providerBox.setSelectedIndex(PROVIDERS[1].equals(s.path("provider").asText("")) ? 1 : 0);
+            baseUrlField.setText(s.path("baseUrl").asText(""));
+            showProviderFields();
             apiKeyStatus.setText(s.path("apiKeySet").asBoolean() ? "Set: " + s.path("apiKeyHint").asText() : "No API key set yet.");
             adminKeyField.setText("");
             clearAdminKey.setSelected(false);
@@ -273,8 +313,11 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
             loading = false;
         }
         loadModels(false);
-        refreshSpend.setEnabled(s.path("adminApiKeySet").asBoolean());
-        if (s.path("adminApiKeySet").asBoolean()) {
+        boolean openAi = PROVIDERS[1].equals(s.path("provider").asText(""));
+        refreshSpend.setEnabled(!openAi && s.path("adminApiKeySet").asBoolean());
+        if (openAi) {
+            showSpend(null, "Spend this month is only available with Anthropic as the provider.");
+        } else if (s.path("adminApiKeySet").asBoolean()) {
             loadSpend(false);
         } else {
             showSpend(null, "Set an Admin API key to show the spend this month.");
@@ -325,6 +368,8 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
             text = "<html><font color='#b35900'>" + Markdown.escape(list.path("warning").asText()) + "</font></html>";
         } else if ("anthropic".equals(list.path("source").asText())) {
             text = list.path("models").size() + " models from Anthropic" + updated(list.path("fetchedAt").asText("")) + ". You can also type a model ID.";
+        } else if ("openai-compatible".equals(list.path("source").asText())) {
+            text = list.path("models").size() + " models from the model server" + updated(list.path("fetchedAt").asText("")) + ". Choose one that supports tool calling, or type a model ID.";
         } else {
             text = "<html>" + Markdown.escape(list.path("note").asText("A fixed list is shown.")) + " You can also type a model ID.</html>";
         }

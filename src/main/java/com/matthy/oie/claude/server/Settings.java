@@ -36,6 +36,12 @@ public class Settings {
     private static final String KEY_RESPONSE_LANGUAGE = "responseLanguage";
     private static final String KEY_REVIEW = "reviewBeforeSending";
     private static final String KEY_KEEP_DAYS = "keepConversationsDays";
+    private static final String KEY_PROVIDER = "provider";
+    private static final String KEY_BASE_URL = "baseUrl";
+    /** The model is Claude, through the Anthropic SDK (the default). */
+    static final String PROVIDER_ANTHROPIC = "anthropic";
+    /** The model is served by an OpenAI-compatible Chat Completions API (OpenAI, Ollama, vLLM). */
+    static final String PROVIDER_OPENAI = "openai-compatible";
     /** Longest time saved conversations are kept. */
     static final int MAX_KEEP_DAYS = 365;
 
@@ -52,12 +58,22 @@ public class Settings {
     final String reviewBeforeSending;
     /** Days conversations are saved on the server so they survive a restart; 0 = not saved. */
     final int keepConversationsDays;
+    /** {@link #PROVIDER_ANTHROPIC} or {@link #PROVIDER_OPENAI}. */
+    final String provider;
+    /** API base URL of the OpenAI-compatible provider, e.g. https://api.openai.com/v1; not used for Anthropic. */
+    final String baseUrl;
 
     Settings(String apiKey, String adminApiKey, String model, String effort, int maxToolCalls, String maskPatterns, String responseLanguage, String reviewBeforeSending) {
         this(apiKey, adminApiKey, model, effort, maxToolCalls, maskPatterns, responseLanguage, reviewBeforeSending, 0);
     }
 
     Settings(String apiKey, String adminApiKey, String model, String effort, int maxToolCalls, String maskPatterns, String responseLanguage, String reviewBeforeSending, int keepConversationsDays) {
+        this(apiKey, adminApiKey, model, effort, maxToolCalls, maskPatterns, responseLanguage, reviewBeforeSending, keepConversationsDays, PROVIDER_ANTHROPIC, "");
+    }
+
+    Settings(String apiKey, String adminApiKey, String model, String effort, int maxToolCalls, String maskPatterns, String responseLanguage, String reviewBeforeSending, int keepConversationsDays, String provider, String baseUrl) {
+        this.provider = PROVIDER_OPENAI.equalsIgnoreCase(provider == null ? "" : provider.trim()) ? PROVIDER_OPENAI : PROVIDER_ANTHROPIC;
+        this.baseUrl = baseUrl == null ? "" : baseUrl.trim().replaceAll("/+$", "");
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.adminApiKey = adminApiKey == null ? "" : adminApiKey.trim();
         this.model = blank(model) ? DEFAULT_MODEL : model.trim();
@@ -68,6 +84,15 @@ public class Settings {
         String review = blank(reviewBeforeSending) ? REVIEW_DATA : reviewBeforeSending.trim().toLowerCase();
         this.reviewBeforeSending = review.equals(REVIEW_OFF) || review.equals(REVIEW_ALL) ? review : REVIEW_DATA;
         this.keepConversationsDays = Math.max(0, Math.min(keepConversationsDays, MAX_KEEP_DAYS));
+    }
+
+    boolean openAiCompatible() {
+        return PROVIDER_OPENAI.equals(provider);
+    }
+
+    /** Whether a question can be sent: Anthropic needs an API key, an OpenAI-compatible provider a base URL (the key is optional for local servers). */
+    boolean configured() {
+        return openAiCompatible() ? !baseUrl.isEmpty() : !apiKey.isEmpty();
     }
 
     boolean automaticLanguage() {
@@ -85,11 +110,13 @@ public class Settings {
         p.setProperty(KEY_RESPONSE_LANGUAGE, AUTOMATIC_LANGUAGE);
         p.setProperty(KEY_REVIEW, REVIEW_DATA);
         p.setProperty(KEY_KEEP_DAYS, "0");
+        p.setProperty(KEY_PROVIDER, PROVIDER_ANTHROPIC);
+        p.setProperty(KEY_BASE_URL, "");
         return p;
     }
 
     static Settings fromProperties(Properties p, Encryptor encryptor) {
-        return new Settings(decrypt(p.getProperty(KEY_API_KEY, ""), encryptor), decrypt(p.getProperty(KEY_ADMIN_API_KEY, ""), encryptor), p.getProperty(KEY_MODEL), p.getProperty(KEY_EFFORT), parseInt(p.getProperty(KEY_MAX_TOOL_CALLS)), p.getProperty(KEY_MASK_PATTERNS), p.getProperty(KEY_RESPONSE_LANGUAGE), p.getProperty(KEY_REVIEW), parseInt(p.getProperty(KEY_KEEP_DAYS)));
+        return new Settings(decrypt(p.getProperty(KEY_API_KEY, ""), encryptor), decrypt(p.getProperty(KEY_ADMIN_API_KEY, ""), encryptor), p.getProperty(KEY_MODEL), p.getProperty(KEY_EFFORT), parseInt(p.getProperty(KEY_MAX_TOOL_CALLS)), p.getProperty(KEY_MASK_PATTERNS), p.getProperty(KEY_RESPONSE_LANGUAGE), p.getProperty(KEY_REVIEW), parseInt(p.getProperty(KEY_KEEP_DAYS)), p.getProperty(KEY_PROVIDER), p.getProperty(KEY_BASE_URL));
     }
 
     Properties toProperties(Encryptor encryptor) {
@@ -103,6 +130,8 @@ public class Settings {
         p.setProperty(KEY_RESPONSE_LANGUAGE, responseLanguage);
         p.setProperty(KEY_REVIEW, reviewBeforeSending);
         p.setProperty(KEY_KEEP_DAYS, String.valueOf(keepConversationsDays));
+        p.setProperty(KEY_PROVIDER, provider);
+        p.setProperty(KEY_BASE_URL, baseUrl);
         return p;
     }
 
@@ -114,7 +143,7 @@ public class Settings {
         String newKey = update.path(KEY_API_KEY).asText("");
         String newAdminKey = update.path(KEY_ADMIN_API_KEY).asText("");
         String admin = update.path("clearAdminApiKey").asBoolean(false) ? "" : newAdminKey.isBlank() ? adminApiKey : newAdminKey;
-        return new Settings(newKey.isBlank() ? apiKey : newKey, admin, update.path(KEY_MODEL).asText(model), update.path(KEY_EFFORT).asText(effort), update.path(KEY_MAX_TOOL_CALLS).asInt(maxToolCalls), update.path(KEY_MASK_PATTERNS).asText(maskPatterns), update.path(KEY_RESPONSE_LANGUAGE).asText(responseLanguage), update.path(KEY_REVIEW).asText(reviewBeforeSending), update.path(KEY_KEEP_DAYS).asInt(keepConversationsDays));
+        return new Settings(newKey.isBlank() ? apiKey : newKey, admin, update.path(KEY_MODEL).asText(model), update.path(KEY_EFFORT).asText(effort), update.path(KEY_MAX_TOOL_CALLS).asInt(maxToolCalls), update.path(KEY_MASK_PATTERNS).asText(maskPatterns), update.path(KEY_RESPONSE_LANGUAGE).asText(responseLanguage), update.path(KEY_REVIEW).asText(reviewBeforeSending), update.path(KEY_KEEP_DAYS).asInt(keepConversationsDays), update.path(KEY_PROVIDER).asText(provider), update.path(KEY_BASE_URL).asText(baseUrl));
     }
 
     void writeTo(ObjectNode node) {
@@ -129,6 +158,8 @@ public class Settings {
         node.put(KEY_RESPONSE_LANGUAGE, responseLanguage);
         node.put(KEY_REVIEW, reviewBeforeSending);
         node.put(KEY_KEEP_DAYS, keepConversationsDays);
+        node.put(KEY_PROVIDER, provider);
+        node.put(KEY_BASE_URL, baseUrl);
     }
 
     private static String hint(String key) {

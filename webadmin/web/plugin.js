@@ -669,10 +669,10 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
 
     const show = React.useCallback((s) => {
         setStatus(s);
-        setForm({ apiKey: "", adminApiKey: "", clearAdminApiKey: false, model: s.model || "", effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic", reviewBeforeSending: s.reviewBeforeSending || "data", keepConversationsDays: s.keepConversationsDays || 0 });
+        setForm({ apiKey: "", provider: s.provider || "anthropic", baseUrl: s.baseUrl || "", adminApiKey: "", clearAdminApiKey: false, model: s.model || "", effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic", reviewBeforeSending: s.reviewBeforeSending || "data", keepConversationsDays: s.keepConversationsDays || 0 });
         clean();
         loadModels(false);
-        if (s.adminApiKeySet) loadSpend(false);
+        if (s.adminApiKeySet && s.provider !== "openai-compatible") loadSpend(false);
         else setSpend({ state: "idle" });
     }, [loadSpend, loadModels]);
 
@@ -738,7 +738,10 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
     };
 
     let spendLines;
-    if (!status.adminApiKeySet) {
+    const openAi = form.provider === "openai-compatible";
+    if (status.provider === "openai-compatible") {
+        spendLines = [row("Spend this month:", "–", "Spend this month is only available with Anthropic as the provider.")];
+    } else if (!status.adminApiKeySet) {
         spendLines = [row("Spend this month:", "–", "Set an Admin API key to show the spend this month.")];
     } else if (spend.state === "loading") {
         spendLines = [row("Spend this month:", "Loading…")];
@@ -767,12 +770,19 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
         const updated = d.fetchedAt ? ", updated " + new Date(d.fetchedAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
         modelHint = d.warning ? e("span", { className: "claude-warning" }, d.warning)
             : d.source === "anthropic" ? `${modelList.length} models from Anthropic${updated}. You can also type a model ID.`
+                : d.source === "openai-compatible" ? `${modelList.length} models from the model server${updated}. Choose one that supports tool calling, or type a model ID.`
                 : (d.note || "A fixed list is shown.") + " You can also type a model ID.";
     }
 
     return e("div", { className: "claude-settings" },
         error ? e("div", { className: "claude-error" }, error) : null,
-        row("Anthropic API key:", e("input", { type: "password", value: form.apiKey, onChange: set("apiKey"), autoComplete: "off" }),
+        row("Provider:", e("select", { value: form.provider, onChange: set("provider") },
+            e("option", { value: "anthropic" }, "Anthropic (Claude)"),
+            e("option", { value: "openai-compatible" }, "OpenAI-compatible (OpenAI, Ollama, vLLM)")),
+            "Save after changing the provider, then refresh the model list."),
+        openAi ? row("API base URL:", e("input", { type: "text", value: form.baseUrl, onChange: set("baseUrl"), placeholder: "https://api.openai.com/v1" }),
+            "For example https://api.openai.com/v1, http://ollama-host:11434/v1 (Ollama) or http://vllm-host:8000/v1 (vLLM). The OIE server must reach it, and the model must support tool calling. The API key may stay empty for a local server.") : null,
+        row("API key:", e("input", { type: "password", value: form.apiKey, onChange: set("apiKey"), autoComplete: "off" }),
             status.apiKeySet ? "Set: " + status.apiKeyHint : "No API key set yet."),
         row("Model:", e("span", { className: "claude-inline" },
             e("input", { type: "text", list: "claude-models", value: form.model, onChange: set("model"), style: { width: 260 } }),
