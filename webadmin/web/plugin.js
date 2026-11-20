@@ -643,6 +643,8 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
     const [spend, setSpend] = React.useState({ state: "idle" });
     // The model list comes from the server: Anthropic's, or a fixed list when it cannot be read.
     const [models, setModels] = React.useState({ state: "idle" });
+    // True after "Other model ID…": the model is typed instead of chosen from the list.
+    const [typeModel, setTypeModel] = React.useState(false);
     const [error, setError] = React.useState(null);
     const formRef = React.useRef(null);
     formRef.current = form;
@@ -769,10 +771,33 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
         const d = models.data;
         const updated = d.fetchedAt ? ", updated " + new Date(d.fetchedAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
         modelHint = d.warning ? e("span", { className: "claude-warning" }, d.warning)
-            : d.source === "anthropic" ? `${modelList.length} models from Anthropic${updated}. You can also type a model ID.`
-                : d.source === "openai-compatible" ? `${modelList.length} models from the model server${updated}. Choose one that supports tool calling, or type a model ID.`
-                : (d.note || "A fixed list is shown.") + " You can also type a model ID.";
+            : d.source === "anthropic" ? `${modelList.length} models from Anthropic${updated}. Choose Other model ID… for one that is not listed.`
+                : d.source === "openai-compatible" ? `${modelList.length} models from the model server${updated}. Choose one that supports tool calling, or Other model ID… to type one.`
+                : (d.note || "A fixed list is shown.") + " Choose Other model ID… for one that is not listed.";
     }
+
+    // A dropdown of the listed models, so every model shows whatever is saved now (a datalist only
+    // suggests models that match the text already in the field). "Other model ID…" switches to a text field.
+    const OTHER = "__other_model_id__";
+    const modelField = () => {
+        if (typeModel || modelList.length === 0) {
+            return e("span", { className: "claude-inline" },
+                e("input", { type: "text", value: form.model, onChange: set("model"), placeholder: "Model ID", style: { width: 260 } }),
+                modelList.length ? e("button", { className: "btn", onClick: () => setTypeModel(false) }, "Choose from the list") : null);
+        }
+        const options = modelList.map((m) => e("option", { key: m.id, value: m.id }, m.unlisted ? m.displayName + " – not in the list" : m.displayName));
+        if (!modelList.some((m) => m.id === form.model)) {
+            options.unshift(e("option", { key: "", value: form.model }, form.model ? form.model + " – not in the list" : "Choose a model"));
+        }
+        options.push(e("option", { key: OTHER, value: OTHER }, "Other model ID…"));
+        return e("select", {
+            value: form.model, style: { width: 260 },
+            onChange: (ev) => {
+                if (ev.target.value === OTHER) setTypeModel(true);
+                else set("model")(ev);
+            }
+        }, options);
+    };
 
     return e("div", { className: "claude-settings" },
         error ? e("div", { className: "claude-error" }, error) : null,
@@ -785,8 +810,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
         row("API key:", e("input", { type: "password", value: form.apiKey, onChange: set("apiKey"), autoComplete: "off" }),
             status.apiKeySet ? "Set: " + status.apiKeyHint : "No API key set yet."),
         row("Model:", e("span", { className: "claude-inline" },
-            e("input", { type: "text", list: "claude-models", value: form.model, onChange: set("model"), style: { width: 260 } }),
-            e("datalist", { id: "claude-models" }, modelList.map((m) => e("option", { key: m.id, value: m.id, label: m.unlisted ? m.displayName + " – not in the list" : m.displayName }))),
+            modelField(),
             e("button", { className: "btn", disabled: models.state === "loading", onClick: () => loadModels(true) }, "Refresh list")), modelHint),
         row("Effort:", e("select", { value: form.effort, onChange: set("effort") }, EFFORTS.map((x) => e("option", { key: x, value: x }, x)))),
         row("Response language:", e("select", { value: form.responseLanguage, onChange: set("responseLanguage") }, LANGUAGES.map(([value, label]) => e("option", { key: value, value }, label)))),
