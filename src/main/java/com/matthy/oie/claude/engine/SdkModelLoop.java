@@ -85,10 +85,13 @@ public class SdkModelLoop implements ModelLoop {
 
     /** @param toolSpecs maps with name, description, properties (JSON schema per property) and required */
     @SuppressWarnings("unchecked")
-    public SdkModelLoop(String apiKey, String baseUrl, String model, String effort, int maxToolCalls, String systemPrompt, List toolSpecs, ToolCaller caller) {
+    public SdkModelLoop(String apiKey, String model, String effort, int maxToolCalls, String systemPrompt, List toolSpecs, ToolCaller caller) {
         AnthropicOkHttpClient.Builder builder = AnthropicOkHttpClient.builder().apiKey(apiKey).timeout(TIMEOUT).maxRetries(MAX_RETRIES);
-        String overrideBaseUrl = System.getProperty("oie.claude.baseUrl");
-        builder.baseUrl(overrideBaseUrl == null || overrideBaseUrl.isBlank() ? baseUrl : overrideBaseUrl.trim());
+        // Optional JVM option (-Doie.claude.baseUrl=...) for an API gateway in front of api.anthropic.com.
+        String baseUrl = System.getProperty("oie.claude.baseUrl");
+        if (baseUrl != null && !baseUrl.isBlank()) {
+            builder.baseUrl(baseUrl.trim());
+        }
         this.client = builder.build();
         this.model = model;
         this.effort = effort;
@@ -106,10 +109,6 @@ public class SdkModelLoop implements ModelLoop {
                     .inputSchema(BetaTool.InputSchema.builder().properties(props.build()).required((List<String>) spec.get("required")).build())
                     .build());
         }
-    }
-
-    public SdkModelLoop(String apiKey, String model, String effort, int maxToolCalls, String systemPrompt, List toolSpecs, ToolCaller caller) {
-        this(apiKey, "https://api.anthropic.com", model, effort, maxToolCalls, systemPrompt, toolSpecs, caller);
     }
 
     @Override
@@ -192,7 +191,7 @@ public class SdkModelLoop implements ModelLoop {
     private void loop(ChatJob job, String userText, State state, Usage question) throws Exception {
         List<BetaMessageParam> history = state.messages;
         synchronized (history) {
-            history.add(BetaMessageParam.builder().role(BetaMessageParam.Role.USER).content(userText).build());
+            history.add(BetaMessageParam.ofUser(userText));
         }
         int toolCalls = 0;
         int call = 0;
@@ -267,7 +266,7 @@ public class SdkModelLoop implements ModelLoop {
             }
             synchronized (history) {
                 history.add(answer);
-                history.add(BetaMessageParam.builder().role(BetaMessageParam.Role.USER).contentOfBetaContentBlockParams(results).build());
+                history.add(BetaMessageParam.ofUserOfContentBlockParams(results));
             }
             if (limitReached) {
                 job.emit("info", "Stopped after " + maxToolCalls + " tool calls. Ask a follow-up question to continue.");
@@ -351,7 +350,7 @@ public class SdkModelLoop implements ModelLoop {
             return param;
         }
         List<BetaContentBlockParam> blocks = new ArrayList<>();
-        List<BetaContentBlockParam> all = param.content().asBetaContentBlockParams();
+        List<BetaContentBlockParam> all = param.asAssistant().content().asContentBlockParams();
         for (int i = 0; i < all.size(); i++) {
             BetaContentBlockParam block = all.get(i);
             if (block.isFallback() || (i < start && !block.isText())) {
@@ -359,7 +358,7 @@ public class SdkModelLoop implements ModelLoop {
             }
             blocks.add(block);
         }
-        return BetaMessageParam.builder().role(BetaMessageParam.Role.ASSISTANT).contentOfBetaContentBlockParams(blocks).build();
+        return BetaMessageParam.ofAssistantOfContentBlockParams(blocks);
     }
 
     private MessageCreateParams params(List<BetaMessageParam> history, String previousMessageId, boolean withDiagnostics) {

@@ -1,32 +1,16 @@
-# OIE AI Assistant
+# Claude Assistant for Open Integration Engine
 
-An extension for the OIE Administrator that lets you use Anthropic Claude or an OpenAI-compatible
-chat-completions server with your OIE server: channels, messages, errors, scripts, code templates and
-server status. The plugin includes compatible adapters for Ollama, vLLM and other providers that
-implement `/v1/chat/completions` and `/v1/models`. Tool calls use the existing OIE approval flow.
+An extension for the OIE Administrator that lets you talk to Claude about your server from inside
+the GUI: channels, messages, errors, scripts, code templates and server status. Claude looks the
+facts up itself through the same tools as `oie-mcp-server`, and can propose actions that only run
+after you approve them.
 
-## Provider setup
+**New here?** Read the [User Manual](docs/USER_MANUAL.md) for installation, setup, daily use and
+troubleshooting.
 
-Open **Settings > OIE AI Assistant** and enter the API base URL and model ID. The API key is optional
-for local endpoints. Examples:
-
-| Server | API base URL | Example model ID |
-| --- | --- | --- |
-| Anthropic Claude | `https://api.anthropic.com` | `claude-sonnet-4-5` |
-| Ollama | `http://localhost:11434/v1` | `qwen3` |
-| vLLM | `http://localhost:8000/v1` | the model name served by vLLM |
-
-The OIE server must be able to reach the configured URL. For remote deployments, use the OIE
-server's address for a local Ollama/vLLM host, not `localhost` unless that service runs on the same
-machine. OpenAI-compatible providers need function/tool calling enabled for OIE tools. Spend and
-usage reports are available only when using Anthropic.
-
-The plugin still masks message and patient data before it leaves OIE, and actions such as changing
-scripts or deploying channels still require user approval. A custom compatible server receives the
-prompt and context after masking; review settings and OIE permissions continue to apply.
-
-**New here?** Read the [User Manual](docs/USER_MANUAL.md) for installation, daily use and
-troubleshooting. This fork builds on the original [Claude plugin for Eclipse OIE](https://github.com/matthydehoog/Claude-plugin-Eclipse-OIE), which is licensed under MPL-2.0.
+**Training:** the online course
+[Claude Assistant for Eclipse OIE](https://eclipse-oie.moodiy.cloud/course/view.php?id=3) at the
+Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exercises on a test channel.
 
 > **Unofficial plugin.** This is a community-built plugin. It is not affiliated with, endorsed by or
 > supported by Anthropic. Claude and Anthropic are trademarks of Anthropic, PBC.
@@ -42,6 +26,7 @@ troubleshooting. This fork builds on the original [Claude plugin for Eclipse OIE
 |---|---|---|
 | Left menu, **Other** | *Claude Assistant* | none: questions about the whole server |
 | **Dashboard** (task + right-click) | *Ask Claude* | selected channel(s)/connectors |
+| **Dashboard** (task + right-click) | *Check queues and storage* | none: Claude looks for stuck queues and channels that need pruning |
 | **Message browser** (task + right-click) | *Ask Claude* | selected message (channel, message ID, connector) |
 | **Channel editor** (task + right-click) | *Ask Claude* | the channel that is open (saved version) |
 | **Channel editor** (task + right-click) | *Document channel* | the open channel; Claude writes its documentation as Markdown |
@@ -66,7 +51,8 @@ The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It
 | **Code Templates**, right-click | *Ask Claude* about the selected code template |
 | **Claude page**, button **Global Scripts** | the global scripts as context (the web admin has no hook on the Global Scripts view itself) |
 | **Claude page**, button **Document channel** | documents the channel in the context |
-| **Command palette** (Ctrl+K) | *Claude Assistant*, and *Ask Claude about Global Scripts* |
+| **Claude page**, button **Queues and storage** | checks queues and message storage |
+| **Command palette** (Ctrl+K) | *Claude Assistant*, *Check queues and storage*, and *Ask Claude about Global Scripts* |
 | **Settings**, tab **Claude Assistant** | the same settings and usage as in Swing, using the settings page's own Save |
 
 Both UIs use the same REST API, so masking, permissions, action approval and the audit log are
@@ -75,13 +61,18 @@ identical; a conversation stays open while you move between the Claude page and 
 ## What Claude can do
 
 **Read** (immediately): server info, channels with status and counters, channel configuration and
-scripts, the global scripts, statistics per connector, searching and viewing messages, events, the server log, code
+scripts, the global scripts, statistics per connector, queues and message storage, searching and viewing messages, events, the server log, code
 templates and the keys of the Configuration Map (never the values).
 
 **Channel documentation:** *Document channel* has Claude write a Markdown description of a channel
 (purpose, source, filter, destinations, field mappings, scripts, code templates, Configuration Map keys
 and open points) from a readable overview in which passwords and other secrets are hidden. Save it as
 a separate file with *Save answer*.
+
+**Queues and storage:** *Check queues and storage* has Claude look for slow-burning problems: destinations
+that are stopped or have not moved their queue for a long time (with the age of the oldest queued message
+and the last error), channels without pruning and how many messages they keep, and the database size.
+It reads counts, dates and settings only, never message content.
 
 **Actions** (only after clicking *Run* in an approval dialog): deploy/undeploy a channel,
 start/stop/pause/resume, reset statistics, reprocess a message, send a message to a channel and
@@ -157,8 +148,6 @@ was reviewed. The content itself is never logged.
    [console.anthropic.com](https://console.anthropic.com)) and click *Save*. The key is stored
    encrypted and never sent back to the Administrator; the field is emptied after saving and the
    line below it shows *Set: sk-ant-…xxxx*.
-   Select the provider explicitly; choose **Anthropic** for Anthropic-compatible proxies regardless
-   of their base URL, or **OpenAI-compatible** for endpoints such as Ollama and vLLM.
 3. Defaults: model `claude-opus-5`, effort `high`, at most 25 tool calls per question, response
    language *Automatic* (Claude answers in the language of the question). The **Model** list comes
    from Anthropic's Models API for your key (newest first, refreshed daily), so new models appear
@@ -191,10 +180,8 @@ the connection is back. Connecting times out after 10 seconds and is tried three
 firewall that silently drops packets gives the message within about half a minute. Answers
 themselves may still take up to 10 minutes.
 
-The OIE server must be able to reach the configured API base URL. For an Anthropic-compatible
-gateway, select **Anthropic** as the provider and set its URL in **API base URL**. Alternatively,
-`-Doie.claude.baseUrl=https://gateway.example/anthropic` in `conf/custom.vmoptions` overrides the
-Anthropic endpoint.
+The OIE server must be able to reach `https://api.anthropic.com`. Behind a gateway or proxy? Add for
+example `-Doie.claude.baseUrl=https://gateway.example/anthropic` to `conf/custom.vmoptions`.
 
 ## Building
 

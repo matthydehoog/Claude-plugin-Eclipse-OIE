@@ -8,6 +8,10 @@ package com.matthy.oie.claude.server;
 
 import java.io.File;
 import java.lang.reflect.Method;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -29,16 +33,27 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Function;
 
+import org.apache.ibatis.session.SqlSession;
+
 import com.fasterxml.jackson.databind.JsonNode;
+import com.mirth.connect.donkey.model.channel.CronProperty;
 import com.mirth.connect.donkey.model.channel.DebugOptions;
 import com.mirth.connect.donkey.model.channel.DeployedState;
+import com.mirth.connect.donkey.model.channel.DestinationConnectorProperties;
+import com.mirth.connect.donkey.model.channel.DestinationConnectorPropertiesInterface;
+import com.mirth.connect.donkey.model.channel.PollConnectorProperties;
+import com.mirth.connect.donkey.model.channel.SourceConnectorPropertiesInterface;
 import com.mirth.connect.donkey.model.message.ConnectorMessage;
 import com.mirth.connect.donkey.model.message.Message;
 import com.mirth.connect.donkey.model.message.RawMessage;
 import com.mirth.connect.donkey.model.message.Status;
+import com.mirth.connect.donkey.server.Donkey;
 import com.mirth.connect.donkey.server.channel.DispatchResult;
+import com.mirth.connect.donkey.server.data.DonkeyDao;
 import com.mirth.connect.model.Channel;
 import com.mirth.connect.model.ChannelMetadata;
+import com.mirth.connect.model.ChannelProperties;
+import com.mirth.connect.model.ChannelPruningSettings;
 import com.mirth.connect.model.ChannelTag;
 import com.mirth.connect.model.Connector;
 import com.mirth.connect.model.DashboardStatus;
@@ -64,6 +79,7 @@ import com.mirth.connect.server.controllers.EventController;
 import com.mirth.connect.server.controllers.ExtensionController;
 import com.mirth.connect.server.controllers.MessageController;
 import com.mirth.connect.server.controllers.ScriptController;
+import com.mirth.connect.server.util.SqlConfig;
 
 /**
  * The tools Claude can call. Read tools run straight away inside the chat job. Action tools only
@@ -91,6 +107,7 @@ public class OieTools {
             Map.entry("oie_channel_overview", "getChannel"),
             Map.entry("oie_channel_statistics", "getStatistics"),
             Map.entry("oie_search_messages", "searchMessages"),
+            Map.entry("oie_queues_and_storage", "searchMessages"),
             Map.entry("oie_get_message", "getMessageContent"),
             Map.entry("oie_events", "getEvents"),
             Map.entry("oie_server_log", "getMirthServerLogs"),
@@ -247,6 +264,13 @@ public class OieTools {
 
         read("oie_channel_statistics", "Counters per connector (source = metaDataId 0, destinations 1..n) for one channel.", props(
                 "channel", str("Channel ID (UUID) or channel name")), in -> channelStatistics(channel(in)), "channel");
+
+        read("oie_queues_and_storage", "Queues and message storage, to find slow-burning problems. Per source/destination: queue size, the oldest queued message and its age, send attempts, the last error, "
+                + "and whether queueing and retries are on. Per channel: number of stored messages, an estimate of their size in the database, the oldest stored message, the pruning settings (or none) and the storage mode. "
+                + "Also the database type and size and whether the Data Pruner runs. Reads counts, dates and settings only, never message content. "
+                + "Point out destinations that are stuck (stopped, or a queue that has not moved for a long time, with the error) and channels without pruning that keep growing. "
+                + "You can propose starting or resuming a channel with the action tools; pruning settings are changed by the user: channel editor, tab Summary, section Message Pruning (Prune metadata older than ... days; queued and errored messages are kept unless Prune Errored Messages is ticked), and they only apply while the Data Pruner runs.", props(
+                "channel", str("Only this channel (ID or name), with the queue settings of every connector; default all channels")), this::queuesAndStorage);
 
         read("oie_search_messages", "Searches messages in a channel by status, period or text. Returns per message the ID, date, status per connector and error. With includeContent also the content (masked).", props(
                 "channel", str("Channel ID (UUID) or channel name"),
@@ -434,6 +458,241 @@ public class OieTools {
             sb.append("| ").append(s == status ? "(channel total)" : s.getName()).append(" | ").append(s.getMetaDataId() == null ? "" : s.getMetaDataId()).append(" | ").append(s.getState()).append(" | ").append(count(s, Status.RECEIVED)).append(" | ").append(count(s, Status.FILTERED)).append(" | ").append(count(s, Status.SENT)).append(" | ").append(s.getQueued() == null ? 0 : s.getQueued()).append(" | ").append(count(s, Status.ERROR)).append(" |\n");
         }
         return sb.toString();
+    }
+
+    private String queuesAndStorage(JsonNode in) throws Exception {
+        boolean single = !in.path("channel").asText("").isBlank();
+        List<Channel> channels = single ? Collections.singletonList(channel(in)) : channelController.getChannels(null);
+        Map<String, ChannelMetadata> metadata = configurationController.getChannelMetadata();
+        String serverId = configurationController.getServerId();
+        String databaseType = configurationController.getDatabaseType();
+        List<QueueStorageReport.Queue> queues = new ArrayList<>();
+        List<QueueStorageReport.Storage> storage = new ArrayList<>();
+        QueueStorageReport.Database db = new QueueStorageReport.Database();
+        db.type = databaseType;
+        List<String> problems = new ArrayList<>();
+
+        // Autocommit: on PostgreSQL one failed catalog query would otherwise break the rest of the transaction.
+        // MyBatis 3.1 sessions are not AutoCloseable.
+        SqlSession session = SqlConfig.getInstance().getReadOnlySqlSessionManager().openSession(true);
+        try {
+            Connection connection = session.getConnection();
+            DonkeyDao dao = Donkey.getInstance().getDaoFactory().getDao();
+            Map<String, Long> localIds;
+            try {
+                localIds = dao.getLocalChannelIds();
+                for (Channel c : channels) {
+                    Long localId = localIds.get(c.getId());
+                    DashboardStatus status = engineController.getChannelStatus(c.getId());
+                    String channelState = status == null || status.getState() == null ? "UNDEPLOYED" : status.getState().name();
+                    try {
+                        queues.addAll(channelQueues(c, status, channelState, localId != null, dao, serverId));
+                    } catch (Exception e) {
+                        problems.add("queues of '" + c.getName() + "': " + e.getMessage());
+                    }
+                    storage.add(channelStorage(c, metadata.get(c.getId()), channelState, localId, connection, databaseType, problems));
+                }
+            } finally {
+                dao.close();
+            }
+            db.bytes = queryLong(connection, StorageSql.databaseSize(databaseType), problems, "database size");
+        } finally {
+            session.close();
+        }
+        if ("derby".equals(StorageSql.type(databaseType))) {
+            File appData = new File(configurationController.getApplicationDataDir());
+            db.freeBytes = appData.getUsableSpace();
+            db.note = "embedded Derby database in " + appData.getAbsolutePath() + "; free space is of that disk";
+        } else {
+            db.note = "free space is on the database server; OIE cannot see it";
+        }
+
+        Boolean prunerEnabled = null;
+        String prunerSchedule = null;
+        try {
+            if (extensionController.isExtensionEnabled("Data Pruner")) {
+                java.util.Properties p = extensionController.getPluginProperties("Data Pruner");
+                prunerEnabled = Boolean.parseBoolean(p.getProperty("enabled", "false"));
+                prunerSchedule = pollSchedule(p.getProperty("pollingProperties"));
+            }
+        } catch (Exception e) {
+            problems.add("Data Pruner settings: " + e.getMessage());
+        }
+
+        String report = QueueStorageReport.describe(queues, storage, db, prunerEnabled, prunerSchedule, single, java.time.Instant.now(), ZoneId.systemDefault());
+        if (!problems.isEmpty()) {
+            report += "\n\nNot available: " + String.join("; ", problems.subList(0, Math.min(10, problems.size()))) + (problems.size() > 10 ? " (and " + (problems.size() - 10) + " more)" : "") + ".";
+        }
+        return report;
+    }
+
+    private List<QueueStorageReport.Queue> channelQueues(Channel c, DashboardStatus status, String channelState, boolean hasTables, DonkeyDao dao, String serverId) throws Exception {
+        Map<Integer, DashboardStatus> byConnector = new HashMap<>();
+        if (status != null && status.getChildStatuses() != null) {
+            for (DashboardStatus s : status.getChildStatuses()) {
+                if (s.getMetaDataId() != null) {
+                    byConnector.put(s.getMetaDataId(), s);
+                }
+            }
+        }
+        List<QueueStorageReport.Queue> list = new ArrayList<>();
+        for (Connector con : connectors(c)) {
+            QueueStorageReport.Queue q = new QueueStorageReport.Queue();
+            q.channel = c.getName();
+            q.channelId = c.getId();
+            q.connector = con.getName();
+            q.metaDataId = con.getMetaDataId();
+            if (con.getProperties() instanceof DestinationConnectorPropertiesInterface) {
+                DestinationConnectorProperties d = ((DestinationConnectorPropertiesInterface) con.getProperties()).getDestinationConnectorProperties();
+                q.queueEnabled = d.isQueueEnabled();
+                q.sendFirst = d.isSendFirst();
+                q.retryCount = d.getRetryCount();
+                q.retryIntervalMillis = d.getRetryIntervalMillis();
+                q.threads = d.getThreadCount();
+            } else if (con.getProperties() instanceof SourceConnectorPropertiesInterface) {
+                q.queueEnabled = !((SourceConnectorPropertiesInterface) con.getProperties()).getSourceConnectorProperties().isRespondAfterProcessing();
+            }
+            DashboardStatus cs = byConnector.get(q.metaDataId);
+            if (q.metaDataId > 0 && !con.isEnabled()) {
+                q.state = "DISABLED";
+            } else {
+                q.state = cs != null && cs.getState() != null ? cs.getState().name() : channelState;
+            }
+            if (cs != null && cs.getQueued() != null) {
+                q.queued = cs.getQueued();
+            } else if (q.metaDataId > 0 && hasTables) {
+                q.queued = (long) dao.getConnectorMessageCount(c.getId(), serverId, q.metaDataId, Status.QUEUED);
+            } else if (!q.queueEnabled) {
+                q.queued = 0L;
+            }
+            if (q.metaDataId > 0 && q.queued != null && q.queued > 0) {
+                oldestQueued(c, q);
+            }
+            list.add(q);
+        }
+        return list;
+    }
+
+    /** Fills in the oldest queued message of a destination: its date, attempts and error, never its content. */
+    private void oldestQueued(Channel c, QueueStorageReport.Queue q) throws Exception {
+        MessageFilter filter = new MessageFilter();
+        filter.setStatuses(Collections.singleton(Status.QUEUED));
+        filter.setIncludedMetaDataIds(Collections.singletonList(q.metaDataId));
+        long total = messageController.getMessageCount(filter, c.getId());
+        if (total == 0) {
+            return;
+        }
+        // Results come newest first, so the last one is the oldest: the head of the queue.
+        List<Message> oldest = messageController.getMessages(filter, c.getId(), false, (int) Math.min(total - 1, Integer.MAX_VALUE), 1);
+        if (oldest.isEmpty()) {
+            return;
+        }
+        Message m = oldest.get(0);
+        q.oldestQueued = m.getReceivedDate() == null ? null : m.getReceivedDate().toInstant();
+        ConnectorMessage cm = m.getConnectorMessages().get(q.metaDataId);
+        if (cm != null) {
+            q.oldestSendAttempts = cm.getSendAttempts();
+            q.lastAttempt = cm.getSendDate() == null ? null : cm.getSendDate().toInstant();
+        }
+        // Errors are stored with the content; load this one connector message and keep only its error.
+        Message full = messageController.getMessageContent(c.getId(), m.getMessageId(), Collections.singletonList(q.metaDataId));
+        ConnectorMessage fc = full == null ? null : full.getConnectorMessages().get(q.metaDataId);
+        if (fc != null) {
+            String error = fc.getProcessingError() != null && !fc.getProcessingError().isBlank() ? fc.getProcessingError() : fc.getResponseError();
+            q.lastError = error == null || error.isBlank() ? null : QueueStorageReport.oneLine(error);
+        }
+    }
+
+    private QueueStorageReport.Storage channelStorage(Channel c, ChannelMetadata md, String channelState, Long localId, Connection connection, String databaseType, List<String> problems) {
+        QueueStorageReport.Storage s = new QueueStorageReport.Storage();
+        s.channel = c.getName();
+        s.channelId = c.getId();
+        s.state = channelState;
+        ChannelProperties p = c.getProperties();
+        if (p != null) {
+            s.storageMode = p.getMessageStorageMode() == null ? null : p.getMessageStorageMode().name();
+            s.removeContentOnCompletion = p.isRemoveContentOnCompletion();
+            s.removeAttachmentsOnCompletion = p.isRemoveAttachmentsOnCompletion();
+        }
+        ChannelPruningSettings pruning = md == null ? null : md.getPruningSettings();
+        if (pruning != null) {
+            s.pruneMetaDataDays = pruning.getPruneMetaDataDays();
+            s.pruneContentDays = pruning.getPruneContentDays();
+            s.archive = pruning.isArchiveEnabled();
+            s.pruneErrored = pruning.isPruneErroredMessages();
+        }
+        if (localId == null) {
+            return s; // never deployed: no message tables yet
+        }
+        try {
+            s.messages = messageController.getMessageCount(new MessageFilter(), c.getId());
+        } catch (Exception e) {
+            problems.add("message count of '" + c.getName() + "': " + e.getMessage());
+        }
+        if (s.messages != null && s.messages > 0) {
+            s.oldest = queryInstant(connection, StorageSql.oldestMessage(localId), problems, "oldest message of '" + c.getName() + "'");
+        }
+        s.bytes = queryLong(connection, StorageSql.channelSize(databaseType, localId), problems, "size of '" + c.getName() + "'");
+        return s;
+    }
+
+    private static Long queryLong(Connection connection, String sql, List<String> problems, String what) {
+        if (sql == null) {
+            return null;
+        }
+        try (Statement st = connection.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            if (rs.next()) {
+                long value = rs.getLong(1);
+                return rs.wasNull() ? null : value;
+            }
+        } catch (Exception e) {
+            problems.add(what + ": " + e.getMessage());
+        }
+        return null;
+    }
+
+    private static java.time.Instant queryInstant(Connection connection, String sql, List<String> problems, String what) {
+        try (Statement st = connection.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            if (rs.next()) {
+                Timestamp ts = rs.getTimestamp(1);
+                return ts == null ? null : ts.toInstant();
+            }
+        } catch (Exception e) {
+            problems.add(what + ": " + e.getMessage());
+        }
+        return null;
+    }
+
+    /** The Data Pruner's schedule in a few words, or null. */
+    private static String pollSchedule(String xml) {
+        if (xml == null || xml.isBlank()) {
+            return null;
+        }
+        try {
+            PollConnectorProperties p = ObjectXMLSerializer.getInstance().deserialize(xml, PollConnectorProperties.class);
+            if (p.getPollingType() == null) {
+                return null;
+            }
+            switch (p.getPollingType()) {
+                case INTERVAL:
+                    return "every " + (p.getPollingFrequency() / 60000) + " min";
+                case TIME:
+                    return String.format(Locale.ROOT, "daily at %02d:%02d", p.getPollingHour(), p.getPollingMinute());
+                case CRON: {
+                    List<String> expressions = new ArrayList<>();
+                    if (p.getCronJobs() != null) {
+                        for (CronProperty cron : p.getCronJobs()) {
+                            expressions.add(cron.getExpression());
+                        }
+                    }
+                    return "cron " + String.join(", ", expressions);
+                }
+                default:
+                    return p.getPollingType().name();
+            }
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private String channelScripts(Channel channel) throws Exception {

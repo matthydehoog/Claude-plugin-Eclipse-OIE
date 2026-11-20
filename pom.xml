@@ -6,19 +6,19 @@
 
   <groupId>com.matthy.oie</groupId>
   <artifactId>claude-assistant</artifactId>
-  <version>1.1.1</version>
+  <version>1.3.0</version>
   <packaging>jar</packaging>
 
   <name>OIE Claude Assistant</name>
   <description>Claude chat assistant inside the Open Integration Engine Administrator.</description>
 
   <properties>
-    <maven.compiler.release>17</maven.compiler.release>
+    <maven.compiler.release>11</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <!-- Engine install to compile against. Override with -Doie.home=... -->
     <oie.home>C:/Program Files/OpenIntegrationEngine</oie.home>
-    <oie.version>4.7.0</oie.version>
-    <anthropic.version>2.65.0</anthropic.version>
+    <oie.version>4.6.0</oie.version>
+    <anthropic.version>3.8.0</anthropic.version>
   </properties>
 
   <dependencies>
@@ -58,6 +58,14 @@
       <groupId>com.mirth.connect</groupId>
       <artifactId>client-core</artifactId>
       <version>${oie.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- The engine's own MyBatis (server-lib/mybatis-3.1.1.jar), for a read-only database connection. -->
+    <dependency>
+      <groupId>org.mybatis</groupId>
+      <artifactId>mybatis</artifactId>
+      <version>3.1.1</version>
       <scope>provided</scope>
     </dependency>
 
@@ -137,6 +145,20 @@
       <version>4.13.2</version>
       <scope>test</scope>
     </dependency>
+    <!-- ConfigurationController refers to it, so Mockito needs it to mock that controller; the engine ships the same version. -->
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-configuration2</artifactId>
+      <version>2.13.0</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Fakes for the OIE controllers in AssistantServiceTest (ControllerFactory and the controllers are abstract classes). -->
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>5.24.0</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -145,13 +167,13 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.13.0</version>
+        <version>3.16.0</version>
       </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.2.5</version>
+        <version>3.6.1</version>
       </plugin>
 
       <!--
@@ -161,7 +183,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
-        <version>3.4.1</version>
+        <version>3.5.1</version>
         <executions>
           <execution>
             <id>default-jar</id>
@@ -210,7 +232,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.7.0</version>
+        <version>3.11.0</version>
         <executions>
           <execution>
             <id>engine-libs</id>

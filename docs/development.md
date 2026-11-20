@@ -48,11 +48,11 @@ This guide is for people who build, change or release the Claude Assistant. For 
 
 ### Prerequisites
 
-- **JDK 17 or later** and **Maven**. The first build downloads the Anthropic SDK and its dependencies.
-- **The OIE engine jars** `com.mirth.connect:server-api`, `donkey-server`, `donkey-model`, `client` and `client-core` (version `oie.version`, now 4.7.0) in your local Maven repository. Install them from an OIE installation as described in the development guides of the other plugins, for example:
+- **JDK 11 or later** and **Maven**. The first build downloads the Anthropic SDK and its dependencies.
+- **The OIE engine jars** `com.mirth.connect:server-api`, `donkey-server`, `donkey-model`, `client` and `client-core` (version `oie.version`, now 4.6.0) in your local Maven repository. Install them from an OIE installation as described in the development guides of the other plugins, for example:
 
   ```bash
-  mvn install:install-file -Dfile="$OIE_HOME/server-lib/mirth-server.jar" -DgroupId=com.mirth.connect -DartifactId=server-api -Dversion=4.7.0 -Dpackaging=jar
+  mvn install:install-file -Dfile="$OIE_HOME/server-lib/mirth-server.jar" -DgroupId=com.mirth.connect -DartifactId=server-api -Dversion=4.6.0 -Dpackaging=jar
   ```
 
   and the same for `server-lib/donkey/donkey-server.jar`, `server-lib/donkey/donkey-model.jar`, `client-lib/mirth-client.jar` and `client-lib/mirth-client-core.jar`.
@@ -61,6 +61,16 @@ This guide is for people who build, change or release the Claude Assistant. For 
   ```bash
   mvn package -Doie.home=/opt/openintegrationengine
   ```
+
+- **Without an OIE installation** (Linux, macOS, CI), the scripts the build workflow uses take both from the engine's GitHub release, checked against its SHA-256:
+
+  ```bash
+  OIE_HOME="$(bash .github/scripts/oie-home.sh 4.6.0 ~/oie-4.6.0)"     # unpacks server-lib and client-lib
+  MVN_OPTS="-Doie.home=$OIE_HOME" bash .github/scripts/install-oie-jars.sh 4.6.0
+  mvn clean package -Doie.home="$OIE_HOME"
+  ```
+
+  `install-oie-jars.sh` needs `-Doie.home` as well: `install:install-file` reads `pom.xml`, and Maven stops when the default `oie.home` does not exist.
 
 ### Build
 
@@ -129,9 +139,7 @@ The Anthropic Java SDK needs Jackson 2.19, Kotlin and OkHttp. OIE ships Jackson 
 - **Timeouts**: 10 seconds to connect, 10 minutes per request; 2 retries for rate limits, overloads and dropped connections. Without internet the user gets a clear error within about half a minute. A connection error names the root cause (DNS, refused, timeout).
 - **Fallback**: after a mid-answer fallback, the declined attempt's thinking and tool calls are not echoed back into the history.
 - **Prompt caching**: the system prompt only changes with the settings, so it stays byte-identical within a conversation and the cache keeps working. One line per API call and a total per question go to the server log with input, cache read, cache write and output tokens.
-- **Provider and base URL**: the provider is selected explicitly in settings. The configured base
-  URL is used for model requests and model listing; the optional `oie.claude.baseUrl` system
-  property overrides it for Anthropic SDK and spend API requests.
+- **Base URL**: the system property `oie.claude.baseUrl` points the SDK at a gateway or proxy instead of `api.anthropic.com`.
 - `saveHistory` / `loadHistory` turn the opaque history into JSON and back, for saved conversations.
 
 ## A question, step by step
@@ -296,10 +304,11 @@ It uses the same REST API and the same 800 ms polling, so masking, permissions, 
 mvn test
 ```
 
-There are 84 tests (JUnit 4). They need no engine, no network and no API key.
+There are 100 tests (JUnit 4). They need no engine, no network and no API key.
 
 | Test | Covers |
 | --- | --- |
+| `AssistantServiceTest` (12) | With a scripted model loop and Mockito fakes for the OIE controllers: a tool the user has no permission for is skipped; an action is not proposed without *Run Claude Assistant actions*, is checked again for the approver, runs once when approved and not when rejected; *Review before sending* withholds data, masks edits again, and can withhold the question itself; the data audit records IDs and counts but no content; cancelling while an action waits runs nothing; a job belongs to its user |
 | `MaskerTest` (16) | HL7 ER7 and XML rules, the encoded separator after a masked last field, person segments, credentials, GDT raw and XML, BSN, own patterns |
 | `EdifactMaskerTest` (14) | MEDLAB and MEDSPE, raw and XML, trade messages untouched, ZKH and AFD readable |
 | `FhirMaskerTest` (9) | Person resources in JSON and XML, personal extensions, identifiers, reference displays, narratives, Bundles, FHIR escaped inside tool XML, other resources left readable |
@@ -324,19 +333,20 @@ Masking is the part where a mistake hurts most: when you touch a masker, run it 
 
 ## GitHub workflows
 
-There is no build workflow in this repository; build and test locally before you push.
-
 | Workflow | Does |
 | --- | --- |
+| `build.yml` | On every push to `main`, every pull request and every version tag: builds and tests on OIE 4.6.0 with Java 17, and on 4.7.0 with Java 17 and 21. The engine jars and libraries come from the engine's GitHub release (`download-oie.sh`, `install-oie-jars.sh`, `oie-home.sh`) and are cached. The 4.6.0 build runs `check-versions.sh` and keeps the zip as an artifact. On a tag `v<version>` it creates the release with the zip and its SHA-256 (`release.sh`), then calls `catalog-pr.yml`. |
 | `catalog-pr.yml` | On a published release, files a pull request to the [OIE Community Store catalog](https://github.com/gibson9583/oie-community-catalog) from the fork `<owner>/oie-community-catalog`, using `oie.json` at the tag. Needs the secret `CATALOG_TOKEN` (a classic PAT with `public_repo`); skipped without it. |
 | `jira-issue.yml` | Creates a Jira issue for every new GitHub issue and comments its key. Needs the variables `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_PROJECT_KEY` and the secret `JIRA_API_TOKEN`. |
+
+Dependabot (`.github/dependabot.yml`) checks the Maven dependencies weekly, the Anthropic Java SDK among them, and the workflow actions monthly. It leaves alone the engine jars and the libraries the engine ships, whose versions must match the engine's.
 
 `main` is protected against force pushes and deletion (ruleset *Protect main*).
 
 ## Releasing
 
 1. **Branch and pull request.** Reference the issue (`Closes #n`).
-2. **Version.** Set the new version in all four places; nothing checks this automatically, so compare them:
+2. **Version.** Set the new version in all four places. The build checks they agree (`check-versions.sh`), and on a tag that the tag matches:
    - `pom.xml` (`<version>`)
    - `src/main/resources/plugin.xml` (`<pluginVersion>`)
    - `oie.json` (`"version"`)
@@ -344,7 +354,7 @@ There is no build workflow in this repository; build and test locally before you
 3. **Engine versions.** `<mirthVersion>` in `plugin.xml` lists every OIE version the extension may load on (now `4.6.0,4.7.0`). OIE only loads an extension whose list contains its **exact** version, so a new OIE release needs a new plugin release.
 4. **Build and test** with `mvn clean package`, and try the zip in OIE.
 5. **Merge** the pull request.
-6. **Release** on GitHub with the zip and its SHA-256 in the notes:
+6. **Release.** Push a tag `v<version>` on the merge commit: `build.yml` builds and tests it, creates the release with the zip and its SHA-256, and files the catalog pull request. Or create the release by hand, with the zip and its SHA-256 in the notes. A release that already has the zip is left as it is when the tag build runs:
 
    ```bash
    sha256sum target/claude-assistant-1.0.2.zip

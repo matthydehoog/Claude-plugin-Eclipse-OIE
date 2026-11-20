@@ -1,0 +1,114 @@
+name: Build
+
+# Builds and tests every push and pull request against every engine version the plugin declares
+# (mirthVersion in plugin.xml). A pushed version tag (v1.1.1) also creates the GitHub release with
+# the zip and its SHA-256 (see .github/scripts/release.sh); a release written by hand that already
+# has the zip is left alone. Follows fhir-datatype-Eclipse-OIE's build.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write # creating releases
+
+env:
+  # The engine version the released zip is compiled against: keep equal to oie.version in pom.xml.
+  OIE_VERSION: 4.6.0
+
+jobs:
+  build:
+    name: Build (OIE ${{ matrix.oie }}, Java ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { oie: 4.6.0, java: '17', release: true }
+          - { oie: 4.7.0, java: '17' }
+          - { oie: 4.7.0, java: '21' }
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      - name: Cache Maven repository
+        uses: actions/cache@v6
+        with:
+          path: ~/.m2/repository
+          key: maven-oie${{ matrix.oie }}-${{ hashFiles('pom.xml') }}
+          restore-keys: maven-oie${{ matrix.oie }}-
+
+      # The `system` jars are read from an engine install on every build, so the release tarball
+      # is cached as well, not only the jars installed into the Maven repository.
+      - name: Cache the engine release
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/oie
+          key: oie-release-${{ matrix.oie }}
+
+      - name: Unpack the engine libraries
+        run: echo "OIE_HOME=$(bash .github/scripts/oie-home.sh "${{ matrix.oie }}" "${RUNNER_TEMP}/oie-home")" >> "${GITHUB_ENV}"
+
+      # install:install-file reads pom.xml, whose default oie.home (a Windows path) does not exist
+      # here, so the unpacked engine is passed in MVN_OPTS.
+      - name: Install the OIE engine jars
+        run: |
+          if [ -f ~/.m2/repository/com/mirth/connect/client-core/${{ matrix.oie }}/client-core-${{ matrix.oie }}.jar ]; then
+            echo "Engine jars ${{ matrix.oie }} restored from the cache"
+          else
+            MVN_OPTS="-Doie.home=${OIE_HOME}" bash .github/scripts/install-oie-jars.sh "${{ matrix.oie }}"
+          fi
+
+      - name: Check versions
+        if: matrix.release
+        env:
+          TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+        run: bash .github/scripts/check-versions.sh "${TAG}"
+
+      - name: Build and test
+        run: mvn -B package -Doie.version=${{ matrix.oie }} -Doie.home="${OIE_HOME}"
+
+      - name: Keep the zip
+        if: matrix.release
+        uses: actions/upload-artifact@v7
+        with:
+          name: claude-assistant
+          path: target/claude-assistant-*.zip
+
+  release:
+    outputs:
+      created: ${{ steps.release.outputs.created }}
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: claude-assistant
+          path: target
+
+      - name: Create the release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: bash .github/scripts/release.sh "${TAG}"
+
+  # Releases created above with GITHUB_TOKEN do not fire `release`, so call the catalog workflow here.
+  # A release published by hand fires `release` itself, and catalog-pr.yml runs on that.
+  catalog:
+    needs: release
+    if: needs.release.outputs.created == 'true'
+    uses: ./.github/workflows/catalog-pr.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      CATALOG_TOKEN: ${{ secrets.CATALOG_TOKEN }}

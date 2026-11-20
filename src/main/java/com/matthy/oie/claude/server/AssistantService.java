@@ -116,17 +116,32 @@ public class AssistantService {
     private ModelReader modelReader;
     private JsonNode cachedModels;
     private String cachedModelsKey;
-    private String cachedModelsBaseUrl;
-    private String cachedModelsProvider;
     private long cachedModelsAt;
 
+    /** Creates the model loop for a configuration: the engine's in OIE, a fake one in tests. */
+    interface LoopFactory {
+        ModelLoop create(Settings settings, String systemPrompt, List<Map<String, Object>> tools, ModelLoop.ToolCaller caller) throws Exception;
+    }
+
+    /** Null when the engine could not be loaded. */
+    private final LoopFactory loopFactory;
+
     public AssistantService(Settings settings) {
-        try {
-            engine = new EngineLoader();
-        } catch (Exception e) {
-            engineError = e.getMessage();
-            logger.error("Claude Assistant: engine could not be loaded", e);
+        this(settings, null);
+    }
+
+    /** With a loop factory (tests), the engine is not loaded: spend and the model list are then unavailable. */
+    AssistantService(Settings settings, LoopFactory loopFactory) {
+        if (loopFactory == null) {
+            try {
+                engine = new EngineLoader();
+                loopFactory = engine::create;
+            } catch (Exception e) {
+                engineError = e.getMessage();
+                logger.error("Claude Assistant: engine could not be loaded", e);
+            }
         }
+        this.loopFactory = loopFactory;
         configure(settings);
         housekeeping.scheduleWithFixedDelay(this::expire, 10, 10, TimeUnit.MINUTES);
     }
@@ -136,7 +151,7 @@ public class AssistantService {
         Masker newMasker = new Masker(settings.maskPatterns);
         OieTools newTools = new OieTools(newMasker);
         ModelLoop newLoop = null;
-        if (engine != null && (!settings.apiKey.isEmpty() || "openai-compatible".equals(settings.provider))) {
+        if (loopFactory != null && !settings.apiKey.isEmpty()) {
             List<Map<String, Object>> specs = new ArrayList<>();
             for (OieTools.Spec spec : newTools.specs()) {
                 Map<String, Object> m = new LinkedHashMap<>();
@@ -147,7 +162,7 @@ public class AssistantService {
                 specs.add(m);
             }
             try {
-                newLoop = engine.create(settings, systemPrompt(settings), specs, this::callTool);
+                newLoop = loopFactory.create(settings, systemPrompt(settings), specs, this::callTool);
             } catch (Exception e) {
                 logger.error("Claude Assistant: could not create the model client", e);
                 engineError = "Cannot start the Claude client: " + e;
@@ -186,16 +201,13 @@ public class AssistantService {
      */
     public synchronized String spend(boolean refresh) throws Exception {
         Settings s = settings;
-        if (!"anthropic".equals(s.provider)) {
-            throw new IllegalStateException("Usage and spend reports are available only with Anthropic; OpenAI-compatible servers do not provide this report through the plugin.");
-        }
         if (s.adminApiKey.isEmpty()) {
             throw new IllegalStateException("No Admin API key is set. Spend this month needs an Admin API key (sk-ant-admin...).");
         }
         if (engine == null) {
             throw new IllegalStateException("The Claude assistant cannot start: " + engineError);
         }
-        String cacheKey = s.adminApiKey + '\n' + s.apiKey + '\n' + s.baseUrl;
+        String cacheKey = s.adminApiKey + '\n' + s.apiKey;
         long now = System.currentTimeMillis();
         if (!refresh && cachedSpend != null && cacheKey.equals(cachedSpendKey) && now - cachedSpendAt < SPEND_CACHE_MS) {
             return cachedSpend;
@@ -203,7 +215,7 @@ public class AssistantService {
         if (spendReader == null) {
             spendReader = engine.createSpendReader();
         }
-        cachedSpend = spendReader.read(s.adminApiKey, s.apiKey, s.baseUrl);
+        cachedSpend = spendReader.read(s.adminApiKey, s.apiKey);
         cachedSpendKey = cacheKey;
         cachedSpendAt = now;
         return cachedSpend;
@@ -217,23 +229,21 @@ public class AssistantService {
      */
     public String models(boolean refresh) {
         Settings s = settings;
-        if (s.apiKey.isEmpty() && "anthropic".equals(s.provider)) {
-            return ModelList.build(null, "Set an API key to load the model list; a fixed list is shown.", s.model, 0).toString();
+        if (s.apiKey.isEmpty()) {
+            return ModelList.build(null, "Set an Anthropic API key to load the model list from Anthropic; a fixed list is shown.", s.model, 0).toString();
         }
         if (engine == null) {
             return ModelList.build(null, "The Claude assistant cannot start: " + engineError, s.model, 0).toString();
         }
         synchronized (modelsLock) {
             long now = System.currentTimeMillis();
-            if (refresh || cachedModels == null || !s.apiKey.equals(cachedModelsKey) || !s.baseUrl.equals(cachedModelsBaseUrl) || !s.provider.equals(cachedModelsProvider) || now - cachedModelsAt >= MODELS_CACHE_MS) {
+            if (refresh || cachedModels == null || !s.apiKey.equals(cachedModelsKey) || now - cachedModelsAt >= MODELS_CACHE_MS) {
                 try {
                     if (modelReader == null) {
                         modelReader = engine.createModelReader();
                     }
-                    cachedModels = MAPPER.readTree(modelReader.list(s.apiKey, s.baseUrl, s.provider));
+                    cachedModels = MAPPER.readTree(modelReader.list(s.apiKey));
                     cachedModelsKey = s.apiKey;
-                    cachedModelsBaseUrl = s.baseUrl;
-                    cachedModelsProvider = s.provider;
                     cachedModelsAt = now;
                 } catch (Exception e) {
                     // Not cached, so the next visit tries again; the fixed list keeps the screen usable.
@@ -265,7 +275,7 @@ public class AssistantService {
             if (engineError != null) {
                 throw new IllegalStateException("The Claude assistant cannot start: " + engineError);
             }
-            throw new IllegalStateException("Configure an API key if required and a compatible API base URL under Settings > OIE AI Assistant.");
+            throw new IllegalStateException("No Anthropic API key is set yet. Enter one under Settings > Claude Assistant.");
         }
         Conversation conversation;
         if (conversationId == null || conversationId.isBlank()) {
@@ -611,12 +621,12 @@ public class AssistantService {
     private static final Pattern XML_MESSAGE_ID = Pattern.compile("<messageId>(\\d+)</messageId>");
 
     /**
-     * Records that message data, log lines or events went to the configured model endpoint: who, which tool, which
+     * Records that message data, log lines or events went to Anthropic: who, which tool, which
      * channel and message IDs, and whether it was reviewed. Never the content itself.
      */
     private void auditShared(ChatJob job, String tool, JsonNode input, String sent, String review) {
         try {
-            ServerEvent event = new ServerEvent(ControllerFactory.getFactory().createConfigurationController().getServerId(), "OIE AI Assistant: data sent to model endpoint");
+            ServerEvent event = new ServerEvent(ControllerFactory.getFactory().createConfigurationController().getServerId(), "Claude Assistant: data sent to Anthropic");
             event.setLevel(ServerEvent.Level.INFORMATION);
             event.setOutcome(ServerEvent.Outcome.SUCCESS);
             event.setUserId(job.conversation.userId);

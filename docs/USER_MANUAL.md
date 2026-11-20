@@ -1,8 +1,8 @@
 # Claude Assistant for OIE — User Manual
 
-Version 1.1.1 · October 2026
+Version 1.3.0 · November 2026
 
-The Claude Assistant (version 1.1.1) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
+The Claude Assistant (version 1.3.0) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
 
 > **Unofficial plugin.** This is a community-built plugin. It is not affiliated with, endorsed by or supported by Anthropic. Claude and Anthropic are trademarks of Anthropic, PBC.
 >
@@ -80,10 +80,8 @@ The key is stored encrypted on the server and never sent back to the Administrat
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| Provider | Anthropic | Select Anthropic-compatible or OpenAI-compatible API behavior explicitly; the base URL does not determine the provider |
-| API base URL | `https://api.anthropic.com` | Provider endpoint, including a compatible proxy URL |
-| API key | none | Key for the selected provider; it may be blank for local OpenAI-compatible servers |
-| Model | `claude-opus-5` | The model that answers. The list is loaded from the selected provider when supported; you can also type a model ID |
+| API key | none | Anthropic key used for every question |
+| Model | `claude-opus-5` | The Claude model that answers. The list shows the models your API key can use, newest first, as Anthropic reports them; you can also type a model ID |
 | Effort | `high` | How hard Claude thinks; lower is faster and cheaper |
 | Max tool calls | 25 | Lookups Claude may do for one question |
 | Response language | Automatic | Automatic answers in the language of the question; a fixed language always answers in that language |
@@ -94,7 +92,7 @@ The key is stored encrypted on the server and never sent back to the Administrat
 
 To get an API key, sign in at [console.anthropic.com](https://console.anthropic.com), open *API keys* and click *Create key*. Copy it straight away: the Console shows it only once.
 
-**The model list.** Once an API key is saved, the server asks the selected provider which models the key can use and keeps that list for a day; *Refresh list* next to the field asks again. The line below the field says where the list comes from:
+**The model list.** Once an API key is saved, the server asks Anthropic which models the key can use and keeps that list for a day; *Refresh list* next to the field asks again. A model Anthropic adds therefore appears without a new plugin version. The line below the field says where the list comes from:
 
 - *N models from Anthropic, updated …*: the current list.
 - A message and *a fixed list is shown*: Anthropic could not be asked (no API key yet, no internet, a rejected key). The plugin's own list is shown instead; the reason is in the message.
@@ -108,6 +106,7 @@ Start from the place your question is about: *Ask Claude* there sends the select
 | --- | --- | --- |
 | Left menu, **Other** | *Claude Assistant* | None: questions about the whole server |
 | **Dashboard** | Task or right-click, *Ask Claude* | Selected channel(s) or connectors |
+| **Dashboard** | Task or right-click, *Check queues and storage* | None: Claude checks all queues and message storage (see *Queues and message storage*) |
 | **Message browser** | Task or right-click, *Ask Claude* | Selected message (channel, message ID, connector) |
 | **Channel editor** | Task or right-click, *Ask Claude* | The open channel (its saved version) |
 | **Channel editor** | Task or right-click, *Document channel* | The open channel; Claude writes its documentation (see *Documenting a channel*) |
@@ -141,7 +140,8 @@ The web administrator gets the same assistant once the **Web Support** extension
 | **Code Templates**, right-click | *Ask Claude* about the selected template |
 | **Claude page**, button **Global Scripts** | The global scripts as context |
 | **Claude page**, button **Document channel** | Documents the channel in the context (from the channel editor tab or the Channels view) |
-| **Command palette** (Ctrl+K) | *Claude Assistant* and *Ask Claude about Global Scripts* |
+| **Claude page**, button **Queues and storage** | Checks queues and message storage |
+| **Command palette** (Ctrl+K) | *Claude Assistant*, *Check queues and storage* and *Ask Claude about Global Scripts* |
 | **Settings**, tab **Claude Assistant** | Same settings and usage as in Swing; save with the page's own *Save* |
 
 A conversation stays open while you move between the Claude page and other views. The Claude page has the same **Conversations…**, **Export** and **Save answer** buttons as the Swing window; they download the Markdown file.
@@ -162,6 +162,7 @@ Claude uses these read tools on its own, without asking. They change nothing.
 | Channel scripts | Every script in a channel with its location |
 | Channel overview | A readable summary of a channel: per connector its settings (passwords and other secrets hidden), filter rules and transformer steps with what each really does, the channel scripts, code template libraries and Configuration Map keys used |
 | Channel statistics | Counters per connector for one channel |
+| Queues and storage | Per destination the queue size, the oldest queued message and its age, send attempts, the last error and the queue settings; per channel the stored messages, an estimate of their size, the oldest message and the pruning settings; the database type and size and whether the Data Pruner runs |
 | Search messages | Messages by status, period or text, optionally with (masked) content |
 | Get message | One message with raw, transformed, encoded, sent and response content, maps and errors |
 | Events | Audit and server events: deploys, errors, logins |
@@ -187,6 +188,20 @@ At most 25 tool calls are made per question by default (*Max tool calls*). Raise
 The answer is only the documentation. Save it as a separate file with **Save answer…** (Swing) or **Save answer** (web): the file gets the channel's name, for example `OIE XC ORM HAGA v_2_8_5.md`, and holds nothing from the rest of the conversation. Passwords and other secrets are never included: the overview hides them before Claude sees it. Patient data in the channel (for example a sample message in a script) is masked as usual.
 
 For a very large channel, Claude reads a few connectors at a time.
+
+### Queues and message storage
+
+Growing queues and a growing message database cause most slow-burning incidents: a destination that is down queues messages for days, and channels without pruning fill the disk. *Check queues and storage* (Dashboard task or right-click; in the web administrator the **Queues and storage** button on the Claude page or the command palette) asks Claude to look for both. Claude reports:
+
+- **Stuck destinations**: stopped, paused, disabled or undeployed with messages in the queue, or a queue whose oldest message has waited more than an hour, with the age of that message, its send attempts and the last error (for example *TCP Sender error: Connection refused*)
+- **Channels without pruning**, with the number of messages they keep, and an estimate of each channel's size in the database
+- The **database** type and size, the free disk space for an embedded Derby database, and whether the **Data Pruner** runs (if it is disabled, no channel is pruned, whatever its own settings say)
+
+Ask about one channel to see the queue and retry settings of each of its connectors. The tool reads counts, dates and settings only, never message content; the last error is the one line OIE stored for the oldest queued message, masked like everything else.
+
+Claude can propose starting or resuming a channel (with your approval). Pruning settings you change yourself: in the channel editor, tab *Summary*, section *Message Pruning*, choose *Prune metadata older than* a number of days. Queued and errored messages are kept unless you tick *Prune Errored Messages*.
+
+The size per channel comes from the database's own statistics (PostgreSQL, MySQL, SQL Server, Oracle, Derby); if the database user may not read them, the size shows as *?*. For an external database OIE cannot see the free disk space.
 
 ## Actions and approval
 
@@ -308,7 +323,7 @@ Claude only gets what you could see or do yourself in OIE. Every tool checks you
 | --- | --- |
 | List channels, channel statistics | View Dashboard |
 | Get channel, channel scripts | View Channels |
-| Search messages, get message | View Messages |
+| Search messages, get message, queues and storage | View Messages |
 | Events | View Events |
 | Server log | View Server Log |
 | Code templates | View Code Templates |
@@ -367,9 +382,7 @@ A question then ends with *Cannot reach the Anthropic API from the OIE server (�
 
 Connecting times out after 10 seconds and is tried three times, so you get the message within about half a minute. An answer itself may take up to 10 minutes.
 
-**Behind an Anthropic-compatible gateway or proxy:** select **Anthropic** as the provider and set
-the proxy URL in **API base URL**. Alternatively, add this line to `conf/custom.vmoptions` and
-restart the service to override the configured URL:
+**Behind a gateway or proxy:** add this line to `conf/custom.vmoptions` and restart the service:
 
 ```
 -Doie.claude.baseUrl=https://gateway.example/anthropic
@@ -381,7 +394,7 @@ restart the service to override the configured URL:
 | --- | --- | --- |
 | *Claude Assistant* missing under *Other* | Extension not loaded or service not restarted | Check *Settings > Extensions*, restart the OIE service, log in again |
 | API key field is empty after *Save* | By design: the key is never sent back | Check the line *Set: sk-ant-…xxxx* below the field |
-| *Cannot reach the API* | No internet, firewall or proxy on the OIE server | Allow the configured API base URL, or set `oie.claude.baseUrl` |
+| *Cannot reach the Anthropic API* | No internet, firewall or proxy on the OIE server | Allow `api.anthropic.com`, or set `oie.claude.baseUrl` |
 | Authentication error | Wrong, revoked or expired API key | Create a new key in the Console and save it |
 | Error about credits or billing | No credit left on the Anthropic account | Add credits under Billing in the Console |
 | *No context* in the chat header | Opened from *Other*, not from a view | Normal: Claude looks at the whole server; use *Ask Claude* in a view for a specific item |

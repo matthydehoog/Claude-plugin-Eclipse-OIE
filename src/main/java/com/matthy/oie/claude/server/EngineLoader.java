@@ -25,7 +25,6 @@ import java.util.Map;
 final class EngineLoader {
 
     private static final String ENGINE_CLASS = "com.matthy.oie.claude.engine.SdkModelLoop";
-    private static final String OPENAI_ENGINE_CLASS = "com.matthy.oie.claude.engine.OpenAiCompatibleLoop";
     private static final String SPEND_CLASS = "com.matthy.oie.claude.engine.SdkSpendReader";
     private static final String MODELS_CLASS = "com.matthy.oie.claude.engine.SdkModelReader";
 
@@ -48,14 +47,9 @@ final class EngineLoader {
     }
 
     ModelLoop create(Settings settings, String systemPrompt, List<Map<String, Object>> tools, ModelLoop.ToolCaller caller) throws Exception {
-        boolean openAiCompatible = "openai-compatible".equals(settings.provider);
-        Class<?> engine = Class.forName(openAiCompatible ? OPENAI_ENGINE_CLASS : ENGINE_CLASS, true, loader);
-        if (openAiCompatible) {
-            return (ModelLoop) engine.getConstructor(String.class, String.class, String.class, String.class, int.class, String.class, List.class, ModelLoop.ToolCaller.class)
-                    .newInstance(settings.apiKey, settings.baseUrl, settings.model, settings.effort, settings.maxToolCalls, systemPrompt, tools, caller);
-        }
-        return (ModelLoop) engine.getConstructor(String.class, String.class, String.class, String.class, int.class, String.class, List.class, ModelLoop.ToolCaller.class)
-                .newInstance(settings.apiKey, settings.baseUrl, settings.model, settings.effort, settings.maxToolCalls, systemPrompt, tools, caller);
+        Class<?> engine = Class.forName(ENGINE_CLASS, true, loader);
+        return (ModelLoop) engine.getConstructor(String.class, String.class, String.class, int.class, String.class, List.class, ModelLoop.ToolCaller.class)
+                .newInstance(settings.apiKey, settings.model, settings.effort, settings.maxToolCalls, systemPrompt, tools, caller);
     }
 
     SpendReader createSpendReader() throws Exception {

@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      # The engine jars come from the engine release (see .github/scripts/install-oie-jars.sh),
+      # and the libraries the engine already ships must match its versions, not the newest ones.
+      - dependency-name: "com.mirth.connect:*"
+      # `system` jars read from the engine install by file name (pom.xml, groupId "oie").
+      - dependency-name: "oie:*"
+      - dependency-name: "org.apache.logging.log4j:*"
+      - dependency-name: "org.apache.commons:commons-lang3"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
