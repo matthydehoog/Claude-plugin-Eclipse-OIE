@@ -47,7 +47,7 @@ public class ClaudeServicePlugin implements ServicePlugin {
 
     /**
      * OIE hands init() the properties stored under the plugin's display name (plugin.xml),
-     * which is "AI Assistant" since 1.3.0. The settings themselves are saved under the plugin
+     * which is "AI Assistant" since 2.0.0. The settings themselves are saved under the plugin
      * point "Claude Assistant", so read them from there; otherwise every restart or reinstall
      * would start with the defaults.
      */
