@@ -108,6 +108,21 @@ public class SettingsTest {
     }
 
     @Test
+    public void anOpenAiModelIsNotToldItIsClaude() {
+        Settings openAi = new Settings("", "", "gpt-4.1", "high", 25, "", null, null, 0, "openai-compatible", "https://api.openai.com/v1");
+        String prompt = AssistantService.systemPrompt(openAi);
+        assertTrue(prompt, prompt.contains("running as the model gpt-4.1 through an OpenAI-compatible API at api.openai.com"));
+        assertTrue(prompt, prompt.contains("you are not Claude"));
+        assertFalse(prompt, prompt.contains("You are the Claude assistant"));
+        assertFalse(prompt, prompt.contains("{identity}"));
+        assertEquals("api.openai.com", AssistantService.modelServer(openAi));
+
+        String claude = AssistantService.systemPrompt(settings("Automatic"));
+        assertTrue(claude, claude.startsWith("You are the Claude assistant inside the Administrator"));
+        assertEquals("Anthropic", AssistantService.modelServer(settings("Automatic")));
+    }
+
+    @Test
     public void anOpenAiProviderNeedsABaseUrlButNoKey() {
         Settings local = new Settings("", "", "qwen3", "high", 25, "", null, null, 0, "openai-compatible", "http://localhost:11434/v1");
         assertTrue(local.configured());

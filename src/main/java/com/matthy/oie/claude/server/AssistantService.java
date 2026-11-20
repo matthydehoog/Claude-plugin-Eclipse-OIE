@@ -66,8 +66,10 @@ public class AssistantService {
 
     private static final String LANGUAGE_LINE = "{language}";
 
+    private static final String IDENTITY_LINE = "{identity}";
+
     private static final String SYSTEM_PROMPT = String.join("\n",
-            "You are the Claude assistant inside the Administrator of Open Integration Engine (OIE, a fork of Mirth Connect).",
+            IDENTITY_LINE,
             "You help integration specialists with their OIE server: channels, messages, errors, scripts, code templates and server status.",
             LANGUAGE_LINE,
             "",
@@ -191,7 +193,28 @@ public class AssistantService {
         String language = settings.automaticLanguage()
                 ? "Answer in the user's language, concisely and concretely."
                 : "Always answer in " + settings.responseLanguage + ", concisely and concretely, whatever language the question, the server data or earlier messages are in. Keep code, identifiers and quoted error messages as they are.";
-        return SYSTEM_PROMPT.replace(LANGUAGE_LINE, language);
+        // With another provider the model is not Claude: tell it which model it is, so it does not
+        // take the plugin's name for its own when the user asks.
+        String identity = settings.openAiCompatible()
+                ? "You are an AI assistant inside the Administrator of Open Integration Engine (OIE, a fork of Mirth Connect), running as the model "
+                        + settings.model + " through an OpenAI-compatible API at " + modelServer(settings)
+                        + ". The plugin is called Claude Assistant, but you are not Claude and not made by Anthropic: when asked which AI or model you are, say you are "
+                        + settings.model + "."
+                : "You are the Claude assistant inside the Administrator of Open Integration Engine (OIE, a fork of Mirth Connect).";
+        return SYSTEM_PROMPT.replace(IDENTITY_LINE, identity).replace(LANGUAGE_LINE, language);
+    }
+
+    /** The host of the OpenAI-compatible server (e.g. api.openai.com), or "Anthropic" for Claude. */
+    static String modelServer(Settings settings) {
+        if (!settings.openAiCompatible()) {
+            return "Anthropic";
+        }
+        try {
+            String host = java.net.URI.create(settings.baseUrl).getHost();
+            return host != null ? host : settings.baseUrl;
+        } catch (IllegalArgumentException e) {
+            return settings.baseUrl;
+        }
     }
 
     /**
@@ -660,12 +683,13 @@ public class AssistantService {
     private static final Pattern XML_MESSAGE_ID = Pattern.compile("<messageId>(\\d+)</messageId>");
 
     /**
-     * Records that message data, log lines or events went to Anthropic: who, which tool, which
-     * channel and message IDs, and whether it was reviewed. Never the content itself.
+     * Records that message data, log lines or events went to the model provider (Anthropic, or the
+     * host of the OpenAI-compatible server): who, which tool, which channel and message IDs, and
+     * whether it was reviewed. Never the content itself.
      */
     private void auditShared(ChatJob job, String tool, JsonNode input, String sent, String review) {
         try {
-            ServerEvent event = new ServerEvent(ControllerFactory.getFactory().createConfigurationController().getServerId(), "Claude Assistant: data sent to Anthropic");
+            ServerEvent event = new ServerEvent(ControllerFactory.getFactory().createConfigurationController().getServerId(), "Claude Assistant: data sent to " + modelServer(settings));
             event.setLevel(ServerEvent.Level.INFORMATION);
             event.setOutcome(ServerEvent.Outcome.SUCCESS);
             event.setUserId(job.conversation.userId);
