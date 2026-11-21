@@ -25,7 +25,7 @@ import com.mirth.connect.client.core.api.MirthOperation;
 /**
  * What an RBAC extension needs to enforce the plugin's permissions: every REST operation has one of
  * the three permissions, and every Administrator task that opens the chat is published with "Use
- * Claude Assistant" (unpublished tasks cannot be hidden).
+ * AI Assistant" (unpublished tasks cannot be hidden).
  */
 public class PermissionsTest {
 
@@ -57,7 +57,19 @@ public class PermissionsTest {
 
     @Test
     public void settingsTabTasksMatchTheAdministratorTaskGroup() {
-        assertEquals(Arrays.asList("settings_Claude Assistant/doRefresh", "settings_Claude Assistant/doSave"), Arrays.asList(ClaudeServletInterface.SETTINGS_TASKS));
+        assertEquals(Arrays.asList("settings_AI Assistant/doRefresh", "settings_AI Assistant/doSave"), Arrays.asList(ClaudeServletInterface.SETTINGS_TASKS));
+    }
+
+    @Test
+    public void permissionsAndOperationsShareTheGroupName() {
+        // RBAC maps an operation to its permission by "<extension name>#<operation>": the permissions
+        // must use the same extension name as the servlet (PERMISSION_GROUP).
+        com.mirth.connect.model.ExtensionPermission[] permissions = Permissions.all(permission -> new String[0]);
+        assertEquals(3, permissions.length);
+        for (com.mirth.connect.model.ExtensionPermission p : permissions) {
+            assertEquals(p.getDisplayName(), ClaudeServletInterface.PERMISSION_GROUP, p.getExtensionName());
+        }
+        assertEquals("AI Assistant", ClaudeServletInterface.PERMISSION_GROUP);
     }
 
     @Test

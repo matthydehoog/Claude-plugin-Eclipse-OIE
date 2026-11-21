@@ -27,6 +27,8 @@ final class EngineLoader {
     private static final String ENGINE_CLASS = "com.matthy.oie.claude.engine.SdkModelLoop";
     private static final String SPEND_CLASS = "com.matthy.oie.claude.engine.SdkSpendReader";
     private static final String MODELS_CLASS = "com.matthy.oie.claude.engine.SdkModelReader";
+    private static final String OPENAI_ENGINE_CLASS = "com.matthy.oie.claude.engine.OpenAiCompatibleLoop";
+    private static final String OPENAI_MODELS_CLASS = "com.matthy.oie.claude.engine.OpenAiModelReader";
 
     /** Always from the engine's parent: the JDK, the host side of this plugin and the OIE APIs it uses. */
     private static final String[] PARENT_FIRST = { "java.", "javax.", "jdk.", "sun.", "com.sun.", "org.w3c.", "org.xml.", "com.matthy.oie.claude.server.", "com.matthy.oie.claude.shared.", "com.mirth.", "org.apache.logging.", "org.slf4j." };
@@ -47,6 +49,11 @@ final class EngineLoader {
     }
 
     ModelLoop create(Settings settings, String systemPrompt, List<Map<String, Object>> tools, ModelLoop.ToolCaller caller) throws Exception {
+        if (settings.openAiCompatible()) {
+            return (ModelLoop) Class.forName(OPENAI_ENGINE_CLASS, true, loader)
+                    .getConstructor(String.class, String.class, String.class, int.class, String.class, List.class, ModelLoop.ToolCaller.class)
+                    .newInstance(settings.apiKey, settings.baseUrl, settings.model, settings.maxToolCalls, systemPrompt, tools, caller);
+        }
         Class<?> engine = Class.forName(ENGINE_CLASS, true, loader);
         return (ModelLoop) engine.getConstructor(String.class, String.class, String.class, int.class, String.class, List.class, ModelLoop.ToolCaller.class)
                 .newInstance(settings.apiKey, settings.model, settings.effort, settings.maxToolCalls, systemPrompt, tools, caller);
@@ -60,13 +67,18 @@ final class EngineLoader {
         return (ModelReader) Class.forName(MODELS_CLASS, true, loader).getConstructor().newInstance();
     }
 
+    /** The model list of an OpenAI-compatible provider (GET {baseUrl}/models). */
+    ModelReader createOpenAiModelReader(String baseUrl) throws Exception {
+        return (ModelReader) Class.forName(OPENAI_MODELS_CLASS, true, loader).getConstructor(String.class).newInstance(baseUrl);
+    }
+
     /** extensions/claude-assistant/lib, next to the server jar this class was loaded from. */
     private static File libDir() throws IOException {
         try {
             File jar = new File(EngineLoader.class.getProtectionDomain().getCodeSource().getLocation().toURI());
             return new File(jar.getParentFile(), "lib");
         } catch (Exception e) {
-            throw new IOException("Cannot determine the folder of the Claude Assistant extension", e);
+            throw new IOException("Cannot determine the folder of the AI Assistant extension", e);
         }
     }
 

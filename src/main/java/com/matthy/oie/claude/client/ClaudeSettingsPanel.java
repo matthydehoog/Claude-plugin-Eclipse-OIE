@@ -45,7 +45,7 @@ import com.mirth.connect.client.ui.PlatformUI;
 import net.miginfocom.swing.MigLayout;
 
 /**
- * Settings > Claude Assistant: API keys, model, effort, tool-call limit, extra mask patterns, and
+ * Settings > AI Assistant: API keys, model, effort, tool-call limit, extra mask patterns, and
  * this month's spend from the Anthropic Cost API.
  */
 public class ClaudeSettingsPanel extends AbstractSettingsPanel {
@@ -58,11 +58,57 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     /** Stored values of "Review before sending" and their labels. */
     private static final String[] REVIEWS = { "data", "all", "off" };
     private static final String[] REVIEW_LABELS = { "Message content, logs and events (recommended)", "Everything, including my question", "Off (send without review)" };
-    /** The credit balance has no API, so the tab links to the Console's billing page instead. */
-    private static final String BILLING_URL = "https://platform.claude.com/settings/billing";
+    /** The credit balance has no API, so the tab links to the provider's billing page instead. */
+    static final String ANTHROPIC_BILLING_URL = "https://platform.claude.com/settings/billing";
+    static final String OPENAI_BILLING_URL = "https://platform.openai.com/settings/organization/billing/overview";
+
+    /** The provider's billing page: Anthropic's, OpenAI's for api.openai.com, or null for other servers (e.g. Ollama). */
+    static String billingUrl(boolean openAi, String baseUrl) {
+        if (!openAi) {
+            return ANTHROPIC_BILLING_URL;
+        }
+        try {
+            return "api.openai.com".equalsIgnoreCase(URI.create(baseUrl == null ? "" : baseUrl.trim()).getHost()) ? OPENAI_BILLING_URL : null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /** Mistral's OpenAI-compatible API; the Mistral choice saves the OpenAI-compatible provider with this base URL. */
+    static final String MISTRAL_BASE_URL = "https://api.mistral.ai/v1";
+    /** Dropdown index of each choice; the server only knows "anthropic" and "openai-compatible". */
+    static final int ANTHROPIC = 0, OPENAI_COMPATIBLE = 1, MISTRAL = 2;
+    private static final String[] PROVIDERS = { "anthropic", "openai-compatible", "openai-compatible" };
+
+    /** The dropdown choice for saved settings: Mistral when the OpenAI-compatible provider points at api.mistral.ai. */
+    static int providerChoice(String provider, String baseUrl) {
+        if (!PROVIDERS[OPENAI_COMPATIBLE].equals(provider)) {
+            return ANTHROPIC;
+        }
+        try {
+            return "api.mistral.ai".equalsIgnoreCase(URI.create(baseUrl == null ? "" : baseUrl.trim()).getHost()) ? MISTRAL : OPENAI_COMPATIBLE;
+        } catch (IllegalArgumentException e) {
+            return OPENAI_COMPATIBLE;
+        }
+    }
+
+    /** The provider value saved for a dropdown choice. */
+    static String storedProvider(int choice) {
+        return PROVIDERS[Math.max(0, Math.min(PROVIDERS.length - 1, choice))];
+    }
 
     private final JPasswordField apiKeyField = new JPasswordField(40);
     private final JLabel apiKeyStatus = new JLabel();
+    private final JComboBox<String> providerBox = new JComboBox<>(new String[] { "Anthropic (Claude)", "OpenAI-compatible (OpenAI, Ollama, vLLM)", "Mistral" });
+    private final javax.swing.JTextField baseUrlField = new javax.swing.JTextField(40);
+    private final JLabel baseUrlLabel = new JLabel("API base URL:");
+    private static final String OPENAI_NOTE = "<html>For example <code>https://api.openai.com/v1</code>, <code>http://ollama-host:11434/v1</code> (Ollama) or "
+            + "<code>http://vllm-host:8000/v1</code> (vLLM). The OIE server must reach it, and the model must support tool calling. "
+            + "The API key may stay empty for a local server. Spend this month is only available with Anthropic.</html>";
+    private static final String MISTRAL_NOTE = "<html>Mistral's API (La Plateforme). Enter a key from console.mistral.ai and choose a model that supports tool calling, "
+            + "for example <code>mistral-large-latest</code> or <code>mistral-medium-latest</code>. Spend this month is only available with Anthropic.</html>";
+    private final JLabel baseUrlNote = new JLabel(OPENAI_NOTE);
+    private final JLabel baseUrlNoteLabel = new JLabel("");
     /** Filled from the server's model list (Anthropic's, or a fixed list); a model ID can also be typed. */
     private final JComboBox<String> modelBox = new JComboBox<>();
     private final JButton refreshModels = new JButton("Refresh list");
@@ -85,6 +131,11 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     private final JLabel spendNote = new JLabel(" ");
     private final JButton refreshSpend = new JButton("Refresh");
     private final JButton openBilling = new JButton("Open Billing in Console");
+    private final JLabel creditsLabel = new JLabel("Credits:");
+    /** Usage rows that only apply to Anthropic (Admin API key, Cost API spend). */
+    private final java.util.List<JComponent> anthropicUsage = new java.util.ArrayList<>();
+    /** Separator and heading of the Usage section: hidden when nothing in it applies. */
+    private final java.util.List<JComponent> usageHeader = new java.util.ArrayList<>();
 
     private boolean loading;
 
@@ -111,7 +162,13 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
 
         JPanel form = new JPanel(new MigLayout("insets 0, novisualpadding, hidemode 3", "[right][grow,fill]"));
         form.setBackground(Color.WHITE);
-        form.add(new JLabel("Anthropic API key:"));
+        form.add(new JLabel("Provider:"));
+        form.add(providerBox, "wrap, w 360!");
+        form.add(baseUrlLabel);
+        form.add(baseUrlField, "wrap, growx");
+        form.add(baseUrlNoteLabel);
+        form.add(baseUrlNote, "wrap, w 600!");
+        form.add(new JLabel("API key:"));
         form.add(apiKeyField, "wrap, growx");
         form.add(new JLabel(""));
         form.add(apiKeyStatus, "wrap");
@@ -128,11 +185,11 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         form.add(new JLabel("Review before sending:"));
         form.add(reviewBox, "wrap, w 360!");
         form.add(new JLabel(""));
-        form.add(new JLabel("<html>Shows exactly what will be sent to Claude, after masking, so each user can edit it or withhold it first.</html>"), "wrap, w 600!");
+        form.add(new JLabel("<html>Shows exactly what will be sent to the AI model, after masking, so each user can edit it or withhold it first.</html>"), "wrap, w 600!");
         form.add(new JLabel("Keep conversations (days):"));
         form.add(keepDays, "wrap, w 80!");
         form.add(new JLabel(""));
-        form.add(new JLabel("<html>Days a conversation is kept on the server after its last use, so it can be continued after a restart of OIE (Conversations…). Only what was sent to Claude is kept, so masked. 0 = not saved: conversations are gone 4 hours after their last use or on a restart, and saved ones are removed.</html>"), "wrap, w 600!");
+        form.add(new JLabel("<html>Days a conversation is kept on the server after its last use, so it can be continued after a restart of OIE (Conversations…). Only what was sent to the AI model is kept, so masked. 0 = not saved: conversations are gone 4 hours after their last use or on a restart, and saved ones are removed.</html>"), "wrap, w 600!");
         form.add(new JLabel("Extra mask patterns:"), "top");
         form.add(new JScrollPane(maskPatterns), "wrap, growx, h 80!");
         form.add(new JLabel(""));
@@ -140,28 +197,28 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
                 + "(HL7 PID, NTE and text over 30 characters, GDT 3000-3107, BSN).<br>The API keys are stored encrypted on the server and never sent back to the Administrator. "
                 + "Leave a key field empty to keep the current key.</html>"), "wrap, w 600!");
 
-        form.add(new JSeparator(), "span, growx, gaptop 12, gapbottom 6, wrap");
-        form.add(new JLabel("<html><b>Usage</b></html>"), "span, left, wrap");
-        form.add(new JLabel("Admin API key (optional):"));
-        form.add(adminKeyField, "wrap, growx");
-        form.add(new JLabel(""));
+        form.add(header(new JSeparator()), "span, growx, gaptop 12, gapbottom 6, wrap");
+        form.add(header(new JLabel("<html><b>Usage</b></html>")), "span, left, wrap");
+        form.add(anthropic(new JLabel("Admin API key (optional):")));
+        form.add(anthropic(adminKeyField), "wrap, growx");
+        form.add(anthropic(new JLabel("")));
         // Own left-aligned rows: the checkbox and button sit next to their text instead of being
         // pushed to the edge of the stretched column, and hiding the checkbox cannot drop a "wrap".
-        form.add(leftRow(adminKeyStatus, clearAdminKey), "wrap");
-        form.add(new JLabel("Spend this month:"));
-        form.add(leftRow(spendOrganization, refreshSpend), "wrap");
-        form.add(new JLabel(""));
-        form.add(spendWorkspace, "wrap");
-        form.add(new JLabel("Tokens this month:"));
-        form.add(spendTokens, "wrap");
-        form.add(new JLabel("Credits:"));
+        form.add(anthropic(leftRow(adminKeyStatus, clearAdminKey)), "wrap");
+        form.add(anthropic(new JLabel("Spend this month:")));
+        form.add(anthropic(leftRow(spendOrganization, refreshSpend)), "wrap");
+        form.add(anthropic(new JLabel("")));
+        form.add(anthropic(spendWorkspace), "wrap");
+        form.add(anthropic(new JLabel("Tokens this month:")));
+        form.add(anthropic(spendTokens), "wrap");
+        form.add(creditsLabel);
         form.add(openBilling, "wrap, growx 0");
-        form.add(new JLabel(""));
-        form.add(spendNote, "wrap, w 600!");
-        form.add(new JLabel(""));
-        form.add(new JLabel("<html>Spend comes from the Anthropic Cost API and needs an Admin API key (<code>sk-ant-admin…</code>, "
+        form.add(anthropic(new JLabel("")));
+        form.add(anthropic(spendNote), "wrap, w 600!");
+        form.add(anthropic(new JLabel("")));
+        form.add(anthropic(new JLabel("<html>Spend comes from the Anthropic Cost API and needs an Admin API key (<code>sk-ant-admin…</code>, "
                 + "created by an organization admin in the Console). It is in USD, since the 1st of the month (UTC), and runs up to about "
-                + "5 minutes behind. The credit balance is not available through the API; the button opens the Console's billing page.</html>"), "wrap, w 600!");
+                + "5 minutes behind. The credit balance is not available through the API; the button opens the Console's billing page.</html>")), "wrap, w 600!");
         add(form, "growx, top");
 
         DocumentListener changed = new DocumentListener() {
@@ -170,6 +227,24 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
             public void changedUpdate(DocumentEvent e) { markChanged(); }
         };
         apiKeyField.getDocument().addDocumentListener(changed);
+        baseUrlField.getDocument().addDocumentListener(changed);
+        // The billing button depends on the base URL (OpenAI's page only for api.openai.com).
+        baseUrlField.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { showProviderFields(); }
+            public void removeUpdate(DocumentEvent e) { showProviderFields(); }
+            public void changedUpdate(DocumentEvent e) { showProviderFields(); }
+        });
+        providerBox.addActionListener(e -> {
+            if (!loading) {
+                if (providerBox.getSelectedIndex() == MISTRAL) {
+                    baseUrlField.setText(MISTRAL_BASE_URL);
+                } else if (MISTRAL_BASE_URL.equals(baseUrlField.getText().trim())) {
+                    baseUrlField.setText("");
+                }
+            }
+            showProviderFields();
+            markChanged();
+        });
         adminKeyField.getDocument().addDocumentListener(changed);
         maskPatterns.getDocument().addDocumentListener(changed);
         modelBox.addActionListener(e -> markChanged());
@@ -182,6 +257,43 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         refreshSpend.addActionListener(e -> loadSpend(true));
         refreshModels.addActionListener(e -> loadModels(true));
         openBilling.addActionListener(e -> openBilling());
+    }
+
+    private boolean openAiSelected() {
+        return providerBox.getSelectedIndex() != ANTHROPIC;
+    }
+
+    private <T extends JComponent> T anthropic(T component) {
+        anthropicUsage.add(component);
+        return component;
+    }
+
+    private <T extends JComponent> T header(T component) {
+        usageHeader.add(component);
+        return component;
+    }
+
+    /**
+     * The base URL only applies to an OpenAI-compatible provider; the Admin API key and spend only
+     * to Anthropic. The billing button opens the selected provider's page, or is hidden when there is none.
+     */
+    private void showProviderFields() {
+        boolean openAi = openAiSelected();
+        baseUrlLabel.setVisible(openAi);
+        baseUrlField.setVisible(openAi);
+        baseUrlNoteLabel.setVisible(openAi);
+        baseUrlNote.setVisible(openAi);
+        boolean mistral = providerBox.getSelectedIndex() == MISTRAL;
+        baseUrlField.setEditable(!mistral);
+        baseUrlNote.setText(mistral ? MISTRAL_NOTE : OPENAI_NOTE);
+        anthropicUsage.forEach(c -> c.setVisible(!openAi));
+        boolean billing = billingUrl(openAi, baseUrlField.getText()) != null;
+        creditsLabel.setVisible(billing);
+        openBilling.setVisible(billing);
+        openBilling.setText(openAi ? "Open Billing at OpenAI" : "Open Billing in Console"); // no billing page for Mistral or local servers
+        usageHeader.forEach(c -> c.setVisible(!openAi || billing));
+        revalidate();
+        repaint();
     }
 
     private void markChanged() {
@@ -219,6 +331,8 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     public boolean doSave() {
         final ObjectNode body = ClaudeApi.MAPPER.createObjectNode();
         body.put("apiKey", new String(apiKeyField.getPassword()).trim());
+        body.put("provider", storedProvider(providerBox.getSelectedIndex()));
+        body.put("baseUrl", providerBox.getSelectedIndex() == MISTRAL ? MISTRAL_BASE_URL : baseUrlField.getText().trim());
         body.put("adminApiKey", new String(adminKeyField.getPassword()).trim());
         body.put("clearAdminApiKey", clearAdminKey.isSelected());
         body.put("model", String.valueOf(modelBox.getSelectedItem()).trim());
@@ -255,6 +369,9 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         loading = true;
         try {
             apiKeyField.setText("");
+            providerBox.setSelectedIndex(providerChoice(s.path("provider").asText(""), s.path("baseUrl").asText("")));
+            baseUrlField.setText(s.path("baseUrl").asText(""));
+            showProviderFields();
             apiKeyStatus.setText(s.path("apiKeySet").asBoolean() ? "Set: " + s.path("apiKeyHint").asText() : "No API key set yet.");
             adminKeyField.setText("");
             clearAdminKey.setSelected(false);
@@ -273,8 +390,11 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
             loading = false;
         }
         loadModels(false);
-        refreshSpend.setEnabled(s.path("adminApiKeySet").asBoolean());
-        if (s.path("adminApiKeySet").asBoolean()) {
+        boolean openAi = PROVIDERS[OPENAI_COMPATIBLE].equals(s.path("provider").asText(""));
+        refreshSpend.setEnabled(!openAi && s.path("adminApiKeySet").asBoolean());
+        if (openAi) {
+            showSpend(null, "Spend this month is only available with Anthropic as the provider.");
+        } else if (s.path("adminApiKeySet").asBoolean()) {
             loadSpend(false);
         } else {
             showSpend(null, "Set an Admin API key to show the spend this month.");
@@ -325,6 +445,8 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
             text = "<html><font color='#b35900'>" + Markdown.escape(list.path("warning").asText()) + "</font></html>";
         } else if ("anthropic".equals(list.path("source").asText())) {
             text = list.path("models").size() + " models from Anthropic" + updated(list.path("fetchedAt").asText("")) + ". You can also type a model ID.";
+        } else if ("openai-compatible".equals(list.path("source").asText())) {
+            text = list.path("models").size() + " models from the model server" + updated(list.path("fetchedAt").asText("")) + ". Choose one that supports tool calling, or type a model ID.";
         } else {
             text = "<html>" + Markdown.escape(list.path("note").asText("A fixed list is shown.")) + " You can also type a model ID.</html>";
         }
@@ -418,10 +540,14 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     }
 
     private void openBilling() {
+        String url = billingUrl(openAiSelected(), baseUrlField.getText());
+        if (url == null) {
+            return;
+        }
         try {
-            Desktop.getDesktop().browse(new URI(BILLING_URL));
+            Desktop.getDesktop().browse(new URI(url));
         } catch (Exception e) {
-            getFrame().alertInformation(getFrame(), "Open this page in your browser to see the credit balance:\n" + BILLING_URL);
+            getFrame().alertInformation(getFrame(), "Open this page in your browser to see the credit balance:\n" + url);
         }
     }
 }

@@ -39,6 +39,17 @@ final class ModelList {
      * @return source ("anthropic" or "fallback"), fetchedAt, note, warning and models (id, displayName, createdAt, unlisted)
      */
     static ObjectNode build(JsonNode fetched, String problem, String saved, long fetchedAt) {
+        return build(fetched, problem, saved, fetchedAt, false);
+    }
+
+    /**
+     * @param openAiCompatible the list comes from an OpenAI-compatible provider: source "openai-compatible",
+     *        and without a list only the saved model is shown (the fixed list holds Claude models)
+     */
+    static ObjectNode build(JsonNode fetched, String problem, String saved, long fetchedAt, boolean openAiCompatible) {
+        if (openAiCompatible) {
+            return buildOpenAi(fetched, problem, saved, fetchedAt);
+        }
         ObjectNode out = MAPPER.createObjectNode();
         Map<String, ObjectNode> models = new LinkedHashMap<>();
         boolean fromAnthropic = fetched != null && fetched.isArray() && fetched.size() > 0;
@@ -75,6 +86,44 @@ final class ModelList {
             list.addObject().put("id", current).put("displayName", current).put("unlisted", true);
             if (fromAnthropic) {
                 out.put("warning", "The saved model " + current + " is not in Anthropic's model list for this API key. It may have been retired; choose another model.");
+            }
+        }
+        models.values().forEach(list::add);
+        return out;
+    }
+
+    private static ObjectNode buildOpenAi(JsonNode fetched, String problem, String saved, long fetchedAt) {
+        ObjectNode out = MAPPER.createObjectNode();
+        Map<String, ObjectNode> models = new LinkedHashMap<>();
+        boolean listed = fetched != null && fetched.isArray() && fetched.size() > 0;
+        if (listed) {
+            List<JsonNode> sorted = new ArrayList<>();
+            fetched.forEach(sorted::add);
+            sorted.sort(Comparator.comparing((JsonNode m) -> m.path("createdAt").asText("")).reversed().thenComparing(m -> m.path("id").asText("")));
+            for (JsonNode m : sorted) {
+                String id = m.path("id").asText("").trim();
+                if (!id.isEmpty() && !models.containsKey(id)) {
+                    ObjectNode model = MAPPER.createObjectNode().put("id", id).put("displayName", m.path("displayName").asText(id));
+                    if (!m.path("createdAt").asText("").isEmpty()) {
+                        model.put("createdAt", m.path("createdAt").asText());
+                    }
+                    models.put(id, model);
+                }
+            }
+            out.put("source", "openai-compatible");
+            if (fetchedAt > 0) {
+                out.put("fetchedAt", Instant.ofEpochMilli(fetchedAt).toString());
+            }
+        } else {
+            out.put("source", "fallback");
+            out.put("note", problem != null && !problem.isBlank() ? problem : "The model server's model list could not be loaded; type the model ID.");
+        }
+        String current = saved == null ? "" : saved.trim();
+        ArrayNode list = out.putArray("models");
+        if (!current.isEmpty() && !models.containsKey(current)) {
+            list.addObject().put("id", current).put("displayName", current).put("unlisted", true);
+            if (listed) {
+                out.put("warning", "The saved model " + current + " is not in the model server's list. Choose one of its models.");
             }
         }
         models.values().forEach(list::add);

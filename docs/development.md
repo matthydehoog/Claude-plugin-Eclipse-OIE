@@ -80,6 +80,22 @@ mvn clean package
 
 The result is `target/claude-assistant-<version>.zip`, with the Anthropic SDK and its libraries. Use `clean`: `target/lib` keeps jars from an earlier build otherwise.
 
+### Signing
+
+Some Administrator launchers refuse extension jars that are not signed, so releases sign the shared, server and client jars (`maven-jarsigner-plugin`, just before the zip is made) with the X Connections code-signing key: a self-signed certificate, timestamped by DigiCert so the signature stays valid after the certificate expires. The engine jar and the libraries in `lib/` stay on the server and are not signed.
+
+The Mirth Connect Administrator Launcher (MCAL, NextGen, not open source) refuses self-signed jars unless it runs with `-Dallow-self-signed` in its `launcher.vmoptions`; the OIE and BridgeLink launchers don't check signatures. See *Administrator launchers* in the user manual.
+
+Signing is off unless a keystore is given:
+
+```bash
+mvn clean package -Dsign.keystore=/path/to/codesign.p12 -Dsign.storepass=...
+```
+
+or with `sign.skip=false`, `sign.keystore` and `sign.storepass` in a profile of `~/.m2/settings.xml`. The alias is `x-connections` (`-Dsign.alias` to change it). The build verifies the signatures and fails if one is missing. Check a zip by hand with `jarsigner -verify -certs claude-assistant-client.jar`.
+
+On GitHub the key comes from the repository secrets `SIGNING_KEYSTORE_BASE64` (the PKCS12 file in base64) and `SIGNING_STOREPASS`. Pull requests from forks get no secrets and build unsigned; a version tag without the secrets fails, so every release is signed. The keystore itself is never committed.
+
 ### What is in the zip
 
 ```
@@ -104,7 +120,7 @@ claude-assistant/
 | --- | --- | --- |
 | `serverClasses` | `server.ClaudeServicePlugin` | A `ServicePlugin`: loads the settings, creates the `AssistantService`, declares the three permissions. |
 | `clientClasses` | `client.ClaudeClientPlugin` | The tasks in the Swing Administrator. |
-| `clientClasses` | `client.ClaudeSettingsPlugin` | The *Settings > Claude Assistant* tab. |
+| `clientClasses` | `client.ClaudeSettingsPlugin` | The *Settings > AI Assistant* tab. |
 | `apiProvider` `SERVLET_INTERFACE` | `shared.ClaudeServletInterface` | The REST interface under `/api/extensions/claude`. |
 | `apiProvider` `SERVER_CLASS` | `server.ClaudeServlet` | Its implementation. |
 
@@ -180,7 +196,7 @@ The tools mirror those of `oie-mcp-server`. A channel can be given by ID or by n
 
 An action tool never runs from the model loop. `OieTools.prepare` builds a `PreparedAction`: a description for the approval dialog (for changes: the current and new rules or steps, and the script OIE generates for each new one) and a runner.
 
-The job then waits. The user decides with `POST /jobs/{id}/confirm`, which needs the **Run Claude Assistant actions** permission. `AssistantService.decide` runs the action **on the servlet thread, as the approving user**, checks the permission for the underlying OIE operation again, writes the audit event `Claude Assistant: …`, and gives the result to Claude. A rejected or timed-out action is reported to Claude as not run.
+The job then waits. The user decides with `POST /jobs/{id}/confirm`, which needs the **Run AI Assistant actions** permission. `AssistantService.decide` runs the action **on the servlet thread, as the approving user**, checks the permission for the underlying OIE operation again, writes the audit event `AI Assistant: …`, and gives the result to Claude. A rejected or timed-out action is reported to Claude as not run.
 
 Script, filter and transformer changes save the channel with a new revision but do not deploy it. The save is **optimistic**: it only happens if the channel is still at the revision Claude read. The check and the save hold the channel controller's lock, so nobody can save in between. The stored metadata (enabled, pruning) and the channel's tags travel along, as the Administrator sends them; without them OIE would reset them to defaults.
 
@@ -228,16 +244,16 @@ The user sends, edits or withholds it (`POST /jobs/{id}/review`). **Edited text 
 
 | Permission | Operations |
 | --- | --- |
-| Use Claude Assistant (`PERMISSION_USE`) | chat, jobs, review, cancel, conversations, read settings, model list |
-| Run Claude Assistant actions (`PERMISSION_ACTIONS`) | confirm an action |
-| Manage Claude Assistant settings (`PERMISSION_SETTINGS`) | change settings, read spend |
+| Use AI Assistant (`PERMISSION_USE`) | chat, jobs, review, cancel, conversations, read settings, model list |
+| Run AI Assistant actions (`PERMISSION_ACTIONS`) | confirm an action |
+| Manage AI Assistant settings (`PERMISSION_SETTINGS`) | change settings, read spend |
 
 On top of that, **every tool checks the user's own OIE permission** for its operation (`AuthorizationController.isUserAuthorized`, through the RBAC extension when installed). A tool the user lacks is skipped and Claude is told which permission is missing. The check fails closed on errors. Users with channel restrictions cannot use the assistant, because the tools see all channels.
 
 Audit events:
 
-- every executed action: `Claude Assistant: …`, in the name of the user who approved it;
-- every time message data, log lines or events are sent: `Claude Assistant: data sent to Anthropic`, with user, tool, channel, message IDs and whether it was reviewed. **Never the content itself.**
+- every executed action: `AI Assistant: …`, in the name of the user who approved it;
+- every time message data, log lines or events are sent: `AI Assistant: data sent to Anthropic`, with user, tool, channel, message IDs and whether it was reviewed. **Never the content itself.**
 
 ## Conversations
 
@@ -308,7 +324,7 @@ There are 100 tests (JUnit 4). They need no engine, no network and no API key.
 
 | Test | Covers |
 | --- | --- |
-| `AssistantServiceTest` (12) | With a scripted model loop and Mockito fakes for the OIE controllers: a tool the user has no permission for is skipped; an action is not proposed without *Run Claude Assistant actions*, is checked again for the approver, runs once when approved and not when rejected; *Review before sending* withholds data, masks edits again, and can withhold the question itself; the data audit records IDs and counts but no content; cancelling while an action waits runs nothing; a job belongs to its user |
+| `AssistantServiceTest` (12) | With a scripted model loop and Mockito fakes for the OIE controllers: a tool the user has no permission for is skipped; an action is not proposed without *Run AI Assistant actions*, is checked again for the approver, runs once when approved and not when rejected; *Review before sending* withholds data, masks edits again, and can withhold the question itself; the data audit records IDs and counts but no content; cancelling while an action waits runs nothing; a job belongs to its user |
 | `MaskerTest` (16) | HL7 ER7 and XML rules, the encoded separator after a masked last field, person segments, credentials, GDT raw and XML, BSN, own patterns |
 | `EdifactMaskerTest` (14) | MEDLAB and MEDSPE, raw and XML, trade messages untouched, ZKH and AFD readable |
 | `FhirMaskerTest` (9) | Person resources in JSON and XML, personal extensions, identifiers, reference displays, narratives, Bundles, FHIR escaped inside tool XML, other resources left readable |
@@ -327,7 +343,7 @@ Masking is the part where a mistake hurts most: when you touch a masker, run it 
 
 1. `mvn clean package`.
 2. Install `target/claude-assistant-<version>.zip` on a **test** server and restart the service. Check that `extensions/claude-assistant/lib/` holds the engine jars.
-3. Set an API key under *Settings > Claude Assistant*. Use test data only.
+3. Set an API key under *Settings > AI Assistant*. Use test data only.
 4. Ask a question from each place (Other, dashboard, message browser, channel editor, code templates, global scripts), and in the web administrator if Web Support is installed.
 5. Check: the review dialog shows masked data; an approved action runs and appears in the audit log; a change keeps the channel's tags and enabled state; the server log has one usage line per API call.
 
@@ -335,7 +351,7 @@ Masking is the part where a mistake hurts most: when you touch a masker, run it 
 
 | Workflow | Does |
 | --- | --- |
-| `build.yml` | On every push to `main`, every pull request and every version tag: builds and tests on OIE 4.6.0 with Java 17, and on 4.7.0 with Java 17 and 21. The engine jars and libraries come from the engine's GitHub release (`download-oie.sh`, `install-oie-jars.sh`, `oie-home.sh`) and are cached. The 4.6.0 build runs `check-versions.sh` and keeps the zip as an artifact. On a tag `v<version>` it creates the release with the zip and its SHA-256 (`release.sh`), then calls `catalog-pr.yml`. |
+| `build.yml` | On every push to `main`, every pull request and every version tag: builds and tests on OIE 4.6.0 with Java 17, and on 4.7.0 with Java 17 and 21. The engine jars and libraries come from the engine's GitHub release (`download-oie.sh`, `install-oie-jars.sh`, `oie-home.sh`) and are cached. The jars are signed when the signing secrets are set (see *Signing*). The 4.6.0 build runs `check-versions.sh` and keeps the zip as an artifact. On a tag `v<version>` it creates the release with the zip and its SHA-256 (`release.sh`), then calls `catalog-pr.yml`. |
 | `catalog-pr.yml` | On a published release, files a pull request to the [OIE Community Store catalog](https://github.com/gibson9583/oie-community-catalog) from the fork `<owner>/oie-community-catalog`, using `oie.json` at the tag. Needs the secret `CATALOG_TOKEN` (a classic PAT with `public_repo`); skipped without it. |
 | `jira-issue.yml` | Creates a Jira issue for every new GitHub issue and comments its key. Needs the variables `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_PROJECT_KEY` and the secret `JIRA_API_TOKEN`. |
 
@@ -374,5 +390,5 @@ Dependabot (`.github/dependabot.yml`) checks the Maven dependencies weekly, the 
 - A tool never gives Claude more than the user could see or do in OIE.
 - Secrets (API keys, credentials) are never sent to a client, logged or audited; audit events hold IDs, never content.
 - Requests and responses are JSON text, never plugin classes.
-- Error messages say what is wrong and what to do, for example *"No Anthropic API key is set yet. Enter one under Settings > Claude Assistant."*
+- Error messages say what is wrong and what to do, for example *"No Anthropic API key is set yet. Enter one under Settings > AI Assistant."*
 - Comments explain *why*; keep them short.

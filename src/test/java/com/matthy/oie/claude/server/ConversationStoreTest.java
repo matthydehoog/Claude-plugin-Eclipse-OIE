@@ -108,13 +108,13 @@ public class ConversationStoreTest {
 
         String md = ConversationStore.markdown(c.title(), "OIE test", 0, c.log());
 
-        assertTrue(md.startsWith("# Claude Assistant conversation\n"));
+        assertTrue(md.startsWith("# AI Assistant conversation\n"));
         assertTrue(md.contains("- **Server:** OIE test\n"));
         assertTrue(md.contains("- **Subject:** Context: channel ADT in Why does message 12 fail?\n"));
         assertTrue(md.contains("masked"));
         assertTrue(md.contains("\n## Question 1\n\nContext: channel ADT in\nWhy does message 12 fail?\n"));
         assertTrue(md.contains("\n- Tool: `oie_get_message {\"messageId\":12}`\n- Tool: `oie_get_channel {}`\n"));
-        assertTrue(md.contains("\n### Claude\n\nPID-5 is empty, so the mapper fails.\n"));
+        assertTrue(md.contains("\n### AI Assistant\n\nPID-5 is empty, so the mapper fails.\n"));
         assertTrue(md.contains("\n**Action done:** Script saved in channel 'ADT in'.\n"));
         assertTrue(md.contains("\n_Stopped._\n"));
     }

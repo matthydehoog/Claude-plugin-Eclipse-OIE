@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "id": "claude-assistant",
-  "name": "Claude Assistant",
-  "description": "Chat with Claude inside the OIE Administrator and web administrator about channels, messages, errors and scripts. Patient data (HL7, FHIR, GDT, EDIFACT) is masked before it leaves the server, and actions such as deploying or changing scripts, filters and transformers only run after the user approves them. Needs your own Anthropic API key. Unofficial plugin, not affiliated with or endorsed by Anthropic.",
+  "name": "AI Assistant",
+  "description": "Chat with an AI model inside the OIE Administrator and web administrator about channels, messages, errors and scripts: Claude (Anthropic) or an OpenAI-compatible model such as OpenAI, Ollama or vLLM. Patient data (HL7, FHIR, GDT, EDIFACT) is masked before it leaves the server, and actions such as deploying or changing scripts, filters and transformers only run after the user approves them. Needs your own API key for Anthropic or OpenAI; a local model server may need none. Unofficial plugin, not affiliated with or endorsed by Anthropic or OpenAI.",
   "type": "plugin",
   "ui": ["web", "swing"],
-  "version": "1.3.0",
+  "version": "2.0.0",
   "minEngineVersion": "4.6.0",
   "maxEngineVersion": null,
   "filename": "claude-assistant-{version}.zip",
@@ -15,6 +15,6 @@
   "storeDocs": "README.md",
   "license": "MPL-2.0",
   "authors": ["Matthy.J. de Hoog"],
-  "keywords": ["claude", "ai", "assistant", "anthropic", "troubleshooting", "masking", "healthcare"],
+  "keywords": ["claude", "ai", "assistant", "anthropic", "openai", "ollama", "llm", "troubleshooting", "masking", "healthcare"],
   "deprecated": false
 }

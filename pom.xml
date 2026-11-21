@@ -6,7 +6,7 @@
 
   <groupId>com.matthy.oie</groupId>
   <artifactId>claude-assistant</artifactId>
-  <version>1.3.0</version>
+  <version>2.0.0</version>
   <packaging>jar</packaging>
 
   <name>OIE Claude Assistant</name>
@@ -19,6 +19,15 @@
     <oie.home>C:/Program Files/OpenIntegrationEngine</oie.home>
     <oie.version>4.6.0</oie.version>
     <anthropic.version>3.8.0</anthropic.version>
+    <!--
+      Code signing of the shared, server and client jars (launchers that check signatures refuse
+      unsigned extension jars). Off unless a keystore is given: -Dsign.keystore=... -Dsign.storepass=...
+      (or in ~/.m2/settings.xml). The signing profile below switches it on.
+    -->
+    <sign.skip>true</sign.skip>
+    <sign.alias>x-connections</sign.alias>
+    <sign.storetype>PKCS12</sign.storetype>
+    <sign.tsa>http://timestamp.digicert.com</sign.tsa>
   </properties>
 
   <dependencies>
@@ -159,6 +168,13 @@
       <version>5.24.0</version>
       <scope>test</scope>
     </dependency>
+    <!-- An in-memory database for SettingsUninstallerTest (the permission rename runs real SQL). -->
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <version>2.2.224</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -246,6 +262,57 @@
         </executions>
       </plugin>
 
+      <!--
+        Signs the three jars the engine loads, before the zip is made (same phase, declared first).
+        The engine jar and the SDK in lib/ stay on the server and are not signed. The timestamp keeps
+        the signature valid after the certificate expires.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jarsigner-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <id>sign-extension-jars</id>
+            <phase>package</phase>
+            <goals><goal>sign</goal></goals>
+            <configuration>
+              <skip>${sign.skip}</skip>
+              <processMainArtifact>false</processMainArtifact>
+              <processAttachedArtifacts>false</processAttachedArtifacts>
+              <archiveDirectory>${project.build.directory}</archiveDirectory>
+              <includes>
+                <include>${project.build.finalName}-shared.jar</include>
+                <include>${project.build.finalName}-server.jar</include>
+                <include>${project.build.finalName}-client.jar</include>
+              </includes>
+              <keystore>${sign.keystore}</keystore>
+              <storetype>${sign.storetype}</storetype>
+              <storepass>${sign.storepass}</storepass>
+              <alias>${sign.alias}</alias>
+              <tsa>${sign.tsa}</tsa>
+            </configuration>
+          </execution>
+          <execution>
+            <id>verify-extension-jars</id>
+            <phase>package</phase>
+            <goals><goal>verify</goal></goals>
+            <configuration>
+              <skip>${sign.skip}</skip>
+              <processMainArtifact>false</processMainArtifact>
+              <processAttachedArtifacts>false</processAttachedArtifacts>
+              <archiveDirectory>${project.build.directory}</archiveDirectory>
+              <includes>
+                <include>${project.build.finalName}-shared.jar</include>
+                <include>${project.build.finalName}-server.jar</include>
+                <include>${project.build.finalName}-client.jar</include>
+              </includes>
+              <errorWhenNotSigned>true</errorWhenNotSigned>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-assembly-plugin</artifactId>
@@ -265,4 +332,17 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!-- On as soon as a keystore is given (command line, settings.xml or the release workflow). -->
+    <profile>
+      <id>sign</id>
+      <activation>
+        <property><name>sign.keystore</name></property>
+      </activation>
+      <properties>
+        <sign.skip>false</sign.skip>
+      </properties>
+    </profile>
+  </profiles>
 </project>

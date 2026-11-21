@@ -342,7 +342,7 @@ public class OieTools {
         String oldScript = scriptController.getGlobalScripts().get(key);
         boolean suspicious = script.contains(Masker.MASK) && (oldScript == null || !oldScript.contains(Masker.MASK));
         String detail = "Global " + type + " script (runs for every channel).\n"
-                + (suspicious ? "WARNING: the new script contains '" + Masker.MASK + "'. Claude saw the script masked; check that no real value (e.g. a number or HL7 sample) is lost.\n" : "")
+                + (suspicious ? "WARNING: the new script contains '" + Masker.MASK + "'. The AI Assistant saw the script masked; check that no real value (e.g. a number or HL7 sample) is lost.\n" : "")
                 + "Saved now; it takes effect for channels deployed afterwards. If you have Global Scripts open in the Administrator, reload them first.\n\n"
                 + "--- current script\n" + (oldScript == null ? "" : oldScript) + "\n\n+++ new script\n" + script;
         return new PreparedAction("Change global script", detail, ctx -> {
@@ -1057,7 +1057,7 @@ public class OieTools {
 
         String location = what + " of connector " + metaDataId + " '" + connector.getName() + "'";
         String detail = "Channel '" + current.getName() + "', " + location + ".\n"
-                + (suspicious ? "WARNING: a new or changed element contains '" + Masker.MASK + "'. Claude saw the channel masked; check that no real value is lost.\n" : "")
+                + (suspicious ? "WARNING: a new or changed element contains '" + Masker.MASK + "'. The AI Assistant saw the channel masked; check that no real value is lost.\n" : "")
                 + "The channel is saved (new revision) but not deployed. If you have this channel open in the editor, reload it afterwards.\n\n"
                 + "Current " + what + ":\n" + ChannelEditor.describe(old) + "\nNew " + what + ":\n" + ChannelEditor.describe(parsed)
                 + (changed.length() == 0 ? "\nNo element is new or changed (only the order or the removals differ).\n" : "\nNew or changed elements, as the script OIE runs:\n\n" + changed.toString().trim());
@@ -1109,7 +1109,7 @@ public class OieTools {
             detail.append("Left empty for you to fill in: ").append(String.join(", ", cleared)).append(".\n");
         }
         if (xml.contains(Masker.MASK)) {
-            detail.append("WARNING: the channel contains '").append(Masker.MASK).append("'. Claude saw the channel it copied masked; check the settings that show it.\n");
+            detail.append("WARNING: the channel contains '").append(Masker.MASK).append("'. The AI Assistant saw the channel it copied masked; check the settings that show it.\n");
         }
         for (Connector c : connectors(channel)) {
             detail.append("\n").append(c.getMetaDataId() == 0 ? "Source" : "Destination " + c.getMetaDataId()).append(": '").append(c.getName()).append("', ").append(c.getTransportName());
@@ -1240,7 +1240,7 @@ public class OieTools {
         // Claude only ever saw the masked script, so a "***" it copied back would overwrite real content.
         boolean suspicious = script.contains(Masker.MASK) && (oldScript == null || !oldScript.contains(Masker.MASK));
         String detail = "Channel '" + current.getName() + "', " + location + ".\n"
-                + (suspicious ? "WARNING: the new script contains '" + Masker.MASK + "'. Claude saw the script masked; check that no real value (e.g. a number or HL7 sample) is lost.\n" : "")
+                + (suspicious ? "WARNING: the new script contains '" + Masker.MASK + "'. The AI Assistant saw the script masked; check that no real value (e.g. a number or HL7 sample) is lost.\n" : "")
                 + "The channel is saved (new revision) but not deployed. If you have this channel open in the editor, reload it afterwards.\n\n"
                 + "--- current script\n" + (oldScript == null ? "" : oldScript) + "\n\n+++ new script\n" + script;
         int revision = current.getRevision();

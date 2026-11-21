@@ -66,8 +66,10 @@ public class AssistantService {
 
     private static final String LANGUAGE_LINE = "{language}";
 
+    private static final String IDENTITY_LINE = "{identity}";
+
     private static final String SYSTEM_PROMPT = String.join("\n",
-            "You are the Claude assistant inside the Administrator of Open Integration Engine (OIE, a fork of Mirth Connect).",
+            IDENTITY_LINE,
             "You help integration specialists with their OIE server: channels, messages, errors, scripts, code templates and server status.",
             LANGUAGE_LINE,
             "",
@@ -87,11 +89,13 @@ public class AssistantService {
             "",
             "Formatting: the chat renders Markdown (headings, bold, italics, lists, tables and code blocks). Keep tables narrow.");
 
-    private final ExecutorService executor = Executors.newCachedThreadPool(daemonThreads("Claude Assistant job"));
-    private final ScheduledExecutorService housekeeping = Executors.newSingleThreadScheduledExecutor(daemonThreads("Claude Assistant housekeeping"));
+    private final ExecutorService executor = Executors.newCachedThreadPool(daemonThreads("AI Assistant job"));
+    private final ScheduledExecutorService housekeeping = Executors.newSingleThreadScheduledExecutor(daemonThreads("AI Assistant housekeeping"));
     private final Map<String, Conversation> conversations = new ConcurrentHashMap<>();
     /** Saved conversations, in the OIE application data folder; only used when Settings.keepConversationsDays > 0. */
     private volatile ConversationStore store;
+    /** Set when the plugin is uninstalled: until the restart, nothing new is saved. */
+    private volatile boolean uninstalled;
     private final Map<String, ChatJob> jobs = new ConcurrentHashMap<>();
 
     private EngineLoader engine;
@@ -138,7 +142,7 @@ public class AssistantService {
                 loopFactory = engine::create;
             } catch (Exception e) {
                 engineError = e.getMessage();
-                logger.error("Claude Assistant: engine could not be loaded", e);
+                logger.error("AI Assistant: engine could not be loaded", e);
             }
         }
         this.loopFactory = loopFactory;
@@ -151,7 +155,7 @@ public class AssistantService {
         Masker newMasker = new Masker(settings.maskPatterns);
         OieTools newTools = new OieTools(newMasker);
         ModelLoop newLoop = null;
-        if (loopFactory != null && !settings.apiKey.isEmpty()) {
+        if (loopFactory != null && settings.configured()) {
             List<Map<String, Object>> specs = new ArrayList<>();
             for (OieTools.Spec spec : newTools.specs()) {
                 Map<String, Object> m = new LinkedHashMap<>();
@@ -164,8 +168,8 @@ public class AssistantService {
             try {
                 newLoop = loopFactory.create(settings, systemPrompt(settings), specs, this::callTool);
             } catch (Exception e) {
-                logger.error("Claude Assistant: could not create the model client", e);
-                engineError = "Cannot start the Claude client: " + e;
+                logger.error("AI Assistant: could not create the model client", e);
+                engineError = "Cannot start the AI Assistant: " + e;
             }
         }
         ModelLoop old = this.loop;
@@ -191,7 +195,28 @@ public class AssistantService {
         String language = settings.automaticLanguage()
                 ? "Answer in the user's language, concisely and concretely."
                 : "Always answer in " + settings.responseLanguage + ", concisely and concretely, whatever language the question, the server data or earlier messages are in. Keep code, identifiers and quoted error messages as they are.";
-        return SYSTEM_PROMPT.replace(LANGUAGE_LINE, language);
+        // With another provider the model is not Claude: tell it which model it is, so it does not
+        // take the plugin's name for its own when the user asks.
+        String identity = settings.openAiCompatible()
+                ? "You are an AI assistant inside the Administrator of Open Integration Engine (OIE, a fork of Mirth Connect), running as the model "
+                        + settings.model + " through an OpenAI-compatible API at " + modelServer(settings)
+                        + ". The plugin is called AI Assistant, but you are not Claude and not made by Anthropic: when asked which AI or model you are, say you are "
+                        + settings.model + "."
+                : "You are the Claude assistant inside the Administrator of Open Integration Engine (OIE, a fork of Mirth Connect).";
+        return SYSTEM_PROMPT.replace(IDENTITY_LINE, identity).replace(LANGUAGE_LINE, language);
+    }
+
+    /** The host of the OpenAI-compatible server (e.g. api.openai.com), or "Anthropic" for Claude. */
+    static String modelServer(Settings settings) {
+        if (!settings.openAiCompatible()) {
+            return "Anthropic";
+        }
+        try {
+            String host = java.net.URI.create(settings.baseUrl).getHost();
+            return host != null ? host : settings.baseUrl;
+        } catch (IllegalArgumentException e) {
+            return settings.baseUrl;
+        }
     }
 
     /**
@@ -201,11 +226,14 @@ public class AssistantService {
      */
     public synchronized String spend(boolean refresh) throws Exception {
         Settings s = settings;
+        if (s.openAiCompatible()) {
+            throw new IllegalStateException("Spend this month is only available with Anthropic as the provider. Check the costs in your model provider's own dashboard.");
+        }
         if (s.adminApiKey.isEmpty()) {
             throw new IllegalStateException("No Admin API key is set. Spend this month needs an Admin API key (sk-ant-admin...).");
         }
         if (engine == null) {
-            throw new IllegalStateException("The Claude assistant cannot start: " + engineError);
+            throw new IllegalStateException("The AI Assistant cannot start: " + engineError);
         }
         String cacheKey = s.adminApiKey + '\n' + s.apiKey;
         long now = System.currentTimeMillis();
@@ -229,11 +257,14 @@ public class AssistantService {
      */
     public String models(boolean refresh) {
         Settings s = settings;
+        if (s.openAiCompatible()) {
+            return openAiModels(s, refresh);
+        }
         if (s.apiKey.isEmpty()) {
             return ModelList.build(null, "Set an Anthropic API key to load the model list from Anthropic; a fixed list is shown.", s.model, 0).toString();
         }
         if (engine == null) {
-            return ModelList.build(null, "The Claude assistant cannot start: " + engineError, s.model, 0).toString();
+            return ModelList.build(null, "The AI Assistant cannot start: " + engineError, s.model, 0).toString();
         }
         synchronized (modelsLock) {
             long now = System.currentTimeMillis();
@@ -247,11 +278,36 @@ public class AssistantService {
                     cachedModelsAt = now;
                 } catch (Exception e) {
                     // Not cached, so the next visit tries again; the fixed list keeps the screen usable.
-                    logger.warn("Claude Assistant: could not load the model list: " + e.getMessage());
+                    logger.warn("AI Assistant: could not load the model list: " + e.getMessage());
                     return ModelList.build(null, (e.getMessage() != null ? e.getMessage() : e.toString()) + " A fixed list is shown.", s.model, 0).toString();
                 }
             }
             return ModelList.build(cachedModels, null, s.model, cachedModelsAt).toString();
+        }
+    }
+
+    /** The OpenAI-compatible provider's models, cached for a day per base URL and key, like Anthropic's. */
+    private String openAiModels(Settings s, boolean refresh) {
+        if (s.baseUrl.isEmpty()) {
+            return ModelList.build(null, "Set the API base URL to load the model list.", s.model, 0, true).toString();
+        }
+        if (engine == null) {
+            return ModelList.build(null, "The AI Assistant cannot start: " + engineError, s.model, 0, true).toString();
+        }
+        String key = Settings.PROVIDER_OPENAI + '\n' + s.baseUrl + '\n' + s.apiKey;
+        synchronized (modelsLock) {
+            long now = System.currentTimeMillis();
+            if (refresh || cachedModels == null || !key.equals(cachedModelsKey) || now - cachedModelsAt >= MODELS_CACHE_MS) {
+                try {
+                    cachedModels = MAPPER.readTree(engine.createOpenAiModelReader(s.baseUrl).list(s.apiKey));
+                    cachedModelsKey = key;
+                    cachedModelsAt = now;
+                } catch (Exception e) {
+                    logger.warn("AI Assistant: could not load the model list from " + s.baseUrl + ": " + e.getMessage());
+                    return ModelList.build(null, (e.getMessage() != null ? e.getMessage() : e.toString()), s.model, 0, true).toString();
+                }
+            }
+            return ModelList.build(cachedModels, null, s.model, cachedModelsAt, true).toString();
         }
     }
 
@@ -273,9 +329,12 @@ public class AssistantService {
         ModelLoop l = loop;
         if (l == null) {
             if (engineError != null) {
-                throw new IllegalStateException("The Claude assistant cannot start: " + engineError);
+                throw new IllegalStateException("The AI Assistant cannot start: " + engineError);
             }
-            throw new IllegalStateException("No Anthropic API key is set yet. Enter one under Settings > Claude Assistant.");
+            if (settings.openAiCompatible()) {
+                throw new IllegalStateException("No API base URL is set for the OpenAI-compatible provider yet. Enter one under Settings > AI Assistant.");
+            }
+            throw new IllegalStateException("No Anthropic API key is set yet. Enter one under Settings > AI Assistant.");
         }
         Conversation conversation;
         if (conversationId == null || conversationId.isBlank()) {
@@ -290,7 +349,7 @@ public class AssistantService {
         ChatJob job;
         synchronized (conversation) {
             if (conversation.activeJob != null && !isFinished(conversation.activeJob)) {
-                throw new IllegalStateException("Claude is still working on your previous question.");
+                throw new IllegalStateException("The AI Assistant is still working on your previous question.");
             }
             job = new ChatJob(conversation, address);
             conversation.activeJob = job;
@@ -305,7 +364,7 @@ public class AssistantService {
                 if (reviewQuestion) {
                     userText = review(job, "question", "Your question", builtText);
                     if (userText == null) {
-                        job.emit("info", "Your question was not sent to Claude.");
+                        job.emit("info", "Your question was not sent to the AI model.");
                         job.finish(ChatJob.State.CANCELLED);
                         return;
                     }
@@ -326,21 +385,30 @@ public class AssistantService {
     private ConversationStore store() {
         ConversationStore s = store;
         if (s == null) {
-            File dir = new File(new File(ControllerFactory.getFactory().createConfigurationController().getApplicationDataDir(), "claude-assistant"), "conversations");
-            s = store = new ConversationStore(dir);
+            s = store = new ConversationStore(new File(dataDir(), "conversations"));
         }
         return s;
     }
 
+    /** The plugin's folder in the OIE application data folder. */
+    static File dataDir() {
+        return new File(ControllerFactory.getFactory().createConfigurationController().getApplicationDataDir(), "claude-assistant");
+    }
+
+    /** The plugin is being uninstalled: stop saving conversations until the server restarts. */
+    void uninstalled() {
+        uninstalled = true;
+    }
+
     /** Saves the conversation when saving is on; a failure is logged, never shown as a chat error. */
     private void save(Conversation conversation, ModelLoop l) {
-        if (settings.keepConversationsDays <= 0) {
+        if (settings.keepConversationsDays <= 0 || uninstalled) {
             return;
         }
         try {
             store().save(conversation, l.saveHistory(conversation.history()));
         } catch (Exception e) {
-            logger.warn("Claude Assistant: could not save conversation " + conversation.id, e);
+            logger.warn("AI Assistant: could not save conversation " + conversation.id, e);
         }
     }
 
@@ -421,14 +489,19 @@ public class AssistantService {
                 throw new IllegalArgumentException("Conversation not found or expired.");
             }
             if (l == null) {
-                throw new IllegalStateException("The Claude assistant is not configured, so a saved conversation cannot be continued.");
+                throw new IllegalStateException("The AI Assistant is not configured, so a saved conversation cannot be continued.");
             }
             c = new Conversation(saved.id, userId, saved.created);
             for (Conversation.Entry e : saved.log) {
                 c.record(e.type, e.text);
             }
             if (saved.history != null) {
-                c.setHistory(l.loadHistory(saved.history));
+                try {
+                    c.setHistory(l.loadHistory(saved.history));
+                } catch (Exception e) {
+                    // Saved with the other provider: the conversation shows, but the model starts without its context.
+                    logger.info("AI Assistant: saved conversation " + c.id + " continues without its earlier context: " + e.getMessage());
+                }
             }
             Conversation existing = conversations.putIfAbsent(c.id, c);
             if (existing != null) {
@@ -475,7 +548,7 @@ public class AssistantService {
                 job.emit("action", pending.prepared.title + ": " + result);
                 audit(context, pending, ServerEvent.Outcome.SUCCESS, result);
             } catch (Exception e) {
-                logger.warn("Claude Assistant action " + pending.toolName + " failed", e);
+                logger.warn("AI Assistant action " + pending.toolName + " failed", e);
                 result = "Failed: " + e.getMessage();
                 job.emit("error", pending.prepared.title + " failed: " + e.getMessage());
                 audit(context, pending, ServerEvent.Outcome.FAILURE, String.valueOf(e.getMessage()));
@@ -500,9 +573,9 @@ public class AssistantService {
             String edited = text == null ? pending.prepared.detail : masker.mask(text);
             boolean changed = !edited.equals(pending.prepared.detail);
             result = edited;
-            job.emit("info", "Sent to Claude after review" + (changed ? " (edited)" : "") + ": " + pending.prepared.title);
+            job.emit("info", "Sent to the AI model after review" + (changed ? " (edited)" : "") + ": " + pending.prepared.title);
         } else {
-            job.emit("info", "Not sent to Claude: " + pending.prepared.title);
+            job.emit("info", "Not sent to the AI model: " + pending.prepared.title);
         }
         job.resumed();
         pending.decision.complete(result);
@@ -522,10 +595,10 @@ public class AssistantService {
             return missingPermission(name);
         }
         if (t.isAction(name) && !mayRunActions(job.conversation.userId, job.address)) {
-            // Approving and rejecting both need "Run Claude Assistant actions"; without it the
+            // Approving and rejecting both need "Run AI Assistant actions"; without it the
             // confirmation would wait until the timeout, so it is not proposed at all.
-            job.emit("info", "Skipped " + name + ": you do not have the Claude Assistant permission \"" + ClaudeServletInterface.PERMISSION_ACTIONS + "\".");
-            return "The user does not have the Claude Assistant permission \"" + ClaudeServletInterface.PERMISSION_ACTIONS
+            job.emit("info", "Skipped " + name + ": you do not have the AI Assistant permission \"" + ClaudeServletInterface.PERMISSION_ACTIONS + "\".");
+            return "The user does not have the AI Assistant permission \"" + ClaudeServletInterface.PERMISSION_ACTIONS
                     + "\", so no action can be run for them. Do not propose actions; explain what the user, or an administrator, could do instead.";
         }
         if (!t.isAction(name)) {
@@ -593,18 +666,18 @@ public class AssistantService {
             return ControllerFactory.getFactory().createAuthorizationController()
                     .isUserAuthorized(userId, new Operation(operation, operation, Operation.ExecuteType.SYNC, false), new HashMap<>(), address, false);
         } catch (Exception e) {
-            logger.warn("Claude Assistant: authorization check for " + tool + " failed", e);
+            logger.warn("AI Assistant: authorization check for " + tool + " failed", e);
             return false;
         }
     }
 
-    /** Whether the user has "Run Claude Assistant actions" (the permission of POST /jobs/{id}/confirm). Fails closed. */
+    /** Whether the user has "Run AI Assistant actions" (the permission of POST /jobs/{id}/confirm). Fails closed. */
     private boolean mayRunActions(int userId, String address) {
         try {
-            Operation confirm = new ExtensionOperation(ClaudeServletInterface.PLUGIN_POINT, new Operation(CONFIRM_OPERATION, "Run Claude action", Operation.ExecuteType.ASYNC, false));
+            Operation confirm = new ExtensionOperation(ClaudeServletInterface.PERMISSION_GROUP, new Operation(CONFIRM_OPERATION, "Run AI Assistant action", Operation.ExecuteType.ASYNC, false));
             return ControllerFactory.getFactory().createAuthorizationController().isUserAuthorized(userId, confirm, new HashMap<>(), address, false);
         } catch (Exception e) {
-            logger.warn("Claude Assistant: authorization check for actions failed", e);
+            logger.warn("AI Assistant: authorization check for actions failed", e);
             return false;
         }
     }
@@ -621,12 +694,13 @@ public class AssistantService {
     private static final Pattern XML_MESSAGE_ID = Pattern.compile("<messageId>(\\d+)</messageId>");
 
     /**
-     * Records that message data, log lines or events went to Anthropic: who, which tool, which
-     * channel and message IDs, and whether it was reviewed. Never the content itself.
+     * Records that message data, log lines or events went to the model provider (Anthropic, or the
+     * host of the OpenAI-compatible server): who, which tool, which channel and message IDs, and
+     * whether it was reviewed. Never the content itself.
      */
     private void auditShared(ChatJob job, String tool, JsonNode input, String sent, String review) {
         try {
-            ServerEvent event = new ServerEvent(ControllerFactory.getFactory().createConfigurationController().getServerId(), "Claude Assistant: data sent to Anthropic");
+            ServerEvent event = new ServerEvent(ControllerFactory.getFactory().createConfigurationController().getServerId(), "AI Assistant: data sent to " + modelServer(settings));
             event.setLevel(ServerEvent.Level.INFORMATION);
             event.setOutcome(ServerEvent.Outcome.SUCCESS);
             event.setUserId(job.conversation.userId);
@@ -662,7 +736,7 @@ public class AssistantService {
             event.setAttributes(attributes);
             ControllerFactory.getFactory().createEventController().dispatchEvent(event);
         } catch (Exception e) {
-            logger.warn("Could not write Claude Assistant audit event", e);
+            logger.warn("Could not write AI Assistant audit event", e);
         }
     }
 
@@ -689,7 +763,7 @@ public class AssistantService {
 
     private void audit(ServerEventContext context, ChatJob.PendingAction pending, ServerEvent.Outcome outcome, String result) {
         try {
-            ServerEvent event = new ServerEvent(ControllerFactory.getFactory().createConfigurationController().getServerId(), "Claude Assistant: " + pending.prepared.title);
+            ServerEvent event = new ServerEvent(ControllerFactory.getFactory().createConfigurationController().getServerId(), "AI Assistant: " + pending.prepared.title);
             event.setLevel(ServerEvent.Level.INFORMATION);
             event.setOutcome(outcome);
             if (context != null && context.getUserId() != null) {
@@ -702,7 +776,7 @@ public class AssistantService {
             event.setAttributes(attributes);
             ControllerFactory.getFactory().createEventController().dispatchEvent(event);
         } catch (Exception e) {
-            logger.warn("Could not write Claude Assistant audit event", e);
+            logger.warn("Could not write AI Assistant audit event", e);
         }
     }
 
@@ -722,10 +796,10 @@ public class AssistantService {
         try {
             int removed = store().removeOlderThan(settings.keepConversationsDays);
             if (removed > 0) {
-                logger.info("Claude Assistant: removed " + removed + " saved conversation(s) older than " + settings.keepConversationsDays + " day(s)");
+                logger.info("AI Assistant: removed " + removed + " saved conversation(s) older than " + settings.keepConversationsDays + " day(s)");
             }
         } catch (Exception e) {
-            logger.warn("Claude Assistant: could not clean up saved conversations", e);
+            logger.warn("AI Assistant: could not clean up saved conversations", e);
         }
     }
 

@@ -88,4 +88,21 @@ public class ModelListTest {
     public void theDefaultModelIsInTheFixedList() {
         assertTrue(ModelList.FALLBACK.contains(Settings.DEFAULT_MODEL));
     }
+
+    @Test
+    public void withoutAListAnOpenAiProviderShowsNoClaudeModels() {
+        ObjectNode list = ModelList.build(null, "Set the API base URL to load the model list.", "gpt-4.1", 0, true);
+        assertEquals("fallback", list.path("source").asText());
+        assertEquals(List.of("gpt-4.1"), ids(list));
+        assertEquals("Set the API base URL to load the model list.", list.path("note").asText());
+    }
+
+    @Test
+    public void aSavedClaudeModelIsFlaggedInAnOpenAiList() throws Exception {
+        JsonNode fetched = new ObjectMapper().readTree("[{\"id\":\"gpt-4.1\",\"displayName\":\"gpt-4.1\"}]");
+        ObjectNode list = ModelList.build(fetched, null, "claude-opus-5", 1_000L, true);
+        assertEquals("openai-compatible", list.path("source").asText());
+        assertEquals(List.of("claude-opus-5", "gpt-4.1"), ids(list));
+        assertTrue(list.path("warning").asText().contains("not in the model server's list"));
+    }
 }

@@ -6,7 +6,7 @@
 const EXT = "/extensions/claude";
 const STYLE_ID = "claude-assistant-style";
 // The web admin has no plugin hook on the Global Scripts view, so the Claude page offers this context itself.
-const GLOBAL_SCRIPTS_CONTEXT = "Global Scripts (deploy, undeploy, preprocessor and postprocessor). Claude sees the saved version; unsaved changes in the Global Scripts editor are not visible.";
+const GLOBAL_SCRIPTS_CONTEXT = "Global Scripts (deploy, undeploy, preprocessor and postprocessor). The AI Assistant sees the saved version; unsaved changes in the Global Scripts editor are not visible.";
 const GLOBAL_SCRIPTS_SUGGESTION = "Explain what the global scripts do and point out weak spots.";
 // Same text as ClaudeClientPlugin.QUEUES_SUGGESTION.
 const QUEUES_SUGGESTION = "Check the queues and message storage: which destinations are stuck, and which channels need pruning?";
@@ -14,7 +14,30 @@ const DOCUMENT_SUGGESTION = "Write documentation for this channel as Markdown: p
 /** Contexts that name one channel, so it can be documented. */
 const CHANNEL_CONTEXT = /^(Channel open in the editor|Selected channel)/;
 const POLL_MS = 800;
-const BILLING_URL = "https://platform.claude.com/settings/billing";
+const ANTHROPIC_BILLING_URL = "https://platform.claude.com/settings/billing";
+const OPENAI_BILLING_URL = "https://platform.openai.com/settings/organization/billing/overview";
+/** Mistral's OpenAI-compatible API: the Mistral choice saves the OpenAI-compatible provider with this base URL. Same as ClaudeSettingsPanel. */
+const MISTRAL_BASE_URL = "https://api.mistral.ai/v1";
+
+/** The dropdown choice for saved settings: "mistral" when the OpenAI-compatible provider points at api.mistral.ai. Same rule as ClaudeSettingsPanel.providerChoice. */
+function providerChoice(provider, baseUrl) {
+    if (provider !== "openai-compatible") return "anthropic";
+    try {
+        return new URL((baseUrl || "").trim()).hostname.toLowerCase() === "api.mistral.ai" ? "mistral" : "openai-compatible";
+    } catch (err) {
+        return "openai-compatible";
+    }
+}
+
+/** The provider's billing page: Anthropic's, OpenAI's for api.openai.com, or null for other servers (e.g. Ollama). Same rule as ClaudeSettingsPanel.billingUrl. */
+function billingUrl(openAi, baseUrl) {
+    if (!openAi) return ANTHROPIC_BILLING_URL;
+    try {
+        return new URL((baseUrl || "").trim()).hostname.toLowerCase() === "api.openai.com" ? OPENAI_BILLING_URL : null;
+    } catch (err) {
+        return null;
+    }
+}
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
 // Stored value (English name, used in the system prompt) and the label shown in the dropdown.
 const LANGUAGES = [
@@ -200,7 +223,7 @@ function markdown(md) {
 
 // ------------------------------------------------------------------ chat controller
 // One conversation per browser tab, kept outside React so it survives navigating between
-// the Claude page, the channel tab and other views while Claude is still working.
+// the Claude page, the channel tab and other views while the AI Assistant is still working.
 
 const chat = {
     conversationId: null,
@@ -256,7 +279,7 @@ const chat = {
             this.jobId = res.jobId;
             this.lastSeq = 0;
             this.shownActionId = null;
-            this.setStatus("Claude is thinking…");
+            this.setStatus("AI Assistant is thinking…");
             this.timer = setInterval(() => this.poll(), POLL_MS);
         } catch (err) {
             this.busy = false;
@@ -283,11 +306,11 @@ const chat = {
     handle(job) {
         for (const ev of job.events || []) {
             this.lastSeq = Math.max(this.lastSeq, ev.seq || 0);
-            if (ev.type === "tool") this.status = "Claude is querying the server…";
+            if (ev.type === "tool") this.status = "AI Assistant is querying the server…";
             this.entries = [...this.entries, { kind: ev.type, text: ev.text }];
         }
         this.partial = job.partial || "";
-        if (this.partial) this.status = "Claude is writing…";
+        if (this.partial) this.status = "AI Assistant is writing…";
         const pending = job.pendingAction;
         if (job.state === "WAITING" && pending && pending.id !== this.shownActionId) {
             this.shownActionId = pending.id;
@@ -363,7 +386,7 @@ const chat = {
     /** Lists the user's conversations (current and saved) and continues the chosen one. */
     async chooseConversation() {
         if (this.jobId) {
-            this.add("info", "Wait until Claude has finished, or click Stop.");
+            this.add("info", "Wait until the AI Assistant has finished, or click Stop.");
             return;
         }
         let res;
@@ -376,7 +399,7 @@ const chat = {
         const list = res.conversations || [];
         const note = res.keepDays > 0
             ? "Conversations are saved on the server for " + res.keepDays + " days."
-            : "Conversations are not saved on the server: they are kept for 4 hours and lost on a restart (Settings > Claude Assistant).";
+            : "Conversations are not saved on the server: they are kept for 4 hours and lost on a restart (Settings > AI Assistant).";
         const { h, modal } = P.ui;
         if (list.length === 0) {
             modal({ title: "Conversations", body: h("div", null, "You have no earlier conversations. " + note), buttons: [{ label: "Close", primary: true, onClick: () => true }] });
@@ -429,10 +452,10 @@ const chat = {
         const decide = async (approved) => {
             if (decided) return true;
             decided = true;
-            this.setStatus(approved ? "Running action…" : "Claude continues…");
+            this.setStatus(approved ? "Running action…" : "AI Assistant continues…");
             try {
                 await call("POST", "/jobs/" + encodeURIComponent(jobId) + "/confirm", { actionId: pending.id, approved });
-                this.setStatus("Claude continues…");
+                this.setStatus("AI Assistant continues…");
             } catch (err) {
                 this.add("error", "Approval failed: " + errorText(err));
             }
@@ -442,7 +465,7 @@ const chat = {
             title: "Approve: " + pending.title,
             size: "lg",
             body: h("div", null,
-                h("div", null, "Claude wants to run the following action on this server:"),
+                h("div", null, "The AI Assistant wants to run the following action on this server:"),
                 h("pre.claude-detail", null, pending.detail || "")),
             buttons: [
                 { label: "Reject", onClick: () => decide(false) },
@@ -466,7 +489,7 @@ const chat = {
         const decide = async (approved) => {
             if (decided) return true;
             decided = true;
-            this.setStatus("Claude continues…");
+            this.setStatus("AI Assistant continues…");
             try {
                 await call("POST", "/jobs/" + encodeURIComponent(jobId) + "/review", approved ? { reviewId: review.id, approved, text: text.value } : { reviewId: review.id, approved });
             } catch (err) {
@@ -478,12 +501,12 @@ const chat = {
             title: "Review before sending: " + review.title,
             size: "lg",
             body: h("div", null,
-                h("div", null, "This is exactly what will be sent to Claude (Anthropic), after masking. Edit it to remove anything Claude should not see; edited text is masked again before sending."),
+                h("div", null, "This is exactly what will be sent to the AI model, after masking. Edit it to remove anything the AI model should not see; edited text is masked again before sending."),
                 text,
                 h("div.claude-hint", null, (review.detail || "").length + " characters. Closing this dialog sends nothing.")),
             buttons: [
                 { label: "Don't send", onClick: () => decide(false) },
-                { label: "Send to Claude", primary: true, onClick: () => decide(true) }
+                { label: "Send to the AI model", primary: true, onClick: () => decide(true) }
             ],
             // Closing the dialog (X, Escape, clicking outside) sends nothing.
             onClose: () => { decide(false); }
@@ -551,13 +574,13 @@ function ChatPanel() {
     const welcome = c.entries.length === 0
         ? e("div", { className: "claude-info" },
             "Ask a question about your OIE server, for example ", e("i", null, "Which channels have errors?"), " or ", e("i", null, "Why does this message fail?"),
-            e("br"), "Message content is masked before it is sent to Claude. Actions such as deploying only run after you approve them.")
+            e("br"), "Message content is masked before it is sent to the AI model. Actions such as deploying only run after you approve them.")
         : null;
 
     return e("div", { className: "claude-panel" },
         e("div", { className: "claude-contextbar" },
             e("span", { className: "claude-context", title: c.context || "" },
-                c.context ? [e("b", { key: "l" }, "Context: "), c.context] : "No context: Claude looks at the whole server."),
+                c.context ? [e("b", { key: "l" }, "Context: "), c.context] : "No context: the AI Assistant looks at the whole server."),
             e("button", {
                 className: "btn",
                 title: "Ask about the global deploy, undeploy, preprocessor and postprocessor scripts",
@@ -566,20 +589,20 @@ function ChatPanel() {
             }, "Global Scripts"),
             e("button", {
                 className: "btn",
-                title: "Let Claude write documentation for the channel in the context; save it with Save answer",
+                title: "Let the AI Assistant write documentation for the channel in the context; save it with Save answer",
                 disabled: !CHANNEL_CONTEXT.test(c.context || ""),
                 onClick: () => c.open(c.context, DOCUMENT_SUGGESTION)
             }, "Document channel"),
             mayUse("claudeQueues") ? e("button", {
                 className: "btn",
-                title: "Let Claude look for stuck queues and channels whose stored messages keep growing",
+                title: "Let the AI Assistant look for stuck queues and channels whose stored messages keep growing",
                 disabled: c.busy,
                 onClick: () => c.open(null, QUEUES_SUGGESTION)
             }, "Queues and storage") : null,
             e("button", { className: "btn", disabled: !c.context, onClick: () => c.clearContext() }, "Clear context"),
             e("button", { className: "btn", title: "Continue one of your earlier conversations", onClick: () => c.chooseConversation() }, "Conversations…"),
             e("button", { className: "btn", title: "Save this conversation as a Markdown file", disabled: !c.conversationId, onClick: () => c.exportConversation() }, "Export"),
-            e("button", { className: "btn", title: "Save only Claude's last answer as a Markdown file, for example a channel's documentation", disabled: c.busy || !c.lastAnswer(), onClick: () => c.saveAnswer() }, "Save answer"),
+            e("button", { className: "btn", title: "Save only the AI Assistant's last answer as a Markdown file, for example a channel's documentation", disabled: c.busy || !c.lastAnswer(), onClick: () => c.saveAnswer() }, "Save answer"),
             e("button", { className: "btn", onClick: () => c.newConversation() }, "New conversation")),
         e("div", { className: "claude-transcript", ref: transcriptRef },
             welcome,
@@ -589,7 +612,7 @@ function ChatPanel() {
             e("textarea", {
                 ref: inputRef,
                 value: input,
-                placeholder: "Ask Claude… (Ctrl+Enter to send)",
+                placeholder: "Ask the AI Assistant… (Ctrl+Enter to send)",
                 onChange: (ev) => setInput(ev.target.value),
                 onKeyDown: (ev) => {
                     if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
@@ -605,7 +628,7 @@ function ChatPanel() {
 }
 
 /**
- * Whether the user's role grants "Use Claude Assistant". The server publishes the Swing task names
+ * Whether the user's role grants "Use AI Assistant". The server publishes the Swing task names
  * with that permission, so an RBAC plugin answers checkTask for them; without RBAC everything is allowed.
  */
 function mayUse(task = "claudeOpen") {
@@ -614,7 +637,7 @@ function mayUse(task = "claudeOpen") {
 
 /** Shown instead of the chat when the route is opened directly without the permission. */
 function NoAccess() {
-    return e("div", { className: "claude-error" }, "You do not have the OIE permission \"Use Claude Assistant\". Ask an administrator to add it to your role.");
+    return e("div", { className: "claude-error" }, "You do not have the OIE permission \"Use AI Assistant\". Ask an administrator to add it to your role.");
 }
 
 function ChatView() {
@@ -627,14 +650,14 @@ function ChannelTab(props) {
     const allowed = mayUse("claudeChannelEdit");
     React.useEffect(() => {
         if (!channel.id || !allowed) return;
-        const context = `Channel open in the editor: '${channel.name}' (${channel.id}, revision ${channel.revision}). Claude sees the saved version; unsaved changes in the editor are not visible.`;
+        const context = `Channel open in the editor: '${channel.name}' (${channel.id}, revision ${channel.revision}). The AI Assistant sees the saved version; unsaved changes in the editor are not visible.`;
         if (chat.context !== context) chat.open(context, "Explain what this channel does and point out weak spots in its scripts.");
     }, [channel.id, allowed]);
     return e("div", { className: "claude-panel claude-embedded" }, allowed ? e(ChatPanel) : e(NoAccess));
 }
 
 /**
- * Settings > Claude Assistant. Hooks into the settings shell like the built-in tabs: setSave for
+ * Settings > AI Assistant. Hooks into the settings shell like the built-in tabs: setSave for
  * the shell's Save (and its unsaved-changes prompt), markDirty/markClean, and a task pane.
  */
 function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
@@ -643,6 +666,8 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
     const [spend, setSpend] = React.useState({ state: "idle" });
     // The model list comes from the server: Anthropic's, or a fixed list when it cannot be read.
     const [models, setModels] = React.useState({ state: "idle" });
+    // True after "Other model ID…": the model is typed instead of chosen from the list.
+    const [typeModel, setTypeModel] = React.useState(false);
     const [error, setError] = React.useState(null);
     const formRef = React.useRef(null);
     formRef.current = form;
@@ -669,10 +694,10 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
 
     const show = React.useCallback((s) => {
         setStatus(s);
-        setForm({ apiKey: "", adminApiKey: "", clearAdminApiKey: false, model: s.model || "", effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic", reviewBeforeSending: s.reviewBeforeSending || "data", keepConversationsDays: s.keepConversationsDays || 0 });
+        setForm({ apiKey: "", provider: providerChoice(s.provider, s.baseUrl), baseUrl: s.baseUrl || "", adminApiKey: "", clearAdminApiKey: false, model: s.model || "", effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic", reviewBeforeSending: s.reviewBeforeSending || "data", keepConversationsDays: s.keepConversationsDays || 0 });
         clean();
         loadModels(false);
-        if (s.adminApiKeySet) loadSpend(false);
+        if (s.adminApiKeySet && s.provider !== "openai-compatible") loadSpend(false);
         else setSpend({ state: "idle" });
     }, [loadSpend, loadModels]);
 
@@ -689,10 +714,11 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
     const save = React.useCallback(async () => {
         const f = formRef.current;
         if (!f) return false;
+        const mistral = f.provider === "mistral";
         try {
-            show(await call("PUT", "/settings", { ...f, maxToolCalls: Number(f.maxToolCalls) || 25, keepConversationsDays: Math.max(0, Math.min(365, Number(f.keepConversationsDays) || 0)) }));
+            show(await call("PUT", "/settings", { ...f, provider: mistral ? "openai-compatible" : f.provider, baseUrl: mistral ? MISTRAL_BASE_URL : f.baseUrl, maxToolCalls: Number(f.maxToolCalls) || 25, keepConversationsDays: Math.max(0, Math.min(365, Number(f.keepConversationsDays) || 0)) }));
             setError(null);
-            P.ui.toast("Claude Assistant settings saved.", "success");
+            P.ui.toast("AI Assistant settings saved.", "success");
             return true;
         } catch (err) {
             setError("Saving failed: " + errorText(err));
@@ -709,7 +735,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
         if (setSave) setSave(() => saveRef.current());
         if (setTasks) {
             const { taskButton } = P.ui;
-            setTasks("Claude Assistant Tasks", [
+            setTasks("AI Assistant Tasks", [
                 taskButton("Refresh", "refresh", () => loadRef.current()),
                 taskButton("Save", "save", () => saveRef.current(), { primary: true })
             ]);
@@ -738,7 +764,12 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
     };
 
     let spendLines;
-    if (!status.adminApiKeySet) {
+    const mistral = form.provider === "mistral";
+    const openAi = form.provider === "openai-compatible" || mistral;
+    const billing = billingUrl(openAi, mistral ? MISTRAL_BASE_URL : form.baseUrl);
+    if (status.provider === "openai-compatible") {
+        spendLines = [row("Spend this month:", "–", "Spend this month is only available with Anthropic as the provider.")];
+    } else if (!status.adminApiKeySet) {
         spendLines = [row("Spend this month:", "–", "Set an Admin API key to show the spend this month.")];
     } else if (spend.state === "loading") {
         spendLines = [row("Spend this month:", "Loading…")];
@@ -766,35 +797,76 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
         const d = models.data;
         const updated = d.fetchedAt ? ", updated " + new Date(d.fetchedAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
         modelHint = d.warning ? e("span", { className: "claude-warning" }, d.warning)
-            : d.source === "anthropic" ? `${modelList.length} models from Anthropic${updated}. You can also type a model ID.`
-                : (d.note || "A fixed list is shown.") + " You can also type a model ID.";
+            : d.source === "anthropic" ? `${modelList.length} models from Anthropic${updated}. Choose Other model ID… for one that is not listed.`
+                : d.source === "openai-compatible" ? `${modelList.length} models from the model server${updated}. Choose one that supports tool calling, or Other model ID… to type one.`
+                : (d.note || "A fixed list is shown.") + " Choose Other model ID… for one that is not listed.";
     }
+
+    // A dropdown of the listed models, so every model shows whatever is saved now (a datalist only
+    // suggests models that match the text already in the field). "Other model ID…" switches to a text field.
+    const OTHER = "__other_model_id__";
+    const modelField = () => {
+        if (typeModel || modelList.length === 0) {
+            return e("span", { className: "claude-inline" },
+                e("input", { type: "text", value: form.model, onChange: set("model"), placeholder: "Model ID", style: { width: 260 } }),
+                modelList.length ? e("button", { className: "btn", onClick: () => setTypeModel(false) }, "Choose from the list") : null);
+        }
+        const options = modelList.map((m) => e("option", { key: m.id, value: m.id }, m.unlisted ? m.displayName + " – not in the list" : m.displayName));
+        if (!modelList.some((m) => m.id === form.model)) {
+            options.unshift(e("option", { key: "", value: form.model }, form.model ? form.model + " – not in the list" : "Choose a model"));
+        }
+        options.push(e("option", { key: OTHER, value: OTHER }, "Other model ID…"));
+        return e("select", {
+            value: form.model, style: { width: 260 },
+            onChange: (ev) => {
+                if (ev.target.value === OTHER) setTypeModel(true);
+                else set("model")(ev);
+            }
+        }, options);
+    };
 
     return e("div", { className: "claude-settings" },
         error ? e("div", { className: "claude-error" }, error) : null,
-        row("Anthropic API key:", e("input", { type: "password", value: form.apiKey, onChange: set("apiKey"), autoComplete: "off" }),
+        row("Provider:", e("select", {
+            value: form.provider, onChange: (ev) => {
+                const provider = ev.target.value;
+                // Leaving Mistral clears its URL, so the OpenAI-compatible choice starts empty.
+                const baseUrl = provider === "mistral" ? MISTRAL_BASE_URL : form.baseUrl.trim() === MISTRAL_BASE_URL ? "" : form.baseUrl;
+                setForm({ ...form, provider, baseUrl });
+                dirty();
+            }
+        },
+            e("option", { value: "anthropic" }, "Anthropic (Claude)"),
+            e("option", { value: "openai-compatible" }, "OpenAI-compatible (OpenAI, Ollama, vLLM)"),
+            e("option", { value: "mistral" }, "Mistral")),
+            "Save after changing the provider, then refresh the model list."),
+        mistral ? row("API base URL:", MISTRAL_BASE_URL,
+            "Mistral's API (La Plateforme). Enter a key from console.mistral.ai and choose a model that supports tool calling, for example mistral-large-latest or mistral-medium-latest.") : null,
+        openAi && !mistral ? row("API base URL:", e("input", { type: "text", value: form.baseUrl, onChange: set("baseUrl"), placeholder: "https://api.openai.com/v1" }),
+            "For example https://api.openai.com/v1, http://ollama-host:11434/v1 (Ollama) or http://vllm-host:8000/v1 (vLLM). The OIE server must reach it, and the model must support tool calling. The API key may stay empty for a local server.") : null,
+        row("API key:", e("input", { type: "password", value: form.apiKey, onChange: set("apiKey"), autoComplete: "off" }),
             status.apiKeySet ? "Set: " + status.apiKeyHint : "No API key set yet."),
         row("Model:", e("span", { className: "claude-inline" },
-            e("input", { type: "text", list: "claude-models", value: form.model, onChange: set("model"), style: { width: 260 } }),
-            e("datalist", { id: "claude-models" }, modelList.map((m) => e("option", { key: m.id, value: m.id, label: m.unlisted ? m.displayName + " – not in the list" : m.displayName }))),
+            modelField(),
             e("button", { className: "btn", disabled: models.state === "loading", onClick: () => loadModels(true) }, "Refresh list")), modelHint),
         row("Effort:", e("select", { value: form.effort, onChange: set("effort") }, EFFORTS.map((x) => e("option", { key: x, value: x }, x)))),
         row("Response language:", e("select", { value: form.responseLanguage, onChange: set("responseLanguage") }, LANGUAGES.map(([value, label]) => e("option", { key: value, value }, label)))),
         row("Max. tool calls per question:", e("input", { type: "number", min: 1, max: 100, value: form.maxToolCalls, onChange: set("maxToolCalls"), style: { width: 80 } })),
         row("Review before sending:", e("select", { value: form.reviewBeforeSending, onChange: set("reviewBeforeSending") }, REVIEWS.map(([value, label]) => e("option", { key: value, value }, label))),
-            "Shows exactly what will be sent to Claude, after masking, so each user can edit it or withhold it first."),
+            "Shows exactly what will be sent to the AI model, after masking, so each user can edit it or withhold it first."),
         row("Keep conversations (days):", e("input", { type: "number", min: 0, max: 365, value: form.keepConversationsDays, onChange: set("keepConversationsDays"), style: { width: 80 } }),
-            "Days a conversation is kept on the server after its last use, so it can be continued after a restart of OIE (Conversations…). Only what was sent to Claude is kept, so masked. 0 = not saved: conversations are gone 4 hours after their last use or on a restart, and saved ones are removed."),
+            "Days a conversation is kept on the server after its last use, so it can be continued after a restart of OIE (Conversations…). Only what was sent to the AI model is kept, so masked. 0 = not saved: conversations are gone 4 hours after their last use or on a restart, and saved ones are removed."),
         row("Extra mask patterns:", e("textarea", { rows: 4, value: form.maskPatterns, onChange: set("maskPatterns") }),
             "Regular expressions, separated by ;; . They are masked in addition to the built-in rules (HL7 PID, NTE and text over 30 characters, GDT 3000-3107, BSN). The API keys are stored encrypted on the server and never sent back to the Administrator. Leave a key field empty to keep the current key."),
-        e("h3", null, "Usage"),
-        row("Admin API key (optional):", e("input", { type: "password", value: form.adminApiKey, onChange: set("adminApiKey"), autoComplete: "off" }),
+        // The Admin API key and spend only apply to Anthropic; the billing button follows the provider.
+        billing || !openAi ? e("h3", null, "Usage") : null,
+        openAi ? null : row("Admin API key (optional):", e("input", { type: "password", value: form.adminApiKey, onChange: set("adminApiKey"), autoComplete: "off" }),
             e("span", { className: "claude-inline" },
                 status.adminApiKeySet ? "Set: " + status.adminApiKeyHint : "No Admin API key set.",
                 status.adminApiKeySet ? e("label", null, e("input", { type: "checkbox", checked: form.clearAdminApiKey, onChange: set("clearAdminApiKey") }), " Remove the Admin API key") : null)),
-        ...spendLines,
-        row("Credits:", e("a", { className: "btn", href: BILLING_URL, target: "_blank", rel: "noopener noreferrer" }, "Open Billing in Console")),
-        row("", null, "Spend comes from the Anthropic Cost API and needs an Admin API key (sk-ant-admin…, created by an organization admin in the Console). It is in USD, since the 1st of the month (UTC), and runs up to about 5 minutes behind. The credit balance is not available through the API; the button opens the Console's billing page."));
+        ...(openAi ? [] : spendLines),
+        billing ? row("Credits:", e("a", { className: "btn", href: billing, target: "_blank", rel: "noopener noreferrer" }, openAi ? "Open Billing at OpenAI" : "Open Billing in Console")) : null,
+        openAi ? null : row("", null, "Spend comes from the Anthropic Cost API and needs an Admin API key (sk-ant-admin…, created by an organization admin in the Console). It is in USD, since the 1st of the month (UTC), and runs up to about 5 minutes behind. The credit balance is not available through the API; the button opens the Console's billing page."));
 }
 
 // ------------------------------------------------------------------ registration
@@ -842,18 +914,18 @@ export function register(platform) {
     platform.registerIcon("claude", ICON_PATH);
 
     // task/rbac: the shell hides the entry when an RBAC plugin denies the task; the server publishes
-    // these task names with "Use Claude Assistant" (ClaudeServletInterface.USE_TASKS).
-    platform.registerNavItem({ id: "claude-assistant", label: "Claude Assistant", icon: "claude", path: "/claude", section: "Plugins", order: 30, task: "claudeOpen", rbac: "other" });
-    platform.registerView("/claude", platform.reactView(ChatView), { title: "Claude Assistant" });
+    // these task names with "Use AI Assistant" (ClaudeServletInterface.USE_TASKS).
+    platform.registerNavItem({ id: "claude-assistant", label: "AI Assistant", icon: "claude", path: "/claude", section: "Plugins", order: 30, task: "claudeOpen", rbac: "other" });
+    platform.registerView("/claude", platform.reactView(ChatView), { title: "AI Assistant" });
 
     // Channel tabs have no task gate in the shell, so the tab is only registered when allowed.
     if (mayUse("claudeChannelEdit")) {
-        platform.registerChannelTab({ id: "claude-assistant", label: "Claude", order: 90, component: ChannelTab });
+        platform.registerChannelTab({ id: "claude-assistant", label: "AI Assistant", order: 90, component: ChannelTab });
     }
 
     platform.registerChannelAction({
         id: "claude-assistant.ask",
-        label: "Ask Claude",
+        label: "Ask AI Assistant",
         icon: "claude",
         order: 60,
         task: "claudeDashboard",
@@ -877,7 +949,7 @@ export function register(platform) {
 
     // The web admin has no hook on the Global Scripts view, so these go in the command palette.
     if (typeof platform.registerCommand === "function") {
-        platform.registerCommand({ id: "claude-assistant.open", label: "Claude Assistant", icon: "claude", section: "Plugins", keywords: ["claude", "ai", "assistant"], path: "/claude", task: "claudeOpen", rbac: "other" });
+        platform.registerCommand({ id: "claude-assistant.open", label: "AI Assistant", icon: "claude", section: "Plugins", keywords: ["claude", "ai", "assistant"], path: "/claude", task: "claudeOpen", rbac: "other" });
         platform.registerCommand({
             id: "claude-assistant.queues",
             label: "Check queues and storage",
@@ -890,7 +962,7 @@ export function register(platform) {
         });
         platform.registerCommand({
             id: "claude-assistant.global-scripts",
-            label: "Ask Claude about Global Scripts",
+            label: "Ask AI Assistant about Global Scripts",
             icon: "claude",
             section: "Plugins",
             keywords: ["claude", "global scripts", "deploy", "preprocessor", "postprocessor"],
@@ -902,14 +974,14 @@ export function register(platform) {
 
     platform.registerCodeTemplateAction({
         id: "claude-assistant.ask",
-        label: "Ask Claude",
+        label: "Ask AI Assistant",
         icon: "claude",
         order: 60,
         task: "claudeCodeTemplate",
         onInvoke: (template, ctx) => {
             if (!template || !template.id) return;
             const library = ctx && ctx.library && ctx.library.name ? ` in library '${ctx.library.name}'` : "";
-            openWith(`Selected code template: '${template.name}' (${template.id})${library}. Claude sees the saved version; unsaved changes in the code template editor are not visible.`,
+            openWith(`Selected code template: '${template.name}' (${template.id})${library}. The AI Assistant sees the saved version; unsaved changes in the code template editor are not visible.`,
                 "Explain what this code template does, which channels use it, and point out weak spots.");
         }
     });
@@ -918,7 +990,7 @@ export function register(platform) {
     if (typeof platform.registerMessageAction === "function") {
         platform.registerMessageAction({
             id: "claude-assistant.ask",
-            label: "Ask Claude",
+            label: "Ask AI Assistant",
             icon: "claude",
             order: 60,
             task: "claudeMessage",
@@ -933,6 +1005,6 @@ export function register(platform) {
         });
     }
 
-    // Hidden by the shell unless "settings_Claude Assistant" doRefresh/doSave is allowed ("Manage Claude Assistant settings").
-    platform.registerSettingsPanel({ label: "Claude Assistant", component: SettingsPanel });
+    // Hidden by the shell unless "settings_AI Assistant" doRefresh/doSave is allowed ("Manage AI Assistant settings").
+    platform.registerSettingsPanel({ label: "AI Assistant", component: SettingsPanel });
 }

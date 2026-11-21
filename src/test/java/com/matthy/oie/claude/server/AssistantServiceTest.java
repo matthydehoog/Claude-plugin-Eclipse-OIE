@@ -191,7 +191,7 @@ public class AssistantServiceTest {
     }
 
     /** How OIE names the plugin's confirm operation: extension point, "#", operation. */
-    private static final String CONFIRM = ClaudeServletInterface.PLUGIN_POINT + "#" + AssistantService.CONFIRM_OPERATION;
+    private static final String CONFIRM = ClaudeServletInterface.PERMISSION_GROUP + "#" + AssistantService.CONFIRM_OPERATION;
 
     private static final String[] DEPLOY = { "oie_deploy_channel", "{\"channel\":\"ch-1\"}" };
     private static final String[] EVENTS = { "oie_events", "{}" };
@@ -343,7 +343,7 @@ public class AssistantServiceTest {
 
         ServerEvent audit = dispatchedEvents().get(0);
         Map<String, String> attributes = audit.getAttributes();
-        assertEquals("Claude Assistant: data sent to Anthropic", audit.getName());
+        assertEquals("AI Assistant: data sent to Anthropic", audit.getName());
         assertEquals(USER, (int) audit.getUserId());
         assertEquals(ADDRESS, audit.getIpAddress());
         assertEquals("oie_events", attributes.get("tool"));

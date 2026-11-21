@@ -82,7 +82,7 @@ class ChatDialog extends JDialog {
     private String shownActionId;
 
     ChatDialog(JFrame owner) {
-        super(owner, "Claude Assistant", false);
+        super(owner, "AI Assistant", false);
         setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
         buildUi();
         setSize(new Dimension(900, 720));
@@ -154,7 +154,7 @@ class ChatDialog extends JDialog {
         clearContextButton.addActionListener(e -> setContext(null));
         exportButton.setToolTipText("Save this conversation as a Markdown file");
         exportButton.addActionListener(e -> exportConversation());
-        saveAnswerButton.setToolTipText("Save only Claude's last answer as a Markdown file, for example a channel's documentation");
+        saveAnswerButton.setToolTipText("Save only the AI Assistant's last answer as a Markdown file, for example a channel's documentation");
         saveAnswerButton.addActionListener(e -> saveAnswer());
         conversationsButton.setToolTipText("Continue one of your earlier conversations");
         conversationsButton.addActionListener(e -> chooseConversation());
@@ -179,14 +179,14 @@ class ChatDialog extends JDialog {
 
     private void setContext(String newContext) {
         context = newContext;
-        contextLabel.setText(newContext == null ? "No context: Claude looks at the whole server." : "<html><b>Context:</b> " + Markdown.escape(newContext) + "</html>");
+        contextLabel.setText(newContext == null ? "No context: the AI Assistant looks at the whole server." : "<html><b>Context:</b> " + Markdown.escape(newContext) + "</html>");
         clearContextButton.setEnabled(newContext != null);
     }
 
     private void showWelcome() {
         entries.clear();
         entries.add("<div class=\"info\">Ask a question about your OIE server, for example <i>Which channels have errors?</i> or <i>Why does this message fail?</i><br>"
-                + "Message content is masked before it is sent to Claude. Actions such as deploying only run after you approve them.</div>");
+                + "Message content is masked before it is sent to the AI model. Actions such as deploying only run after you approve them.</div>");
         render();
     }
 
@@ -262,7 +262,7 @@ class ChatDialog extends JDialog {
     /** Lists the user's conversations (current and saved) and continues the chosen one. */
     private void chooseConversation() {
         if (jobId != null) {
-            JOptionPane.showMessageDialog(this, "Wait until Claude has finished, or click Stop.", "Conversations", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Wait until the AI Assistant has finished, or click Stop.", "Conversations", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
         background(ClaudeApi::conversations, result -> {
@@ -275,7 +275,7 @@ class ChatDialog extends JDialog {
                         + (c.path("id").asText().equals(conversationId) ? "   (open)" : ""));
             }
             int keepDays = result.path("keepDays").asInt();
-            String note = keepDays > 0 ? "Conversations are saved on the server for " + keepDays + " days." : "Conversations are not saved on the server: they are kept for 4 hours and lost on a restart (Settings > Claude Assistant).";
+            String note = keepDays > 0 ? "Conversations are saved on the server for " + keepDays + " days." : "Conversations are not saved on the server: they are kept for 4 hours and lost on a restart (Settings > AI Assistant).";
             if (ids.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "You have no earlier conversations.\n" + note, "Conversations", JOptionPane.INFORMATION_MESSAGE);
                 return;
@@ -343,7 +343,7 @@ class ChatDialog extends JDialog {
             jobId = result.path("jobId").asText();
             lastSeq = 0;
             shownActionId = null;
-            statusLabel.setText("Claude is thinking…");
+            statusLabel.setText("AI Assistant is thinking…");
             pollTimer.start();
         }, error -> {
             add("<div class=\"error\">" + Markdown.escape(error) + "</div>");
@@ -400,7 +400,7 @@ class ChatDialog extends JDialog {
                     break;
                 case "tool":
                     add("<div class=\"tool\">&#8594; " + Markdown.escape(text) + "</div>");
-                    statusLabel.setText("Claude is querying the server…");
+                    statusLabel.setText("AI Assistant is querying the server…");
                     break;
                 case "action":
                     add("<div class=\"action\"><b>Done:</b> " + Markdown.escape(text) + "</div>");
@@ -416,7 +416,7 @@ class ChatDialog extends JDialog {
         if (!newPartial.equals(partial)) {
             partial = newPartial;
             if (!partial.isEmpty()) {
-                statusLabel.setText("Claude is writing…");
+                statusLabel.setText("AI Assistant is writing…");
             }
             render();
         }
@@ -451,13 +451,13 @@ class ChatDialog extends JDialog {
         detail.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         detail.setCaretPosition(0);
         JPanel panel = new JPanel(new BorderLayout(0, 8));
-        panel.add(new JLabel("<html>Claude wants to run the following action on server <b>" + Markdown.escape(String.valueOf(PlatformUI.SERVER_NAME)) + "</b>:</html>"), BorderLayout.NORTH);
+        panel.add(new JLabel("<html>The AI Assistant wants to run the following action on server <b>" + Markdown.escape(String.valueOf(PlatformUI.SERVER_NAME)) + "</b>:</html>"), BorderLayout.NORTH);
         panel.add(new JScrollPane(detail), BorderLayout.CENTER);
         Object[] options = { "Run", "Reject" };
         int choice = JOptionPane.showOptionDialog(this, panel, "Approve: " + pending.path("title").asText(), JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[1]);
         boolean approved = choice == 0;
-        statusLabel.setText(approved ? "Running action…" : "Claude continues…");
-        background(() -> ClaudeApi.confirm(id, actionId, approved), r -> statusLabel.setText("Claude continues…"), error -> add("<div class=\"error\">Approval failed: " + Markdown.escape(error) + "</div>"));
+        statusLabel.setText(approved ? "Running action…" : "AI Assistant continues…");
+        background(() -> ClaudeApi.confirm(id, actionId, approved), r -> statusLabel.setText("AI Assistant continues…"), error -> add("<div class=\"error\">Approval failed: " + Markdown.escape(error) + "</div>"));
     }
 
     /** Shows exactly what Claude would receive; the user can edit it, send it or withhold it. */
@@ -472,15 +472,15 @@ class ChatDialog extends JDialog {
         text.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         text.setCaretPosition(0);
         JPanel panel = new JPanel(new BorderLayout(0, 8));
-        panel.add(new JLabel("<html>This is exactly what will be sent to Claude (Anthropic) from server <b>" + Markdown.escape(String.valueOf(PlatformUI.SERVER_NAME))
-                + "</b>, after masking.<br>Edit it to remove anything Claude should not see; edited text is masked again before sending.</html>"), BorderLayout.NORTH);
+        panel.add(new JLabel("<html>This is exactly what will be sent to the AI model from server <b>" + Markdown.escape(String.valueOf(PlatformUI.SERVER_NAME))
+                + "</b>, after masking.<br>Edit it to remove anything the AI model should not see; edited text is masked again before sending.</html>"), BorderLayout.NORTH);
         panel.add(new JScrollPane(text), BorderLayout.CENTER);
         panel.add(new JLabel(original.length() + " characters. Closing this dialog sends nothing."), BorderLayout.SOUTH);
-        Object[] options = { "Send to Claude", "Don't send" };
+        Object[] options = { "Send to the AI model", "Don't send" };
         int choice = JOptionPane.showOptionDialog(this, panel, "Review before sending: " + review.path("title").asText(), JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[1]);
         boolean approved = choice == 0;
         String edited = text.getText();
-        statusLabel.setText("Claude continues…");
+        statusLabel.setText("AI Assistant continues…");
         background(() -> {
             ClaudeApi.review(id, reviewId, approved, edited);
             return null;
