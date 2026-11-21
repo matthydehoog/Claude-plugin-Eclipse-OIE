@@ -9,7 +9,7 @@
   <version>2.0.0</version>
   <packaging>jar</packaging>
 
-  <name>OIE Claude Assistant</name>
+  <name>OIE AI Assistant</name>
   <description>Claude chat assistant inside the Open Integration Engine Administrator.</description>
 
   <properties>

@@ -1,6 +1,6 @@
 # Development guide
 
-This guide is for people who build, change or release the Claude Assistant. For installing and using it, see the [README](../README.md) and the [User Manual](USER_MANUAL.md).
+This guide is for people who build, change or release the AI Assistant. For installing and using it, see the [README](../README.md) and the [User Manual](USER_MANUAL.md).
 
 ## Contents
 
@@ -295,7 +295,7 @@ Bodies and responses are **JSON as text** (`text/plain`), so no plugin class pas
 
 ## The Swing client
 
-- `ClaudeClientPlugin` adds the tasks: *Claude Assistant* under **Other**, and *Ask Claude* in the dashboard, message browser, channel editor, code templates and global scripts (plus *Document channel* in the channel editor), each with its context (selected channels, message, channel, template, scripts) and a suggested question.
+- `ClaudeClientPlugin` adds the tasks: *AI Assistant* under **Other**, and *Ask AI Assistant* in the dashboard, message browser, channel editor, code templates and global scripts (plus *Document channel* in the channel editor), each with its context (selected channels, message, channel, template, scripts) and a suggested question.
 - `ChatDialog` is a non-modal window, one per Administrator session. It polls every 800 ms, renders Claude's Markdown with `Markdown`, shows the approval and review dialogs, and offers *New conversation*, *Stop*, *Export…*, *Save answer…* (only Claude's last answer, named after its first heading by `Markdown.fileName`) and *Conversations…*.
 - `ClaudeApi` wraps the servlet (`mirthClient.getServlet(ClaudeServletInterface.class)`). All calls block; never call them on the event thread.
 - `ClaudeSettingsPlugin` and `ClaudeSettingsPanel` make the settings tab, with *Usage* and *Open Billing in Console*.

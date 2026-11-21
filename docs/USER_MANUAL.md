@@ -1,8 +1,8 @@
-# Claude Assistant for OIE — User Manual
+# AI Assistant for OIE — User Manual
 
 Version 2.0.0 · November 2026
 
-The Claude Assistant (version 2.0.0) puts a Claude chat inside the Open Integration Engine Administrator and web administrator. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
+The AI Assistant (version 2.0.0) puts an AI chat inside the Open Integration Engine Administrator and web administrator. It works with Claude (Anthropic), OpenAI, Mistral or a local model behind an OpenAI-compatible API. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
 
 > **Unofficial plugin.** This is a community-built plugin. It is not affiliated with, endorsed by or supported by Anthropic. Claude and Anthropic are trademarks of Anthropic, PBC.
 >
@@ -16,7 +16,7 @@ The Claude Assistant (version 2.0.0) puts a Claude chat inside the Open Integrat
 - [First-time setup](#first-time-setup)
 - [Using the Administrator (Swing) client](#using-the-administrator-swing-client)
 - [Using the web administrator](#using-the-web-administrator)
-- [What Claude can read](#what-claude-can-read)
+- [What the assistant can read](#what-the-assistant-can-read)
 - [Actions and approval](#actions-and-approval)
 - [Privacy and masking](#privacy-and-masking)
 - [Permissions](#permissions)
@@ -27,14 +27,14 @@ The Claude Assistant (version 2.0.0) puts a Claude chat inside the Open Integrat
 
 ## Overview
 
-Ask Claude a question in plain language and it looks up the answer on your OIE server itself. Typical questions:
+Ask the assistant a question in plain language and it looks up the answer on your OIE server itself. Typical questions:
 
 - "Which channels have errors, and why?"
 - "Explain why this message was filtered."
 - "What does the transformer in this channel do?"
 - "Is this code template used anywhere?"
 
-Claude reads through built-in tools (see *What Claude can read*). It can also propose actions, such as redeploying a channel or fixing a script. Those run only after you click *Run*.
+The assistant reads through built-in tools (see *What the assistant can read*). It can also propose actions, such as redeploying a channel or fixing a script. Those run only after you click *Run*.
 
 The assistant is available in two places, and both use the same server and settings:
 
@@ -54,7 +54,7 @@ Patient data is masked before anything leaves the server (see *Privacy and maski
 | Anthropic API key | A key from the [Claude Console](https://console.anthropic.com) with credits or billing set up |
 | Admin API key (optional) | Only needed to show spend; organization admins only |
 | Web administrator (optional) | The **Web Support** (`websupport`) extension on the engine |
-| OIE user | The Claude Assistant permissions (see *Permissions*) |
+| OIE user | The AI Assistant permissions (see *Permissions*) |
 
 The Administrator workstation needs no internet access. All calls to Anthropic go from the OIE server.
 
@@ -103,8 +103,8 @@ The key is stored encrypted on the server and never sent back to the Administrat
 | API base URL | none | Only for an OpenAI-compatible provider, for example `https://api.openai.com/v1` or `http://ollama-host:11434/v1`; fixed at `https://api.mistral.ai/v1` for Mistral |
 | API key | none | Anthropic key used for every question; for an OpenAI-compatible provider its key, or empty for a local server without one |
 | Model | `claude-opus-5` | The Claude model that answers. The list shows the models your API key can use, newest first, as Anthropic reports them; you can also type a model ID |
-| Effort | `high` | How hard Claude thinks; lower is faster and cheaper |
-| Max tool calls | 25 | Lookups Claude may do for one question |
+| Effort | `high` | How hard the assistant thinks; lower is faster and cheaper |
+| Max tool calls | 25 | Lookups the assistant may do for one question |
 | Response language | Automatic | Automatic answers in the language of the question; a fixed language always answers in that language |
 | Review before sending | Message content, logs and events | Which outgoing data you see, can edit and must approve first (see *Review before sending*) |
 | Mask patterns | none | Extra regular expressions to mask, on top of the built-in rules |
@@ -131,26 +131,26 @@ Start from the place your question is about: *Ask AI Assistant* there sends the 
 | --- | --- | --- |
 | Left menu, **Other** | *AI Assistant* | None: questions about the whole server |
 | **Dashboard** | Task or right-click, *Ask AI Assistant* | Selected channel(s) or connectors |
-| **Dashboard** | Task or right-click, *Check queues and storage* | None: Claude checks all queues and message storage (see *Queues and message storage*) |
+| **Dashboard** | Task or right-click, *Check queues and storage* | None: the assistant checks all queues and message storage (see *Queues and message storage*) |
 | **Message browser** | Task or right-click, *Ask AI Assistant* | Selected message (channel, message ID, connector) |
 | **Channel editor** | Task or right-click, *Ask AI Assistant* | The open channel (its saved version) |
-| **Channel editor** | Task or right-click, *Document channel* | The open channel; Claude writes its documentation (see *Documenting a channel*) |
+| **Channel editor** | Task or right-click, *Document channel* | The open channel; the assistant writes its documentation (see *Documenting a channel*) |
 | **Code Templates** | Task or right-click, one template selected | The template and its library |
 | **Global Scripts** | Task or right-click, *Ask AI Assistant* | The deploy, undeploy, preprocessor and postprocessor scripts |
 
-The context shows at the top of the chat window. *No context* means Claude looks at the whole server.
+The context shows at the top of the chat window. *No context* means the assistant looks at the whole server.
 
 **In the chat window:**
 
 - Type your question and press **Ctrl+Enter** (or click *Send*).
-- Claude shows which tools it is using while it works, and the answer appears while Claude writes it: it grows every second until it is complete. **Stop** also works halfway through an answer.
+- The assistant shows which tools it is using while it works, and the answer appears while the model writes it: it grows every second until it is complete. **Stop** also works halfway through an answer.
 - **Stop** aborts the running question.
 - **New conversation** starts over with an empty history.
 - **Conversations…** lists your earlier conversations; choose one and click *Continue* to pick it up where you left off.
 - **Export…** saves the open conversation as a Markdown file.
-- **Save answer…** saves only Claude's last answer as a separate Markdown file, named after its first heading. Use it for a channel's documentation.
+- **Save answer…** saves only the assistant's last answer as a separate Markdown file, named after its first heading. Use it for a channel's documentation.
 
-The window stays open next to the Administrator, so you can keep working while Claude answers. Unsaved changes in the channel editor are not visible to Claude: save first.
+The window stays open next to the Administrator, so you can keep working while the assistant answers. Unsaved changes in the channel editor are not visible to the assistant: save first.
 
 ## Using the web administrator
 
@@ -159,25 +159,25 @@ The web administrator gets the same assistant once the **Web Support** extension
 | Place | What you get |
 | --- | --- |
 | Left rail, **Plugins > AI Assistant** | The chat as a full page |
-| **Channel editor**, tab **Claude** | The chat with the open channel as context |
+| **Channel editor**, tab **AI Assistant** | The chat with the open channel as context |
 | **Channels** view, right-click | *Ask AI Assistant* about the selected channel, or *Document channel* |
 | **Message browser**, right-click | *Ask AI Assistant* about the selected message (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask AI Assistant* about the selected template |
-| **Claude page**, button **Global Scripts** | The global scripts as context |
-| **Claude page**, button **Document channel** | Documents the channel in the context (from the channel editor tab or the Channels view) |
-| **Claude page**, button **Queues and storage** | Checks queues and message storage |
+| **AI Assistant page**, button **Global Scripts** | The global scripts as context |
+| **AI Assistant page**, button **Document channel** | Documents the channel in the context (from the channel editor tab or the Channels view) |
+| **AI Assistant page**, button **Queues and storage** | Checks queues and message storage |
 | **Command palette** (Ctrl+K) | *AI Assistant*, *Check queues and storage* and *Ask AI Assistant about Global Scripts* |
 | **Settings**, tab **AI Assistant** | Same settings and usage as in Swing; save with the page's own *Save* |
 
-A conversation stays open while you move between the Claude page and other views. The Claude page has the same **Conversations…**, **Export** and **Save answer** buttons as the Swing window; they download the Markdown file.
+A conversation stays open while you move between the AI Assistant page and other views. The AI Assistant page has the same **Conversations…**, **Export** and **Save answer** buttons as the Swing window; they download the Markdown file.
 
 The Global Scripts view in the web administrator has no *Ask AI Assistant* action. Use the **Global Scripts** button on the AI Assistant page instead.
 
-**Command palette:** open the Dashboard once before searching for "Claude" with Ctrl+K. Searching earlier crashes the palette ([oie-web-client#65](https://github.com/gibson9583/oie-web-client/issues/65)).
+**Command palette:** open the Dashboard once before searching for "AI Assistant" with Ctrl+K. Searching earlier crashes the palette ([oie-web-client#65](https://github.com/gibson9583/oie-web-client/issues/65)).
 
-## What Claude can read
+## What the assistant can read
 
-Claude uses these read tools on its own, without asking. They change nothing.
+The assistant uses these read tools on its own, without asking. They change nothing.
 
 | Tool | What it returns |
 | --- | --- |
@@ -200,7 +200,7 @@ At most 25 tool calls are made per question by default (*Max tool calls*). Raise
 
 ### Documenting a channel
 
-*Document channel* (channel editor, or right-click in the web administrator's Channels view) asks Claude to write documentation for the channel, for a handover, an audit or an integration file. Claude reads the channel overview and writes Markdown with:
+*Document channel* (channel editor, or right-click in the web administrator's Channels view) asks the assistant to write documentation for the channel, for a handover, an audit or an integration file. The assistant reads the channel overview and writes Markdown with:
 
 - **Purpose**, from the name, description and scripts
 - **Source**: connector type, port or path, data type
@@ -208,15 +208,15 @@ At most 25 tool calls are made per question by default (*Max tool calls*). Raise
 - **Destinations**: type, target, and when each one runs
 - **Field mappings**: a table of source field, target and transformation, from the actual Mapper, Message Builder and JavaScript steps
 - **Scripts and code templates**, and the **Configuration Map keys** used
-- **Open points**: what Claude noticed, such as disabled rules
+- **Open points**: what the assistant noticed, such as disabled rules
 
-The answer is only the documentation. Save it as a separate file with **Save answer…** (Swing) or **Save answer** (web): the file gets the channel's name, for example `OIE XC ORM HAGA v_2_8_5.md`, and holds nothing from the rest of the conversation. Passwords and other secrets are never included: the overview hides them before Claude sees it. Patient data in the channel (for example a sample message in a script) is masked as usual.
+The answer is only the documentation. Save it as a separate file with **Save answer…** (Swing) or **Save answer** (web): the file gets the channel's name, for example `OIE XC ORM HAGA v_2_8_5.md`, and holds nothing from the rest of the conversation. Passwords and other secrets are never included: the overview hides them before the AI model sees it. Patient data in the channel (for example a sample message in a script) is masked as usual.
 
-For a very large channel, Claude reads a few connectors at a time.
+For a very large channel, the assistant reads a few connectors at a time.
 
 ### Queues and message storage
 
-Growing queues and a growing message database cause most slow-burning incidents: a destination that is down queues messages for days, and channels without pruning fill the disk. *Check queues and storage* (Dashboard task or right-click; in the web administrator the **Queues and storage** button on the AI Assistant page or the command palette) asks Claude to look for both. Claude reports:
+Growing queues and a growing message database cause most slow-burning incidents: a destination that is down queues messages for days, and channels without pruning fill the disk. *Check queues and storage* (Dashboard task or right-click; in the web administrator the **Queues and storage** button on the AI Assistant page or the command palette) asks the assistant to look for both. The assistant reports:
 
 - **Stuck destinations**: stopped, paused, disabled or undeployed with messages in the queue, or a queue whose oldest message has waited more than an hour, with the age of that message, its send attempts and the last error (for example *TCP Sender error: Connection refused*)
 - **Channels without pruning**, with the number of messages they keep, and an estimate of each channel's size in the database
@@ -224,24 +224,24 @@ Growing queues and a growing message database cause most slow-burning incidents:
 
 Ask about one channel to see the queue and retry settings of each of its connectors. The tool reads counts, dates and settings only, never message content; the last error is the one line OIE stored for the oldest queued message, masked like everything else.
 
-Claude can propose starting or resuming a channel (with your approval). Pruning settings you change yourself: in the channel editor, tab *Summary*, section *Message Pruning*, choose *Prune metadata older than* a number of days. Queued and errored messages are kept unless you tick *Prune Errored Messages*.
+The assistant can propose starting or resuming a channel (with your approval). Pruning settings you change yourself: in the channel editor, tab *Summary*, section *Message Pruning*, choose *Prune metadata older than* a number of days. Queued and errored messages are kept unless you tick *Prune Errored Messages*.
 
 The size per channel comes from the database's own statistics (PostgreSQL, MySQL, SQL Server, Oracle, Derby); if the database user may not read them, the size shows as *?*. For an external database OIE cannot see the free disk space.
 
 ## Actions and approval
 
-Claude can propose changes, but each one waits for your approval in a dialog. Nothing changes until you click **Run**.
+The assistant can propose changes, but each one waits for your approval in a dialog. Nothing changes until you click **Run**.
 
 ```mermaid
 flowchart LR
-  A[Claude proposes action] --> B{Approval dialog}
+  A[The assistant proposes action] --> B{Approval dialog}
   B -->|Run| C[Action executes]
   B -->|Reject or close| D[Nothing changes]
   B -->|No answer in 15 min| D
   C --> E[Audit log entry]
 ```
 
-The dialog shows exactly what will happen. For a script change it shows the new code. Closing the dialog counts as *Reject*, and Claude is told the action was refused.
+The dialog shows exactly what will happen. For a script change it shows the new code. Closing the dialog counts as *Reject*, and the assistant is told the action was refused.
 
 | Action | Effect |
 | --- | --- |
@@ -258,7 +258,7 @@ The dialog shows exactly what will happen. For a script change it shows the new 
 
 **Script, filter and transformer changes** save the channel as a new revision but do not deploy it. Deploy separately when you are ready. If someone changed the channel in the meantime, nothing is saved. The channel's settings outside the change (enabled or disabled, message pruning, tags) stay as they are.
 
-For a **filter or transformer change** the dialog lists the current and the new rules or steps, in order, with their type and name, and shows for every new or changed element the JavaScript OIE generates from it. That script tells you what a Mapper or Rule Builder element really does. Claude prefers Mapper, Message Builder and Rule Builder elements where they fit, so you can edit them later without code.
+For a **filter or transformer change** the dialog lists the current and the new rules or steps, in order, with their type and name, and shows for every new or changed element the JavaScript OIE generates from it. That script tells you what a Mapper or Rule Builder element really does. The assistant prefers Mapper, Message Builder and Rule Builder elements where they fit, so you can edit them later without code.
 
 A **new channel** is created disabled and not deployed, with a new ID. The dialog lists every connector with its type, data types, filter rules and transformer steps, exactly as OIE read them; check that nothing is missing. Passwords and other credentials are always left empty: fill them in in the channel editor, then enable and deploy the channel.
 
@@ -275,7 +275,7 @@ Masked by default:
 - HL7 v2 PID fields 2–7, 9, 11, 13, 14, 18–21, 23 and 29 (identifiers, name, date of birth, address, phone, account number, SSN, driver's licence, mother's ID, birthplace, date of death)
 - HL7 v2 PV1 fields 7–9, 17, 19 and 50 (attending, referring, consulting and admitting doctor, visit number)
 - Whole HL7 v2 NK1, GT1, IN1, IN2 and MRG segments (next of kin, guarantor, insurance, merged patient IDs), except the set ID
-- FHIR resources, in JSON and XML: in Patient, RelatedPerson, Person and Practitioner the name, identifier, telecom, address, birthDate, photo, contact, and extensions with personal data (such as the mother's maiden name or birthplace); in every resource the identifier values, reference displays (`subject.display` is often a patient name), the narrative (`text.div`) and XML comments. Codes, the structure and non-personal resources stay readable, so Claude can still debug the message
+- FHIR resources, in JSON and XML: in Patient, RelatedPerson, Person and Practitioner the name, identifier, telecom, address, birthDate, photo, contact, and extensions with personal data (such as the mother's maiden name or birthplace); in every resource the identifier values, reference displays (`subject.display` is often a patient name), the narrative (`text.div`) and XML comments. Codes, the structure and non-personal resources stay readable, so the assistant can still debug the message
 - HL7 v2 NTE comments: everything from NTE-3 onwards, however short
 - Every HL7 text value longer than 30 characters, in any segment: free-text notes, report text, base64 documents such as a PDF in OBX-5
 - GDT patient fields 3000–3107 (raw, and XML from the GDT data type plugin)
@@ -284,7 +284,7 @@ Masked by default:
 - Credentials in channel configuration: elements named like password, passphrase, secret, token or apiKey
 - Your own regular expressions under *Settings > AI Assistant > Mask patterns*
 
-The HL7 rules apply to raw (ER7) messages and to OIE's XML form, also when they are embedded (escaped) in the XML the tools return. The 30-character check applies per component, so short coded values stay readable and Claude can still debug the message:
+The HL7 rules apply to raw (ER7) messages and to OIE's XML form, also when they are embedded (escaped) in the XML the tools return. The 30-character check applies per component, so short coded values stay readable and the assistant can still debug the message:
 
 ```
 before: OBX|1|ED|PDF^Report^L||^AP^PDF^Base64^JVBERi0xLjQKJcfsj6IK...||||||F
@@ -300,10 +300,10 @@ Add a mask pattern for any identifier the defaults miss, such as a hospital pati
 
 ### Review before sending
 
-Before message content, log lines or events go to Claude, a dialog shows exactly what would be sent, after masking. Nothing leaves the server until you decide.
+Before message content, log lines or events go to the AI model, a dialog shows exactly what would be sent, after masking. Nothing leaves the server until you decide.
 
 - **Send to the AI model** sends the text as shown, including any edits you made. Edited text is masked again.
-- **Don't send**, or closing the dialog, withholds it. Claude is told the data was withheld and continues without it.
+- **Don't send**, or closing the dialog, withholds it. The assistant is told the data was withheld and continues without it.
 - No decision within 15 minutes counts as *Don't send*.
 
 The scope is set under *Settings > AI Assistant > Review before sending*:
@@ -322,11 +322,11 @@ Conversations are visible only to the user who started them. By default they liv
 
 ### Conversations: export and continue
 
-**Export** saves a conversation as a Markdown file: every question, the tools Claude used, its answers and the actions you approved. The file contains what Claude received, so patient data appears masked as `***`. Use it to keep an analysis or share it with a colleague.
+**Export** saves a conversation as a Markdown file: every question, the tools the assistant used, its answers and the actions you approved. The file contains what the AI model received, so patient data appears masked as `***`. Use it to keep an analysis or share it with a colleague.
 
 **Continue later.** *Conversations…* lists your own conversations, most recent first. Without saving that is only the ones still in memory. With *Settings > AI Assistant > Keep conversations* set to a number of days, each conversation is also saved on the server after every question, and can be continued after a restart of OIE:
 
-- Saved are the questions, answers, tool calls and action results, and the history Claude needs to continue, all exactly as sent to Claude, so masked. Unmasked data is never saved.
+- Saved are the questions, answers, tool calls and action results, and the history the model needs to continue, all exactly as sent to the AI model, so masked. Unmasked data is never saved.
 - The files are in the OIE application data folder, under `claude-assistant/conversations/<user ID>/`, one file per conversation. Each user only sees and continues their own.
 - A conversation not used for longer than the setting is removed automatically (checked every 10 minutes). Setting it back to 0 stops saving and removes all saved conversations.
 - Uninstalling the plugin removes all saved conversations right away, and its settings (including the API keys) at the next server restart. Its events in the Event log stay, as an audit trail; the Data Pruner removes them like other events.
@@ -345,7 +345,7 @@ A user without *Run AI Assistant actions* can chat but cannot run actions.
 
 **Upgrading from 1.x:** before 2.0.0 the permissions were called *Use Claude Assistant*, *Run Claude Assistant actions* and *Manage Claude Assistant settings*. At the restart after the upgrade, the plugin renames the grants in the Role-Based Access Control extension to the new names, so every role keeps what it allowed. Another access-control extension stores its grants elsewhere: there, grant the new names by hand.
 
-Claude only gets what you could see or do yourself in OIE. Every tool checks your own OIE permission, via the RBAC extension when it is installed:
+The assistant only gets what you could see or do yourself in OIE. Every tool checks your own OIE permission, via the RBAC extension when it is installed:
 
 | Tool | OIE permission needed |
 | --- | --- |
@@ -367,7 +367,7 @@ Claude only gets what you could see or do yourself in OIE. Every tool checks you
 | Change filter / transformer | Manage Channels |
 | Create channel | Manage Channels |
 
-If you lack a permission, Claude skips that tool and tells you which permission is missing. An action is checked again when you approve it. Without the RBAC extension, OIE gives every user every permission, and so does the assistant.
+If you lack a permission, the assistant skips that tool and tells you which permission is missing. An action is checked again when you approve it. Without the RBAC extension, OIE gives every user every permission, and so does the assistant.
 
 Users with channel restrictions cannot use the assistant, because its tools see all channels.
 
@@ -391,7 +391,7 @@ Amounts are in USD since the 1st of the month (UTC), today included. They run up
 
 **Keeping costs down:**
 
-- Start from *Ask AI Assistant* in the right view, so Claude needs fewer lookups.
+- Start from *Ask AI Assistant* in the right view, so the assistant needs fewer lookups.
 - Use *New conversation* for a new topic; long histories are resent with every question.
 - Lower *Effort* or pick a smaller model for routine questions.
 - Prompt caching is on automatically. The system prompt and tool definitions are the same for every question, and each tool call reads the conversation so far from the cache, so only what is new is billed at the full rate. The cache lasts about 5 minutes after its last use.
@@ -425,29 +425,29 @@ Connecting times out after 10 seconds and is tried three times, so you get the m
 | *Cannot reach the Anthropic API* | No internet, firewall or proxy on the OIE server | Allow `api.anthropic.com`, or set `oie.claude.baseUrl` |
 | Authentication error | Wrong, revoked or expired API key | Create a new key in the Console and save it |
 | Error about credits or billing | No credit left on the Anthropic account | Add credits under Billing in the Console |
-| *No context* in the chat header | Opened from *Other*, not from a view | Normal: Claude looks at the whole server; use *Ask AI Assistant* in a view for a specific item |
+| *No context* in the chat header | Opened from *Other*, not from a view | Normal: the assistant looks at the whole server; use *Ask AI Assistant* in a view for a specific item |
 | Answers in the wrong language | *Response language* is *Automatic* and follows the question or data | Pick a fixed language in *Settings > AI Assistant* |
-| Claude doesn't see my latest change | The channel editor has unsaved changes | Save the channel, then ask again |
+| The assistant doesn't see my latest change | The channel editor has unsaved changes | Save the channel, then ask again |
 | *Run* is refused | Missing *Run AI Assistant actions* permission | Ask an administrator to add it to your role |
 | "Skipped …: you do not have the OIE permission" | Your role lacks the OIE permission for that tool | Ask an administrator for the permission (see *Permissions*), or ask something else |
 | Spend lower than the Console | Today's costs not reported yet by the Cost API | Wait or use the Console's Billing page |
-| No Claude items in the Ctrl+K palette search | Web admin bug before the Dashboard has loaded | Open the Dashboard first |
+| No AI Assistant items in the Ctrl+K palette search | Web admin bug before the Dashboard has loaded | Open the Dashboard first |
 | Answer stops with tool-call limit reached | Question needs more lookups than *Max tool calls* | Narrow the question or raise the limit |
-| Notes, report text or a code show as `***` | Masking by design: NTE comments and HL7 values over 30 characters are hidden from Claude | Normal; ask about structure and codes, or read the text yourself in the message browser |
+| Notes, report text or a code show as `***` | Masking by design: NTE comments and HL7 values over 30 characters are hidden from the AI model | Normal; ask about structure and codes, or read the text yourself in the message browser |
 
 For anything else, look in *Dashboard > Server Log* for lines starting with `AI Assistant`.
 
 ## Known limitations
 
 - Without *Keep conversations*, a service restart or 4 idle hours clears a conversation; export it first to keep it.
-- Claude sees only saved channel versions, not unsaved edits in the editor.
+- The assistant sees only saved channel versions, not unsaved edits in the editor.
 - Configuration Map values are never readable, only the keys.
 - Users with channel restrictions cannot use the assistant.
 - Script changes are saved, not deployed; deploying is a separate approved action.
 - The web Global Scripts view has no *Ask AI Assistant*; use the button on the AI Assistant page.
 - The credit balance cannot be shown in OIE; use the Console.
-- Claude can be wrong. Check its conclusions and proposed changes before you click *Run*.
+- The assistant can be wrong. Check its conclusions and proposed changes before you click *Run*.
 
 Source code, releases and issues: [github.com/matthydehoog/Claude-plugin-Eclipse-OIE](https://github.com/matthydehoog/Claude-plugin-Eclipse-OIE).
 
-Training: the online course [Claude Assistant for Eclipse OIE](https://eclipse-oie.moodiy.cloud/course/view.php?id=3) at the Academy for Eclipse OIE, with quizzes and hands-on exercises.
+Training: the online course [AI Assistant for Eclipse OIE](https://eclipse-oie.moodiy.cloud/course/view.php?id=3) at the Academy for Eclipse OIE, with quizzes and hands-on exercises.
