@@ -27,7 +27,7 @@ import com.mirth.connect.client.core.api.MirthOperation;
 import com.mirth.connect.client.core.api.Param;
 
 /**
- * REST API of the Claude Assistant plugin. Bodies and responses are JSON strings (text/plain), so no
+ * REST API of the AI Assistant plugin. Bodies and responses are JSON strings (text/plain), so no
  * plugin classes have to pass through the engine's XStream serializer.
  */
 @Path("/extensions/claude")
@@ -42,9 +42,9 @@ public interface ClaudeServletInterface extends BaseServletInterface {
     /** Name shown in the Administrator (Settings tab, menus). */
     String DISPLAY_NAME = "AI Assistant";
 
-    String PERMISSION_USE = "Use Claude Assistant";
-    String PERMISSION_ACTIONS = "Run Claude Assistant actions";
-    String PERMISSION_SETTINGS = "Manage Claude Assistant settings";
+    String PERMISSION_USE = "Use AI Assistant";
+    String PERMISSION_ACTIONS = "Run AI Assistant actions";
+    String PERMISSION_SETTINGS = "Manage AI Assistant settings";
 
     /**
      * Administrator tasks that open the chat (Swing task callbacks; the web UI uses the same names).

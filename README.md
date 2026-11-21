@@ -125,9 +125,11 @@ a restart. Setting it back to 0 removes the saved ones.
 
 The extension adds three permissions (visible in the RBAC extension):
 
-- **Use Claude Assistant**: chat (read only)
-- **Run Claude Assistant actions**: approve proposed actions
-- **Manage Claude Assistant settings**: change the API key, model and mask patterns
+- **Use AI Assistant**: chat (read only)
+- **Run AI Assistant actions**: approve proposed actions
+- **Manage AI Assistant settings**: change the API key, model and mask patterns
+
+Before 2.0.0 they were called *... Claude Assistant ...*. At the restart after an upgrade, the plugin renames the grants in the Role-Based Access Control extension, so roles keep what they allowed.
 
 Claude only gets what the user could see or do in OIE: every tool checks the user's own OIE
 permission (via the RBAC extension when installed), e.g. *View Messages* for message search. Tools
@@ -179,7 +181,7 @@ Console (not available for individual accounts). Amounts are in USD since the 1s
 run up to about 5 minutes behind and are cached for a minute; *Refresh* fetches them again.
 **Tokens this month** (from the Usage API, same key) shows the plugin key's input, prompt-cache reads
 and writes, and output, so you can see how much of the input the cache serves.
-Viewing spend requires the *Manage Claude Assistant settings* permission.
+Viewing spend requires the *Manage AI Assistant settings* permission.
 
 The organization's **credit balance** is not available through any Anthropic API, so the tab offers
 an *Open Billing in Console* button instead.

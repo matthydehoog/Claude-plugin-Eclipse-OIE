@@ -312,7 +312,7 @@ The scope is set under *Settings > AI Assistant > Review before sending*:
 | Everything, including my question | Your question and every tool result |
 | Off | Nothing; data is sent after masking without a dialog |
 
-Reviewing needs only the *Use Claude Assistant* permission. The reviewed text is not written to the audit log.
+Reviewing needs only the *Use AI Assistant* permission. The reviewed text is not written to the audit log.
 
 Masking is a safety net, not anonymisation. Send real patient data only with a legal basis and a data processing agreement with Anthropic.
 
@@ -335,11 +335,13 @@ The extension adds three permissions, which you assign to roles in the RBAC exte
 
 | Permission | Allows |
 | --- | --- |
-| Use Claude Assistant | Chatting (read-only tools) |
-| Run Claude Assistant actions | Approving proposed actions |
-| Manage Claude Assistant settings | Changing API keys, model and mask patterns; viewing spend |
+| Use AI Assistant | Chatting (read-only tools) |
+| Run AI Assistant actions | Approving proposed actions |
+| Manage AI Assistant settings | Changing API keys, model and mask patterns; viewing spend |
 
-A user without *Run Claude Assistant actions* can chat but cannot run actions.
+A user without *Run AI Assistant actions* can chat but cannot run actions.
+
+**Upgrading from 1.x:** before 2.0.0 the permissions were called *Use Claude Assistant*, *Run Claude Assistant actions* and *Manage Claude Assistant settings*. At the restart after the upgrade, the plugin renames the grants in the Role-Based Access Control extension to the new names, so every role keeps what it allowed. Another access-control extension stores its grants elsewhere: there, grant the new names by hand.
 
 Claude only gets what you could see or do yourself in OIE. Every tool checks your own OIE permission, via the RBAC extension when it is installed:
 
@@ -424,14 +426,14 @@ Connecting times out after 10 seconds and is tried three times, so you get the m
 | *No context* in the chat header | Opened from *Other*, not from a view | Normal: Claude looks at the whole server; use *Ask AI Assistant* in a view for a specific item |
 | Answers in the wrong language | *Response language* is *Automatic* and follows the question or data | Pick a fixed language in *Settings > AI Assistant* |
 | Claude doesn't see my latest change | The channel editor has unsaved changes | Save the channel, then ask again |
-| *Run* is refused | Missing *Run Claude Assistant actions* permission | Ask an administrator to add it to your role |
+| *Run* is refused | Missing *Run AI Assistant actions* permission | Ask an administrator to add it to your role |
 | "Skipped …: you do not have the OIE permission" | Your role lacks the OIE permission for that tool | Ask an administrator for the permission (see *Permissions*), or ask something else |
 | Spend lower than the Console | Today's costs not reported yet by the Cost API | Wait or use the Console's Billing page |
 | No Claude items in the Ctrl+K palette search | Web admin bug before the Dashboard has loaded | Open the Dashboard first |
 | Answer stops with tool-call limit reached | Question needs more lookups than *Max tool calls* | Narrow the question or raise the limit |
 | Notes, report text or a code show as `***` | Masking by design: NTE comments and HL7 values over 30 characters are hidden from Claude | Normal; ask about structure and codes, or read the text yourself in the message browser |
 
-For anything else, look in *Dashboard > Server Log* for lines starting with `Claude Assistant`.
+For anything else, look in *Dashboard > Server Log* for lines starting with `AI Assistant`.
 
 ## Known limitations
 

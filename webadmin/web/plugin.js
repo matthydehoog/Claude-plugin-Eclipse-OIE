@@ -616,7 +616,7 @@ function ChatPanel() {
 }
 
 /**
- * Whether the user's role grants "Use Claude Assistant". The server publishes the Swing task names
+ * Whether the user's role grants "Use AI Assistant". The server publishes the Swing task names
  * with that permission, so an RBAC plugin answers checkTask for them; without RBAC everything is allowed.
  */
 function mayUse(task = "claudeOpen") {
@@ -625,7 +625,7 @@ function mayUse(task = "claudeOpen") {
 
 /** Shown instead of the chat when the route is opened directly without the permission. */
 function NoAccess() {
-    return e("div", { className: "claude-error" }, "You do not have the OIE permission \"Use Claude Assistant\". Ask an administrator to add it to your role.");
+    return e("div", { className: "claude-error" }, "You do not have the OIE permission \"Use AI Assistant\". Ask an administrator to add it to your role.");
 }
 
 function ChatView() {
@@ -889,7 +889,7 @@ export function register(platform) {
     platform.registerIcon("claude", ICON_PATH);
 
     // task/rbac: the shell hides the entry when an RBAC plugin denies the task; the server publishes
-    // these task names with "Use Claude Assistant" (ClaudeServletInterface.USE_TASKS).
+    // these task names with "Use AI Assistant" (ClaudeServletInterface.USE_TASKS).
     platform.registerNavItem({ id: "claude-assistant", label: "AI Assistant", icon: "claude", path: "/claude", section: "Plugins", order: 30, task: "claudeOpen", rbac: "other" });
     platform.registerView("/claude", platform.reactView(ChatView), { title: "AI Assistant" });
 
@@ -980,6 +980,6 @@ export function register(platform) {
         });
     }
 
-    // Hidden by the shell unless "settings_AI Assistant" doRefresh/doSave is allowed ("Manage Claude Assistant settings").
+    // Hidden by the shell unless "settings_AI Assistant" doRefresh/doSave is allowed ("Manage AI Assistant settings").
     platform.registerSettingsPanel({ label: "AI Assistant", component: SettingsPanel });
 }

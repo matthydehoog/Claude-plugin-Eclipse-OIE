@@ -196,7 +196,7 @@ The tools mirror those of `oie-mcp-server`. A channel can be given by ID or by n
 
 An action tool never runs from the model loop. `OieTools.prepare` builds a `PreparedAction`: a description for the approval dialog (for changes: the current and new rules or steps, and the script OIE generates for each new one) and a runner.
 
-The job then waits. The user decides with `POST /jobs/{id}/confirm`, which needs the **Run Claude Assistant actions** permission. `AssistantService.decide` runs the action **on the servlet thread, as the approving user**, checks the permission for the underlying OIE operation again, writes the audit event `AI Assistant: …`, and gives the result to Claude. A rejected or timed-out action is reported to Claude as not run.
+The job then waits. The user decides with `POST /jobs/{id}/confirm`, which needs the **Run AI Assistant actions** permission. `AssistantService.decide` runs the action **on the servlet thread, as the approving user**, checks the permission for the underlying OIE operation again, writes the audit event `AI Assistant: …`, and gives the result to Claude. A rejected or timed-out action is reported to Claude as not run.
 
 Script, filter and transformer changes save the channel with a new revision but do not deploy it. The save is **optimistic**: it only happens if the channel is still at the revision Claude read. The check and the save hold the channel controller's lock, so nobody can save in between. The stored metadata (enabled, pruning) and the channel's tags travel along, as the Administrator sends them; without them OIE would reset them to defaults.
 
@@ -244,9 +244,9 @@ The user sends, edits or withholds it (`POST /jobs/{id}/review`). **Edited text 
 
 | Permission | Operations |
 | --- | --- |
-| Use Claude Assistant (`PERMISSION_USE`) | chat, jobs, review, cancel, conversations, read settings, model list |
-| Run Claude Assistant actions (`PERMISSION_ACTIONS`) | confirm an action |
-| Manage Claude Assistant settings (`PERMISSION_SETTINGS`) | change settings, read spend |
+| Use AI Assistant (`PERMISSION_USE`) | chat, jobs, review, cancel, conversations, read settings, model list |
+| Run AI Assistant actions (`PERMISSION_ACTIONS`) | confirm an action |
+| Manage AI Assistant settings (`PERMISSION_SETTINGS`) | change settings, read spend |
 
 On top of that, **every tool checks the user's own OIE permission** for its operation (`AuthorizationController.isUserAuthorized`, through the RBAC extension when installed). A tool the user lacks is skipped and Claude is told which permission is missing. The check fails closed on errors. Users with channel restrictions cannot use the assistant, because the tools see all channels.
 
@@ -324,7 +324,7 @@ There are 100 tests (JUnit 4). They need no engine, no network and no API key.
 
 | Test | Covers |
 | --- | --- |
-| `AssistantServiceTest` (12) | With a scripted model loop and Mockito fakes for the OIE controllers: a tool the user has no permission for is skipped; an action is not proposed without *Run Claude Assistant actions*, is checked again for the approver, runs once when approved and not when rejected; *Review before sending* withholds data, masks edits again, and can withhold the question itself; the data audit records IDs and counts but no content; cancelling while an action waits runs nothing; a job belongs to its user |
+| `AssistantServiceTest` (12) | With a scripted model loop and Mockito fakes for the OIE controllers: a tool the user has no permission for is skipped; an action is not proposed without *Run AI Assistant actions*, is checked again for the approver, runs once when approved and not when rejected; *Review before sending* withholds data, masks edits again, and can withhold the question itself; the data audit records IDs and counts but no content; cancelling while an action waits runs nothing; a job belongs to its user |
 | `MaskerTest` (16) | HL7 ER7 and XML rules, the encoded separator after a masked last field, person segments, credentials, GDT raw and XML, BSN, own patterns |
 | `EdifactMaskerTest` (14) | MEDLAB and MEDSPE, raw and XML, trade messages untouched, ZKH and AFD readable |
 | `FhirMaskerTest` (9) | Person resources in JSON and XML, personal extensions, identifiers, reference displays, narratives, Bundles, FHIR escaped inside tool XML, other resources left readable |

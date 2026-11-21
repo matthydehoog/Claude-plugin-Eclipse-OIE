@@ -56,7 +56,7 @@ public class ClaudeClientPlugin extends ClientPlugin {
         parent = PlatformUI.MIRTH_FRAME;
         ImageIcon icon = new ImageIcon(Frame.class.getResource("images/help.png"));
         // Frame.addTask does not ask the AuthorizationController, so tasks the user's role does not
-        // grant ("Use Claude Assistant", see ClaudeServletInterface.USE_TASKS) are left out here.
+        // grant ("Use AI Assistant", see ClaudeServletInterface.USE_TASKS) are left out here.
         addTask("claudeOpen", "AI Assistant", "Ask the AI Assistant a question about this OIE server.", icon, parent.otherPane, null);
         // The Dashboard hides every task after its own ones whenever the selection changes
         // (DashboardPanel.updatePopupMenu), so these two show themselves again.

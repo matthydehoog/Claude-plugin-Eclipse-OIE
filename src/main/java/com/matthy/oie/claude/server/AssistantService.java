@@ -595,7 +595,7 @@ public class AssistantService {
             return missingPermission(name);
         }
         if (t.isAction(name) && !mayRunActions(job.conversation.userId, job.address)) {
-            // Approving and rejecting both need "Run Claude Assistant actions"; without it the
+            // Approving and rejecting both need "Run AI Assistant actions"; without it the
             // confirmation would wait until the timeout, so it is not proposed at all.
             job.emit("info", "Skipped " + name + ": you do not have the AI Assistant permission \"" + ClaudeServletInterface.PERMISSION_ACTIONS + "\".");
             return "The user does not have the AI Assistant permission \"" + ClaudeServletInterface.PERMISSION_ACTIONS
@@ -671,7 +671,7 @@ public class AssistantService {
         }
     }
 
-    /** Whether the user has "Run Claude Assistant actions" (the permission of POST /jobs/{id}/confirm). Fails closed. */
+    /** Whether the user has "Run AI Assistant actions" (the permission of POST /jobs/{id}/confirm). Fails closed. */
     private boolean mayRunActions(int userId, String address) {
         try {
             Operation confirm = new ExtensionOperation(ClaudeServletInterface.PLUGIN_POINT, new Operation(CONFIRM_OPERATION, "Run AI Assistant action", Operation.ExecuteType.ASYNC, false));
