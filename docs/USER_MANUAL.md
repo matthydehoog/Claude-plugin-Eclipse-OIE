@@ -99,8 +99,8 @@ The key is stored encrypted on the server and never sent back to the Administrat
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| Provider | Anthropic (Claude) | *OpenAI-compatible* uses another model through an OpenAI-compatible API instead (see *Other models* below) |
-| API base URL | none | Only for an OpenAI-compatible provider, for example `https://api.openai.com/v1` or `http://ollama-host:11434/v1` |
+| Provider | Anthropic (Claude) | *OpenAI-compatible* uses another model through an OpenAI-compatible API instead, *Mistral* uses Mistral's API (see *Other models* below) |
+| API base URL | none | Only for an OpenAI-compatible provider, for example `https://api.openai.com/v1` or `http://ollama-host:11434/v1`; fixed at `https://api.mistral.ai/v1` for Mistral |
 | API key | none | Anthropic key used for every question; for an OpenAI-compatible provider its key, or empty for a local server without one |
 | Model | `claude-opus-5` | The Claude model that answers. The list shows the models your API key can use, newest first, as Anthropic reports them; you can also type a model ID |
 | Effort | `high` | How hard Claude thinks; lower is faster and cheaper |
@@ -120,6 +120,8 @@ To get an API key, sign in at [console.anthropic.com](https://console.anthropic.
 - An orange warning: the saved model is no longer in Anthropic's list, so it may have been retired. It stays selected until you choose another model; questions may fail until you do.
 
 **Other models (OpenAI-compatible).** Set *Provider* to *OpenAI-compatible* to use OpenAI, or a local Ollama or vLLM server, instead of Claude. Enter the *API base URL* and, if needed, the API key, click *Save*, then *Refresh list* and choose a model. The list then comes from that server (newest first where it reports dates) and can include models that cannot answer questions, such as embedding, image or audio models: choose a chat model that supports tool calling. Masking, review before sending, approvals and permissions work as with Claude, but the masked data goes to that provider, so check that this is allowed. Effort and spend this month only apply to Anthropic, answers appear at once instead of streaming, and a conversation saved with one provider continues with the other without its earlier context.
+
+**Mistral.** Set *Provider* to *Mistral* to use Mistral's API. The base URL is filled in (`https://api.mistral.ai/v1`), so enter an API key from console.mistral.ai, click *Save*, then *Refresh list* and choose a model that supports tool calling, such as `mistral-large-latest` or `mistral-medium-latest`. Everything above about OpenAI-compatible providers applies to Mistral too; the settings are saved as an OpenAI-compatible provider with Mistral's base URL.
 
 ## Using the Administrator (Swing) client
 

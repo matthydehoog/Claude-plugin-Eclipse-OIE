@@ -16,6 +16,18 @@ const CHANNEL_CONTEXT = /^(Channel open in the editor|Selected channel)/;
 const POLL_MS = 800;
 const ANTHROPIC_BILLING_URL = "https://platform.claude.com/settings/billing";
 const OPENAI_BILLING_URL = "https://platform.openai.com/settings/organization/billing/overview";
+/** Mistral's OpenAI-compatible API: the Mistral choice saves the OpenAI-compatible provider with this base URL. Same as ClaudeSettingsPanel. */
+const MISTRAL_BASE_URL = "https://api.mistral.ai/v1";
+
+/** The dropdown choice for saved settings: "mistral" when the OpenAI-compatible provider points at api.mistral.ai. Same rule as ClaudeSettingsPanel.providerChoice. */
+function providerChoice(provider, baseUrl) {
+    if (provider !== "openai-compatible") return "anthropic";
+    try {
+        return new URL((baseUrl || "").trim()).hostname.toLowerCase() === "api.mistral.ai" ? "mistral" : "openai-compatible";
+    } catch (err) {
+        return "openai-compatible";
+    }
+}
 
 /** The provider's billing page: Anthropic's, OpenAI's for api.openai.com, or null for other servers (e.g. Ollama). Same rule as ClaudeSettingsPanel.billingUrl. */
 function billingUrl(openAi, baseUrl) {
@@ -682,7 +694,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
 
     const show = React.useCallback((s) => {
         setStatus(s);
-        setForm({ apiKey: "", provider: s.provider || "anthropic", baseUrl: s.baseUrl || "", adminApiKey: "", clearAdminApiKey: false, model: s.model || "", effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic", reviewBeforeSending: s.reviewBeforeSending || "data", keepConversationsDays: s.keepConversationsDays || 0 });
+        setForm({ apiKey: "", provider: providerChoice(s.provider, s.baseUrl), baseUrl: s.baseUrl || "", adminApiKey: "", clearAdminApiKey: false, model: s.model || "", effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic", reviewBeforeSending: s.reviewBeforeSending || "data", keepConversationsDays: s.keepConversationsDays || 0 });
         clean();
         loadModels(false);
         if (s.adminApiKeySet && s.provider !== "openai-compatible") loadSpend(false);
@@ -702,8 +714,9 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
     const save = React.useCallback(async () => {
         const f = formRef.current;
         if (!f) return false;
+        const mistral = f.provider === "mistral";
         try {
-            show(await call("PUT", "/settings", { ...f, maxToolCalls: Number(f.maxToolCalls) || 25, keepConversationsDays: Math.max(0, Math.min(365, Number(f.keepConversationsDays) || 0)) }));
+            show(await call("PUT", "/settings", { ...f, provider: mistral ? "openai-compatible" : f.provider, baseUrl: mistral ? MISTRAL_BASE_URL : f.baseUrl, maxToolCalls: Number(f.maxToolCalls) || 25, keepConversationsDays: Math.max(0, Math.min(365, Number(f.keepConversationsDays) || 0)) }));
             setError(null);
             P.ui.toast("AI Assistant settings saved.", "success");
             return true;
@@ -751,8 +764,9 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
     };
 
     let spendLines;
-    const openAi = form.provider === "openai-compatible";
-    const billing = billingUrl(openAi, form.baseUrl);
+    const mistral = form.provider === "mistral";
+    const openAi = form.provider === "openai-compatible" || mistral;
+    const billing = billingUrl(openAi, mistral ? MISTRAL_BASE_URL : form.baseUrl);
     if (status.provider === "openai-compatible") {
         spendLines = [row("Spend this month:", "–", "Spend this month is only available with Anthropic as the provider.")];
     } else if (!status.adminApiKeySet) {
@@ -813,11 +827,22 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
 
     return e("div", { className: "claude-settings" },
         error ? e("div", { className: "claude-error" }, error) : null,
-        row("Provider:", e("select", { value: form.provider, onChange: set("provider") },
+        row("Provider:", e("select", {
+            value: form.provider, onChange: (ev) => {
+                const provider = ev.target.value;
+                // Leaving Mistral clears its URL, so the OpenAI-compatible choice starts empty.
+                const baseUrl = provider === "mistral" ? MISTRAL_BASE_URL : form.baseUrl.trim() === MISTRAL_BASE_URL ? "" : form.baseUrl;
+                setForm({ ...form, provider, baseUrl });
+                dirty();
+            }
+        },
             e("option", { value: "anthropic" }, "Anthropic (Claude)"),
-            e("option", { value: "openai-compatible" }, "OpenAI-compatible (OpenAI, Ollama, vLLM)")),
+            e("option", { value: "openai-compatible" }, "OpenAI-compatible (OpenAI, Ollama, vLLM)"),
+            e("option", { value: "mistral" }, "Mistral")),
             "Save after changing the provider, then refresh the model list."),
-        openAi ? row("API base URL:", e("input", { type: "text", value: form.baseUrl, onChange: set("baseUrl"), placeholder: "https://api.openai.com/v1" }),
+        mistral ? row("API base URL:", MISTRAL_BASE_URL,
+            "Mistral's API (La Plateforme). Enter a key from console.mistral.ai and choose a model that supports tool calling, for example mistral-large-latest or mistral-medium-latest.") : null,
+        openAi && !mistral ? row("API base URL:", e("input", { type: "text", value: form.baseUrl, onChange: set("baseUrl"), placeholder: "https://api.openai.com/v1" }),
             "For example https://api.openai.com/v1, http://ollama-host:11434/v1 (Ollama) or http://vllm-host:8000/v1 (vLLM). The OIE server must reach it, and the model must support tool calling. The API key may stay empty for a local server.") : null,
         row("API key:", e("input", { type: "password", value: form.apiKey, onChange: set("apiKey"), autoComplete: "off" }),
             status.apiKeySet ? "Set: " + status.apiKeyHint : "No API key set yet."),

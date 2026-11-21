@@ -32,5 +32,20 @@ public class ClaudeSettingsPanelTest {
         assertNull("no billing page for a local server", ClaudeSettingsPanel.billingUrl(true, "http://ollama:11434/v1"));
         assertNull(ClaudeSettingsPanel.billingUrl(true, ""));
         assertNull(ClaudeSettingsPanel.billingUrl(true, "not a url"));
+        assertNull("no billing page for Mistral", ClaudeSettingsPanel.billingUrl(true, ClaudeSettingsPanel.MISTRAL_BASE_URL));
+    }
+
+    @Test
+    public void mistralIsTheOpenAiCompatibleProviderAtMistralsBaseUrl() {
+        assertEquals(ClaudeSettingsPanel.MISTRAL, ClaudeSettingsPanel.providerChoice("openai-compatible", "https://api.mistral.ai/v1"));
+        assertEquals(ClaudeSettingsPanel.MISTRAL, ClaudeSettingsPanel.providerChoice("openai-compatible", " https://API.mistral.ai "));
+        assertEquals(ClaudeSettingsPanel.OPENAI_COMPATIBLE, ClaudeSettingsPanel.providerChoice("openai-compatible", "https://api.openai.com/v1"));
+        assertEquals(ClaudeSettingsPanel.OPENAI_COMPATIBLE, ClaudeSettingsPanel.providerChoice("openai-compatible", "not a url"));
+        assertEquals(ClaudeSettingsPanel.ANTHROPIC, ClaudeSettingsPanel.providerChoice("anthropic", "https://api.mistral.ai/v1"));
+        assertEquals(ClaudeSettingsPanel.ANTHROPIC, ClaudeSettingsPanel.providerChoice("", null));
+
+        assertEquals("anthropic", ClaudeSettingsPanel.storedProvider(ClaudeSettingsPanel.ANTHROPIC));
+        assertEquals("openai-compatible", ClaudeSettingsPanel.storedProvider(ClaudeSettingsPanel.OPENAI_COMPATIBLE));
+        assertEquals("openai-compatible", ClaudeSettingsPanel.storedProvider(ClaudeSettingsPanel.MISTRAL));
     }
 }

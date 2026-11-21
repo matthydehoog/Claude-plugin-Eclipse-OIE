@@ -166,6 +166,10 @@ or `http://vllm-host:8000/v1`) and, if the server needs one, the **API key**. Sa
 model with *Refresh list*. The model must support tool calling, and the OIE server must reach the
 URL.
 
+For Mistral, choose *Mistral* as the **Provider**: it uses Mistral's API at
+`https://api.mistral.ai/v1`, so only an API key from console.mistral.ai is needed. Choose a model
+that supports tool calling, such as `mistral-large-latest` or `mistral-medium-latest`.
+
 Masking, review before sending, approval of actions and permissions work exactly as with Claude;
 the masked data then goes to that provider instead of Anthropic. Effort and spend this month only
 apply to Anthropic, and answers appear at once instead of streaming. Contributed by Miguel Duarte
