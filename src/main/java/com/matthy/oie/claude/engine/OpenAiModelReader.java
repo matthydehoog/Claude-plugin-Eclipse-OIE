@@ -33,7 +33,8 @@ public class OpenAiModelReader implements ModelReader {
 
     @Override
     public String list(String apiKey) throws Exception {
-        HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(OpenAiCompatibleLoop.endpoint(baseUrl, "/models"))).timeout(Duration.ofSeconds(30)).GET();
+        String url = OpenAiCompatibleLoop.endpoint(baseUrl, "/models");
+        HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(30)).GET();
         if (apiKey != null && !apiKey.isBlank()) {
             request.header("Authorization", "Bearer " + apiKey.trim());
         }
@@ -43,13 +44,21 @@ public class OpenAiModelReader implements ModelReader {
         } catch (java.io.IOException e) {
             throw new IllegalStateException(OpenAiCompatibleLoop.describe(e));
         }
-        if (response.statusCode() == 401) {
-            throw new IllegalStateException("The model server did not accept the API key (HTTP 401), so the model list could not be loaded.");
-        }
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new IllegalStateException("Loading the model list failed (HTTP " + response.statusCode() + ").");
+            throw new IllegalStateException(failure(response.statusCode(), url));
         }
         return parse(response.body());
+    }
+
+    /** Why the model list could not be loaded from {@code url}, with a hint where one helps. */
+    static String failure(int status, String url) {
+        if (status == 401) {
+            return "The model server did not accept the API key (HTTP 401), so the model list could not be loaded.";
+        }
+        if (status == 404) {
+            return "The model server has no model list at " + url + " (HTTP 404). Check the API base URL: it usually ends in /v1, for example https://api.openai.com/v1.";
+        }
+        return "Loading the model list from " + url + " failed (HTTP " + status + ").";
     }
 
     /** OpenAI's {"data":[{"id","created" (epoch seconds)}]} as the array ModelList expects. */

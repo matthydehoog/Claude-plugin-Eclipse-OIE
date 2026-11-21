@@ -304,7 +304,7 @@ public class AssistantService {
                     cachedModelsAt = now;
                 } catch (Exception e) {
                     logger.warn("Claude Assistant: could not load the model list from " + s.baseUrl + ": " + e.getMessage());
-                    return ModelList.build(null, (e.getMessage() != null ? e.getMessage() : e.toString()) + " Type the model ID.", s.model, 0, true).toString();
+                    return ModelList.build(null, (e.getMessage() != null ? e.getMessage() : e.toString()), s.model, 0, true).toString();
                 }
             }
             return ModelList.build(cachedModels, null, s.model, cachedModelsAt, true).toString();
