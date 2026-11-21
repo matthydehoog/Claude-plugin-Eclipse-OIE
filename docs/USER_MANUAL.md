@@ -72,6 +72,25 @@ Download `claude-assistant-<version>.zip` from the [GitHub releases](https://git
 
 Each release lists the SHA-256 checksum of its zip. Compare it before installing on a production server.
 
+### Administrator launchers
+
+Since 2.0.0 the plugin's jars are signed with the X Connections code-signing certificate. The certificate is self-signed. Launchers differ in how they treat that:
+
+- **The Open Integration Engine launcher and the BridgeLink launcher** don't check jar signatures and load the plugin as it is. We advise using one of these.
+- **The Mirth Connect Administrator Launcher (MCAL)** from NextGen is not open source. It checks every jar and only trusts NextGen's own certificates and certificates from a public certificate authority. It refuses self-signed jars, and unsigned ones from older versions, with this error:
+
+  ```
+  Error verifying entry "META-INF/MANIFEST.MF" in JAR file claude-assistant-client.jar
+  ```
+
+  To use MCAL anyway, add this line to `launcher.vmoptions` in the MCAL folder (by default `C:Program FilesMirth Connect Administrator Launcher`; editing it needs administrator rights), then restart MCAL:
+
+  ```
+  -Dallow-self-signed
+  ```
+
+  Starting MCAL with `--allow-self-signed` (or `-k`) does the same. MCAL then accepts jars signed with any self-signed certificate, from any server, so only do this on machines that connect to servers you trust. Versions before 2.0.0 are unsigned and fail in MCAL even with this option.
+
 ## First-time setup
 
 Open *Settings > AI Assistant*, enter the API key and click *Save*. That is all you need to start chatting.

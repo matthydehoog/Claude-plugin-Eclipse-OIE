@@ -84,6 +84,8 @@ The result is `target/claude-assistant-<version>.zip`, with the Anthropic SDK an
 
 Some Administrator launchers refuse extension jars that are not signed, so releases sign the shared, server and client jars (`maven-jarsigner-plugin`, just before the zip is made) with the X Connections code-signing key: a self-signed certificate, timestamped by DigiCert so the signature stays valid after the certificate expires. The engine jar and the libraries in `lib/` stay on the server and are not signed.
 
+The Mirth Connect Administrator Launcher (MCAL, NextGen, not open source) refuses self-signed jars unless it runs with `-Dallow-self-signed` in its `launcher.vmoptions`; the OIE and BridgeLink launchers don't check signatures. See *Administrator launchers* in the user manual.
+
 Signing is off unless a keystore is given:
 
 ```bash
