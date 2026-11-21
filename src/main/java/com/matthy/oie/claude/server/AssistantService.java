@@ -89,8 +89,8 @@ public class AssistantService {
             "",
             "Formatting: the chat renders Markdown (headings, bold, italics, lists, tables and code blocks). Keep tables narrow.");
 
-    private final ExecutorService executor = Executors.newCachedThreadPool(daemonThreads("Claude Assistant job"));
-    private final ScheduledExecutorService housekeeping = Executors.newSingleThreadScheduledExecutor(daemonThreads("Claude Assistant housekeeping"));
+    private final ExecutorService executor = Executors.newCachedThreadPool(daemonThreads("AI Assistant job"));
+    private final ScheduledExecutorService housekeeping = Executors.newSingleThreadScheduledExecutor(daemonThreads("AI Assistant housekeeping"));
     private final Map<String, Conversation> conversations = new ConcurrentHashMap<>();
     /** Saved conversations, in the OIE application data folder; only used when Settings.keepConversationsDays > 0. */
     private volatile ConversationStore store;
@@ -142,7 +142,7 @@ public class AssistantService {
                 loopFactory = engine::create;
             } catch (Exception e) {
                 engineError = e.getMessage();
-                logger.error("Claude Assistant: engine could not be loaded", e);
+                logger.error("AI Assistant: engine could not be loaded", e);
             }
         }
         this.loopFactory = loopFactory;
@@ -168,7 +168,7 @@ public class AssistantService {
             try {
                 newLoop = loopFactory.create(settings, systemPrompt(settings), specs, this::callTool);
             } catch (Exception e) {
-                logger.error("Claude Assistant: could not create the model client", e);
+                logger.error("AI Assistant: could not create the model client", e);
                 engineError = "Cannot start the AI Assistant: " + e;
             }
         }
@@ -278,7 +278,7 @@ public class AssistantService {
                     cachedModelsAt = now;
                 } catch (Exception e) {
                     // Not cached, so the next visit tries again; the fixed list keeps the screen usable.
-                    logger.warn("Claude Assistant: could not load the model list: " + e.getMessage());
+                    logger.warn("AI Assistant: could not load the model list: " + e.getMessage());
                     return ModelList.build(null, (e.getMessage() != null ? e.getMessage() : e.toString()) + " A fixed list is shown.", s.model, 0).toString();
                 }
             }
@@ -303,7 +303,7 @@ public class AssistantService {
                     cachedModelsKey = key;
                     cachedModelsAt = now;
                 } catch (Exception e) {
-                    logger.warn("Claude Assistant: could not load the model list from " + s.baseUrl + ": " + e.getMessage());
+                    logger.warn("AI Assistant: could not load the model list from " + s.baseUrl + ": " + e.getMessage());
                     return ModelList.build(null, (e.getMessage() != null ? e.getMessage() : e.toString()), s.model, 0, true).toString();
                 }
             }
@@ -408,7 +408,7 @@ public class AssistantService {
         try {
             store().save(conversation, l.saveHistory(conversation.history()));
         } catch (Exception e) {
-            logger.warn("Claude Assistant: could not save conversation " + conversation.id, e);
+            logger.warn("AI Assistant: could not save conversation " + conversation.id, e);
         }
     }
 
@@ -500,7 +500,7 @@ public class AssistantService {
                     c.setHistory(l.loadHistory(saved.history));
                 } catch (Exception e) {
                     // Saved with the other provider: the conversation shows, but the model starts without its context.
-                    logger.info("Claude Assistant: saved conversation " + c.id + " continues without its earlier context: " + e.getMessage());
+                    logger.info("AI Assistant: saved conversation " + c.id + " continues without its earlier context: " + e.getMessage());
                 }
             }
             Conversation existing = conversations.putIfAbsent(c.id, c);
@@ -548,7 +548,7 @@ public class AssistantService {
                 job.emit("action", pending.prepared.title + ": " + result);
                 audit(context, pending, ServerEvent.Outcome.SUCCESS, result);
             } catch (Exception e) {
-                logger.warn("Claude Assistant action " + pending.toolName + " failed", e);
+                logger.warn("AI Assistant action " + pending.toolName + " failed", e);
                 result = "Failed: " + e.getMessage();
                 job.emit("error", pending.prepared.title + " failed: " + e.getMessage());
                 audit(context, pending, ServerEvent.Outcome.FAILURE, String.valueOf(e.getMessage()));
@@ -666,7 +666,7 @@ public class AssistantService {
             return ControllerFactory.getFactory().createAuthorizationController()
                     .isUserAuthorized(userId, new Operation(operation, operation, Operation.ExecuteType.SYNC, false), new HashMap<>(), address, false);
         } catch (Exception e) {
-            logger.warn("Claude Assistant: authorization check for " + tool + " failed", e);
+            logger.warn("AI Assistant: authorization check for " + tool + " failed", e);
             return false;
         }
     }
@@ -677,7 +677,7 @@ public class AssistantService {
             Operation confirm = new ExtensionOperation(ClaudeServletInterface.PLUGIN_POINT, new Operation(CONFIRM_OPERATION, "Run AI Assistant action", Operation.ExecuteType.ASYNC, false));
             return ControllerFactory.getFactory().createAuthorizationController().isUserAuthorized(userId, confirm, new HashMap<>(), address, false);
         } catch (Exception e) {
-            logger.warn("Claude Assistant: authorization check for actions failed", e);
+            logger.warn("AI Assistant: authorization check for actions failed", e);
             return false;
         }
     }
@@ -736,7 +736,7 @@ public class AssistantService {
             event.setAttributes(attributes);
             ControllerFactory.getFactory().createEventController().dispatchEvent(event);
         } catch (Exception e) {
-            logger.warn("Could not write Claude Assistant audit event", e);
+            logger.warn("Could not write AI Assistant audit event", e);
         }
     }
 
@@ -776,7 +776,7 @@ public class AssistantService {
             event.setAttributes(attributes);
             ControllerFactory.getFactory().createEventController().dispatchEvent(event);
         } catch (Exception e) {
-            logger.warn("Could not write Claude Assistant audit event", e);
+            logger.warn("Could not write AI Assistant audit event", e);
         }
     }
 
@@ -796,10 +796,10 @@ public class AssistantService {
         try {
             int removed = store().removeOlderThan(settings.keepConversationsDays);
             if (removed > 0) {
-                logger.info("Claude Assistant: removed " + removed + " saved conversation(s) older than " + settings.keepConversationsDays + " day(s)");
+                logger.info("AI Assistant: removed " + removed + " saved conversation(s) older than " + settings.keepConversationsDays + " day(s)");
             }
         } catch (Exception e) {
-            logger.warn("Claude Assistant: could not clean up saved conversations", e);
+            logger.warn("AI Assistant: could not clean up saved conversations", e);
         }
     }
 

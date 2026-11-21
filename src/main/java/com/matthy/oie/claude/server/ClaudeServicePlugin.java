@@ -25,7 +25,7 @@ import com.mirth.connect.model.ExtensionPermission;
 import com.mirth.connect.plugins.ServicePlugin;
 import com.mirth.connect.server.controllers.ControllerFactory;
 
-/** Server side of the Claude Assistant: owns the settings and the {@link AssistantService}. */
+/** Server side of the AI Assistant: owns the settings and the {@link AssistantService}. */
 public class ClaudeServicePlugin implements ServicePlugin {
 
     private static final Logger logger = LogManager.getLogger(ClaudeServicePlugin.class);

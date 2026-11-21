@@ -167,7 +167,7 @@ public class SdkModelLoop implements ModelLoop {
             loop(job, userText);
         } catch (Throwable t) {
             if (!job.isCancelled()) {
-                LOG.warn("Claude Assistant job failed", t);
+                LOG.warn("AI Assistant job failed", t);
                 job.emit("error", describe(t));
                 job.finish(ChatJob.State.ERROR);
             }
@@ -289,7 +289,7 @@ public class SdkModelLoop implements ModelLoop {
                 if (String.valueOf(e.getMessage()).toLowerCase().contains("diagnos")) {
                     // Cache diagnostics is a beta; if this account rejects it, carry on without it.
                     diagnostics = false;
-                    LOG.warn("Claude Assistant: cache diagnostics not available, continuing without it: " + e.getMessage());
+                    LOG.warn("AI Assistant: cache diagnostics not available, continuing without it: " + e.getMessage());
                 } else {
                     throw e;
                 }
@@ -391,7 +391,7 @@ public class SdkModelLoop implements ModelLoop {
         BetaUsage usage = response.usage();
         long read = usage.cacheReadInputTokens().orElse(0L);
         long written = usage.cacheCreationInputTokens().orElse(0L);
-        StringBuilder sb = new StringBuilder("Claude Assistant usage: conversation ").append(state.id)
+        StringBuilder sb = new StringBuilder("AI Assistant usage: conversation ").append(state.id)
                 .append(" call ").append(call)
                 .append(", model ").append(response.model().asString())
                 .append(", input ").append(usage.inputTokens())
@@ -423,9 +423,9 @@ public class SdkModelLoop implements ModelLoop {
             this.output += output;
         }
 
-        /** e.g. "Claude Assistant usage: conversation 3fa1 question, 4 calls: input 1.204 (cache read 18.450, cache write 0), output 612 tokens" */
+        /** e.g. "AI Assistant usage: conversation 3fa1 question, 4 calls: input 1.204 (cache read 18.450, cache write 0), output 612 tokens" */
         String describe(String conversation) {
-            return "Claude Assistant usage: conversation " + conversation + " question, " + calls + (calls == 1 ? " call" : " calls")
+            return "AI Assistant usage: conversation " + conversation + " question, " + calls + (calls == 1 ? " call" : " calls")
                     + ": input " + format(input) + " (cache read " + format(cacheRead) + ", cache write " + format(cacheWrite) + "), output " + format(output) + " tokens";
         }
 

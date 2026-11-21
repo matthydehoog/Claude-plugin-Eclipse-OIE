@@ -395,7 +395,7 @@ Amounts are in USD since the 1st of the month (UTC), today included. They run up
 Each model call writes a usage line (tokens and cache hits) to the OIE server log, and each question a total, for example:
 
 ```
-Claude Assistant usage: conversation 3fa1 question, 4 calls: input 1.204 (cache read 18.450, cache write 2.310), output 612 tokens
+AI Assistant usage: conversation 3fa1 question, 4 calls: input 1.204 (cache read 18.450, cache write 2.310), output 612 tokens
 ```
 
 ## No internet and proxies

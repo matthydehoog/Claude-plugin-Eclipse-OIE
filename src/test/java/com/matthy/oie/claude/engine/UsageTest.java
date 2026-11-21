@@ -35,7 +35,7 @@ public class UsageTest {
         usage.add(1000, 0, 18450, 300);
         usage.add(204, 18450, 0, 312);
 
-        assertEquals("Claude Assistant usage: conversation 3fa1 question, 2 calls: input 1.204 (cache read 18.450, cache write 18.450), output 612 tokens",
+        assertEquals("AI Assistant usage: conversation 3fa1 question, 2 calls: input 1.204 (cache read 18.450, cache write 18.450), output 612 tokens",
                 usage.describe("3fa1"));
     }
 }

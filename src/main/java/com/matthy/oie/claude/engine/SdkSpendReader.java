@@ -143,7 +143,7 @@ public class SdkSpendReader implements SpendReader {
             page = body.path("has_more").asBoolean(false) ? body.path("next_page").asText(null) : null;
         } while (page != null);
 
-        LogManager.getLogger(SdkSpendReader.class).info("Claude Assistant spend: " + buckets + " daily buckets from " + firstBucket + " to " + lastBucket
+        LogManager.getLogger(SdkSpendReader.class).info("AI Assistant spend: " + buckets + " daily buckets from " + firstBucket + " to " + lastBucket
                 + ", organization " + orgCents + " cents" + (workspaceId == null ? "" : ", workspace " + workspaceCents + " cents"));
 
         // Amounts are cents as decimal strings; report dollars.
@@ -156,7 +156,7 @@ public class SdkSpendReader implements SpendReader {
         try {
             out.set("tokens", tokens(baseUrl, adminKey, startingAt, endingAt, pluginKeyId));
         } catch (Exception e) {
-            LogManager.getLogger(SdkSpendReader.class).warn("Claude Assistant: usage report failed: " + e.getMessage());
+            LogManager.getLogger(SdkSpendReader.class).warn("AI Assistant: usage report failed: " + e.getMessage());
         }
         return out;
     }
@@ -191,7 +191,7 @@ public class SdkSpendReader implements SpendReader {
         tokens.put("cacheRead", totals[1]);
         tokens.put("cacheWrite", totals[2]);
         tokens.put("output", totals[3]);
-        LogManager.getLogger(SdkSpendReader.class).info("Claude Assistant tokens this month (" + tokens.path("scope").asText() + "): input " + totals[0]
+        LogManager.getLogger(SdkSpendReader.class).info("AI Assistant tokens this month (" + tokens.path("scope").asText() + "): input " + totals[0]
                 + ", cache read " + totals[1] + ", cache write " + totals[2] + ", output " + totals[3]);
         return tokens;
     }

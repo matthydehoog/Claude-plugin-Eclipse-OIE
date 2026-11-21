@@ -196,7 +196,7 @@ The tools mirror those of `oie-mcp-server`. A channel can be given by ID or by n
 
 An action tool never runs from the model loop. `OieTools.prepare` builds a `PreparedAction`: a description for the approval dialog (for changes: the current and new rules or steps, and the script OIE generates for each new one) and a runner.
 
-The job then waits. The user decides with `POST /jobs/{id}/confirm`, which needs the **Run Claude Assistant actions** permission. `AssistantService.decide` runs the action **on the servlet thread, as the approving user**, checks the permission for the underlying OIE operation again, writes the audit event `Claude Assistant: …`, and gives the result to Claude. A rejected or timed-out action is reported to Claude as not run.
+The job then waits. The user decides with `POST /jobs/{id}/confirm`, which needs the **Run Claude Assistant actions** permission. `AssistantService.decide` runs the action **on the servlet thread, as the approving user**, checks the permission for the underlying OIE operation again, writes the audit event `AI Assistant: …`, and gives the result to Claude. A rejected or timed-out action is reported to Claude as not run.
 
 Script, filter and transformer changes save the channel with a new revision but do not deploy it. The save is **optimistic**: it only happens if the channel is still at the revision Claude read. The check and the save hold the channel controller's lock, so nobody can save in between. The stored metadata (enabled, pruning) and the channel's tags travel along, as the Administrator sends them; without them OIE would reset them to defaults.
 
@@ -252,8 +252,8 @@ On top of that, **every tool checks the user's own OIE permission** for its oper
 
 Audit events:
 
-- every executed action: `Claude Assistant: …`, in the name of the user who approved it;
-- every time message data, log lines or events are sent: `Claude Assistant: data sent to Anthropic`, with user, tool, channel, message IDs and whether it was reviewed. **Never the content itself.**
+- every executed action: `AI Assistant: …`, in the name of the user who approved it;
+- every time message data, log lines or events are sent: `AI Assistant: data sent to Anthropic`, with user, tool, channel, message IDs and whether it was reviewed. **Never the content itself.**
 
 ## Conversations
 
