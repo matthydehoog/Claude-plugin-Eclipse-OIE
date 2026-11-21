@@ -191,7 +191,7 @@ public class AssistantServiceTest {
     }
 
     /** How OIE names the plugin's confirm operation: extension point, "#", operation. */
-    private static final String CONFIRM = ClaudeServletInterface.PLUGIN_POINT + "#" + AssistantService.CONFIRM_OPERATION;
+    private static final String CONFIRM = ClaudeServletInterface.PERMISSION_GROUP + "#" + AssistantService.CONFIRM_OPERATION;
 
     private static final String[] DEPLOY = { "oie_deploy_channel", "{\"channel\":\"ch-1\"}" };
     private static final String[] EVENTS = { "oie_events", "{}" };

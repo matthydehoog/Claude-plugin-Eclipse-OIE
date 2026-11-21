@@ -36,11 +36,18 @@ import com.mirth.connect.client.core.api.Param;
 @Produces(MediaType.TEXT_PLAIN)
 public interface ClaudeServletInterface extends BaseServletInterface {
 
-    /** Plugin point: the key of the saved settings and of the permissions, so it keeps its original name. */
+    /** Plugin point: the key of the saved settings, so it keeps its original name. */
     String PLUGIN_POINT = "Claude Assistant";
 
-    /** Name shown in the Administrator (Settings tab, menus). */
+    /** Name shown in the Administrator (Settings tab, menus, the permission group in role editors). */
     String DISPLAY_NAME = "AI Assistant";
+
+    /**
+     * Extension name of the permissions and of the REST operations. RBAC finds the permission of a call
+     * by this name + "#" + operation, so the servlet, the permissions and own checks must all use it.
+     * It is also the permission group shown in role editors. Grants are stored by permission name only.
+     */
+    String PERMISSION_GROUP = DISPLAY_NAME;
 
     String PERMISSION_USE = "Use AI Assistant";
     String PERMISSION_ACTIONS = "Run AI Assistant actions";

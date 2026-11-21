@@ -24,7 +24,7 @@ public class ClaudeServlet extends MirthServlet implements ClaudeServletInterfac
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public ClaudeServlet(@Context HttpServletRequest request, @Context SecurityContext sc) {
-        super(request, sc, PLUGIN_POINT);
+        super(request, sc, PERMISSION_GROUP);
     }
 
     @Override

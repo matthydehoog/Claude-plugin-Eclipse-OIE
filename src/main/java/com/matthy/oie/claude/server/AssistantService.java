@@ -674,7 +674,7 @@ public class AssistantService {
     /** Whether the user has "Run AI Assistant actions" (the permission of POST /jobs/{id}/confirm). Fails closed. */
     private boolean mayRunActions(int userId, String address) {
         try {
-            Operation confirm = new ExtensionOperation(ClaudeServletInterface.PLUGIN_POINT, new Operation(CONFIRM_OPERATION, "Run AI Assistant action", Operation.ExecuteType.ASYNC, false));
+            Operation confirm = new ExtensionOperation(ClaudeServletInterface.PERMISSION_GROUP, new Operation(CONFIRM_OPERATION, "Run AI Assistant action", Operation.ExecuteType.ASYNC, false));
             return ControllerFactory.getFactory().createAuthorizationController().isUserAuthorized(userId, confirm, new HashMap<>(), address, false);
         } catch (Exception e) {
             logger.warn("AI Assistant: authorization check for actions failed", e);

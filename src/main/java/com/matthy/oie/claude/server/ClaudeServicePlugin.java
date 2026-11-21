@@ -6,9 +6,6 @@
 
 package com.matthy.oie.claude.server;
 
-import static com.matthy.oie.claude.shared.ClaudeServletInterface.PERMISSION_ACTIONS;
-import static com.matthy.oie.claude.shared.ClaudeServletInterface.PERMISSION_SETTINGS;
-import static com.matthy.oie.claude.shared.ClaudeServletInterface.PERMISSION_USE;
 import static com.matthy.oie.claude.shared.ClaudeServletInterface.PLUGIN_POINT;
 
 import java.util.Properties;
@@ -20,7 +17,6 @@ import org.apache.logging.log4j.core.config.Configurator;
 
 import com.matthy.oie.claude.shared.ClaudeServletInterface;
 import com.mirth.commons.encryption.Encryptor;
-import com.mirth.connect.client.core.api.util.OperationUtil;
 import com.mirth.connect.model.ExtensionPermission;
 import com.mirth.connect.plugins.ServicePlugin;
 import com.mirth.connect.server.controllers.ControllerFactory;
@@ -85,10 +81,7 @@ public class ClaudeServicePlugin implements ServicePlugin {
 
     @Override
     public ExtensionPermission[] getExtensionPermissions() {
-        return new ExtensionPermission[] {
-                new ExtensionPermission(PLUGIN_POINT, PERMISSION_USE, "Chat with the AI Assistant about channels, messages and server status (read only).", OperationUtil.getOperationNamesForPermission(PERMISSION_USE, ClaudeServletInterface.class), ClaudeServletInterface.USE_TASKS),
-                new ExtensionPermission(PLUGIN_POINT, PERMISSION_ACTIONS, "Approve actions the AI Assistant proposes: deploy, start/stop, reprocess, send messages, change scripts.", OperationUtil.getOperationNamesForPermission(PERMISSION_ACTIONS, ClaudeServletInterface.class), new String[] {}),
-                new ExtensionPermission(PLUGIN_POINT, PERMISSION_SETTINGS, "Change the Anthropic API key, model and masking settings.", OperationUtil.getOperationNamesForPermission(PERMISSION_SETTINGS, ClaudeServletInterface.class), ClaudeServletInterface.SETTINGS_TASKS) };
+        return Permissions.all();
     }
 
     AssistantService service() {
