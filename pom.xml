@@ -18,7 +18,7 @@
     <!-- Engine install to compile against. Override with -Doie.home=... -->
     <oie.home>C:/Program Files/OpenIntegrationEngine</oie.home>
     <oie.version>4.6.0</oie.version>
-    <anthropic.version>3.8.0</anthropic.version>
+    <anthropic.version>3.11.0</anthropic.version>
     <!--
       Code signing of the shared, server and client jars (launchers that check signatures refuse
       unsigned extension jars). Off unless a keystore is given: -Dsign.keystore=... -Dsign.storepass=...
