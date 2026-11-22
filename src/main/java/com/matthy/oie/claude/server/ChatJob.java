@@ -141,9 +141,12 @@ public class ChatJob {
         cancelled = true;
         PendingAction p;
         Future<?> f;
+        // Set the final state before waking the worker: once the waiting action has its answer, the
+        // worker may reach its own finish(DONE) first, which must then be a no-op.
         synchronized (this) {
             p = pending;
             f = future;
+            finish(State.CANCELLED);
         }
         if (p != null) {
             p.decision.complete(p.review ? null : "The user stopped the conversation; the action was not run.");
@@ -151,7 +154,6 @@ public class ChatJob {
         if (f != null) {
             f.cancel(true);
         }
-        finish(State.CANCELLED);
     }
 
     synchronized ObjectNode toJson(int after) {
