@@ -1,7 +1,8 @@
-# Claude Assistant for Open Integration Engine
+# AI Assistant for Open Integration Engine
 
-An extension for the OIE Administrator that lets you talk to Claude about your server from inside
-the GUI: channels, messages, errors, scripts, code templates and server status. Claude looks the
+An extension for the OIE Administrator that lets you talk to an AI model about your server from inside
+the GUI: channels, messages, errors, scripts, code templates and server status. It works with Claude
+(Anthropic), OpenAI, Mistral or a local model behind an OpenAI-compatible API. The assistant looks the
 facts up itself through the same tools as `oie-mcp-server`, and can propose actions that only run
 after you approve them.
 
@@ -9,33 +10,33 @@ after you approve them.
 troubleshooting.
 
 **Training:** the online course
-[Claude Assistant for Eclipse OIE](https://eclipse-oie.moodiy.cloud/course/view.php?id=3) at the
+[AI Assistant for Eclipse OIE](https://eclipse-oie.moodiy.cloud/course/view.php?id=3) at the
 Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exercises on a test channel.
 
 > **Unofficial plugin.** This is a community-built plugin. It is not affiliated with, endorsed by or
 > supported by Anthropic. Claude and Anthropic are trademarks of Anthropic, PBC.
 >
 > **Your responsibility.** Each organization that installs the plugin is responsible for its own use
-> of it: the legal basis and the data processing agreement with Anthropic for any patient data it
+> of it: the legal basis and the data processing agreement with Anthropic or the other AI provider for any patient data it
 > sends, and the changes its users approve in OIE. The plugin is provided as is, without warranty
 > (see the [Mozilla Public License 2.0](LICENSE)).
 
-## Where to find Claude in the Administrator
+## Where to find the AI Assistant in the Administrator
 
 | Place | Task | Context sent along |
 |---|---|---|
 | Left menu, **Other** | *AI Assistant* | none: questions about the whole server |
 | **Dashboard** (task + right-click) | *Ask AI Assistant* | selected channel(s)/connectors |
-| **Dashboard** (task + right-click) | *Check queues and storage* | none: Claude looks for stuck queues and channels that need pruning |
+| **Dashboard** (task + right-click) | *Check queues and storage* | none: the assistant looks for stuck queues and channels that need pruning |
 | **Message browser** (task + right-click) | *Ask AI Assistant* | selected message (channel, message ID, connector) |
 | **Channel editor** (task + right-click) | *Ask AI Assistant* | the channel that is open (saved version) |
-| **Channel editor** (task + right-click) | *Document channel* | the open channel; Claude writes its documentation as Markdown |
+| **Channel editor** (task + right-click) | *Document channel* | the open channel; the assistant writes its documentation as Markdown |
 | **Code Templates** (task + right-click, one template selected) | *Ask AI Assistant* | the selected code template and its library |
 | **Global Scripts** (task + right-click) | *Ask AI Assistant* | the global deploy/undeploy/pre/postprocessor scripts |
 
 The chat window stays open next to the Administrator. Ctrl+Enter sends; *New conversation* starts
 over; *Stop* aborts a running question. *Export…* saves the conversation as a Markdown file, *Save answer…* only
-Claude's last answer (for example a channel's documentation), and *Conversations…* continues one of your earlier conversations.
+the assistant's last answer (for example a channel's documentation), and *Conversations…* continues one of your earlier conversations.
 
 ### Web administrator
 
@@ -45,31 +46,31 @@ The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It
 | Place | What |
 |---|---|
 | Left rail, **Plugins > AI Assistant** | the chat as a full page |
-| **Channel editor**, tab **Claude** | the chat with the open channel as context |
+| **Channel editor**, tab **AI Assistant** | the chat with the open channel as context |
 | **Channels** view, right-click | *Ask AI Assistant* about the selected channel, or *Document channel* |
 | **Message browser**, right-click | *Ask AI Assistant* about the selected message (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask AI Assistant* about the selected code template |
-| **Claude page**, button **Global Scripts** | the global scripts as context (the web admin has no hook on the Global Scripts view itself) |
-| **Claude page**, button **Document channel** | documents the channel in the context |
-| **Claude page**, button **Queues and storage** | checks queues and message storage |
+| **AI Assistant page**, button **Global Scripts** | the global scripts as context (the web admin has no hook on the Global Scripts view itself) |
+| **AI Assistant page**, button **Document channel** | documents the channel in the context |
+| **AI Assistant page**, button **Queues and storage** | checks queues and message storage |
 | **Command palette** (Ctrl+K) | *AI Assistant*, *Check queues and storage*, and *Ask AI Assistant about Global Scripts* |
 | **Settings**, tab **AI Assistant** | the same settings and usage as in Swing, using the settings page's own Save |
 
 Both UIs use the same REST API, so masking, permissions, action approval and the audit log are
-identical; a conversation stays open while you move between the Claude page and other views.
+identical; a conversation stays open while you move between the AI Assistant page and other views.
 
-## What Claude can do
+## What the assistant can do
 
 **Read** (immediately): server info, channels with status and counters, channel configuration and
 scripts, the global scripts, statistics per connector, queues and message storage, searching and viewing messages, events, the server log, code
 templates and the keys of the Configuration Map (never the values).
 
-**Channel documentation:** *Document channel* has Claude write a Markdown description of a channel
+**Channel documentation:** *Document channel* has the assistant write a Markdown description of a channel
 (purpose, source, filter, destinations, field mappings, scripts, code templates, Configuration Map keys
 and open points) from a readable overview in which passwords and other secrets are hidden. Save it as
 a separate file with *Save answer*.
 
-**Queues and storage:** *Check queues and storage* has Claude look for slow-burning problems: destinations
+**Queues and storage:** *Check queues and storage* has the assistant look for slow-burning problems: destinations
 that are stopped or have not moved their queue for a long time (with the age of the oldest queued message
 and the last error), channels without pruning and how many messages they keep, and the database size.
 It reads counts, dates and settings only, never message content.
@@ -87,7 +88,7 @@ event `AI Assistant: …`, in the name of the user who approved it.
 
 ## Privacy
 
-Everything sent to the Anthropic API (your questions, context, message content, logs, errors,
+Everything sent to the AI provider (your questions, context, message content, logs, errors,
 channel configuration) first goes through a masker with the same rules as `mask.ts` in
 oie-mcp-server:
 
@@ -108,17 +109,17 @@ oie-mcp-server:
 - credentials in channel configuration: elements named like password, passphrase, secret, token or apiKey
 - your own patterns under *Settings > AI Assistant*
 
-**Review before sending.** Before message content, log lines or events go to Claude, a dialog shows
+**Review before sending.** Before message content, log lines or events go to the AI model, a dialog shows
 exactly what would be sent, after masking. You can edit the text, send it (*Send to the AI model*) or
-withhold it (*Don't send*, or close the dialog); edited text is masked again. *Settings > Claude
+withhold it (*Don't send*, or close the dialog); edited text is masked again. *Settings > AI
 Assistant > Review before sending* sets the scope: *Message content, logs and events* (default),
 *Everything, including my question*, or *Off*.
 
 This is a safety net, not anonymisation. Only send real patient data through it if you have a legal
-basis and a data processing agreement with Anthropic. Conversations are only visible to the user who
+basis and a data processing agreement with the AI provider. Conversations are only visible to the user who
 started them. By default they live only in the server's memory (cleared 4 hours after last use or on a
 restart); with *Keep conversations* (days) set, they are also saved in the OIE application data folder
-(`claude-assistant/conversations/`), masked exactly as sent to Claude, so they can be continued after
+(`claude-assistant/conversations/`), masked exactly as sent to the AI model, so they can be continued after
 a restart. Setting it back to 0 removes the saved ones.
 
 ## Permissions
@@ -131,13 +132,13 @@ The extension adds three permissions (visible in the RBAC extension):
 
 Before 2.0.0 they were called *... Claude Assistant ...*. At the restart after an upgrade, the plugin renames the grants in the Role-Based Access Control extension, so roles keep what they allowed.
 
-Claude only gets what the user could see or do in OIE: every tool checks the user's own OIE
+The assistant only gets what the user could see or do in OIE: every tool checks the user's own OIE
 permission (via the RBAC extension when installed), e.g. *View Messages* for message search. Tools
-the user lacks are skipped and Claude is told which permission is missing; an action is checked
+the user lacks are skipped and the model is told which permission is missing; an action is checked
 again when it is approved. Users with channel restrictions cannot use the assistant, because the
 tools see all channels.
 
-Every time message data, log lines or events are sent to Anthropic, the audit log gets an event
+Every time message data, log lines or events are sent to the AI provider, the audit log gets an event
 `AI Assistant: data sent to Anthropic` (or to the host of the OpenAI-compatible server) with the user, tool, channel, message IDs and whether it
 was reviewed. The content itself is never logged.
 
@@ -146,15 +147,15 @@ was reviewed. The content itself is never logged.
 1. Install `claude-assistant-<version>.zip` via *Settings > Extensions > Install Extension* (or unzip
    it into `<OIE_HOME>/extensions/`) and restart the OIE service. Check that
    `extensions/claude-assistant/lib/` contains the engine jars.
-2. Go to *Settings > AI Assistant*, enter an Anthropic API key (from
+2. Go to *Settings > AI Assistant*. For Claude, enter an Anthropic API key (from
    [console.anthropic.com](https://console.anthropic.com)) and click *Save*. The key is stored
    encrypted and never sent back to the Administrator; the field is emptied after saving and the
    line below it shows *Set: sk-ant-…xxxx*.
 3. Defaults: model `claude-opus-5`, effort `high`, at most 25 tool calls per question, response
-   language *Automatic* (Claude answers in the language of the question). The **Model** list comes
+   language *Automatic* (the assistant answers in the language of the question). The **Model** list comes
    from Anthropic's Models API for your key (newest first, refreshed daily), so new models appear
    without a plugin update; without a connection a fixed list is shown. Pick a fixed language in
-   **Response language** to have Claude always answer in that language, whatever language the
+   **Response language** to have the assistant always answer in that language, whatever language the
    question or the server data is in.
 
 ### Other models: OpenAI-compatible providers
@@ -227,5 +228,5 @@ See the [development guide](docs/development.md) for the engine jars to install,
 - `client` – Swing: chat window, tasks in dashboard/message browser/channel editor, settings screen.
 
 The engine streams each answer from the API; the client polls for progress every 0.8 s
-(`GET /jobs/{id}`) and shows the answer growing while Claude writes it (`partial` in the job), so
+(`GET /jobs/{id}`) and shows the answer growing while the model writes it (`partial` in the job), so
 long answers do not run into the Administrator's HTTP timeout.

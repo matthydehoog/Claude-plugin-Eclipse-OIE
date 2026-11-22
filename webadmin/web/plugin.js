@@ -1,4 +1,4 @@
-// Claude Assistant - web administrator UI (equivalent of the Swing ClaudeClientPlugin and
+// AI Assistant - web administrator UI (equivalent of the Swing ClaudeClientPlugin and
 // ClaudeSettingsPlugin). Talks to the same REST API (/api/extensions/claude/...), so masking,
 // permissions, action approval and the audit log behave exactly as in the Swing client.
 // Plain ES module against platform.React: no build step.
