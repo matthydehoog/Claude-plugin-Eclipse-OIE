@@ -1,7 +1,7 @@
 {
     "id": "claude-assistant",
     "name": "AI Assistant",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "author": "X Connections",
     "description": "Chat with an AI model (Claude or OpenAI-compatible) about channels, messages, errors and scripts - web equivalent of the Swing AI Assistant (chat page, channel tab, channel and message actions, settings panel). Unofficial plugin, not affiliated with or endorsed by Anthropic; Claude is a trademark of Anthropic, PBC. Each organization is responsible for its own use, including patient data sent to the model provider.",
     "oie": { "apiMin": "4.6" },

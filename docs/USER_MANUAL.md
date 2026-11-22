@@ -1,8 +1,8 @@
 # AI Assistant for OIE — User Manual
 
-Version 2.0.0 · November 2026
+Version 2.0.1 · November 2026
 
-The AI Assistant (version 2.0.0) puts an AI chat inside the Open Integration Engine Administrator and web administrator. It works with Claude (Anthropic), OpenAI, Mistral or a local model behind an OpenAI-compatible API. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
+The AI Assistant (version 2.0.1) puts an AI chat inside the Open Integration Engine Administrator and web administrator. It works with Claude (Anthropic), OpenAI, Mistral or a local model behind an OpenAI-compatible API. It reads channels, messages, logs and scripts, and it changes nothing without your approval.
 
 > **Unofficial plugin.** This is a community-built plugin. It is not affiliated with, endorsed by or supported by Anthropic. Claude and Anthropic are trademarks of Anthropic, PBC.
 >
