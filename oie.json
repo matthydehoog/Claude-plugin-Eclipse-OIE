@@ -5,7 +5,7 @@
   "description": "Chat with an AI model inside the OIE Administrator and web administrator about channels, messages, errors and scripts: Claude (Anthropic) or an OpenAI-compatible model such as OpenAI, Ollama or vLLM. Patient data (HL7, FHIR, GDT, EDIFACT) is masked before it leaves the server, and actions such as deploying or changing scripts, filters and transformers only run after the user approves them. Needs your own API key for Anthropic or OpenAI; a local model server may need none. Unofficial plugin, not affiliated with or endorsed by Anthropic or OpenAI.",
   "type": "plugin",
   "ui": ["web", "swing"],
-  "version": "2.0.1",
+  "version": "2.0.2",
   "minEngineVersion": "4.6.0",
   "maxEngineVersion": null,
   "filename": "claude-assistant-{version}.zip",
