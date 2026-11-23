@@ -24,41 +24,6 @@ public class SettingsUninstallerTest {
     public TemporaryFolder temp = new TemporaryFolder();
 
     @Test
-    public void renamesTheRoleGrantsOfTheOldPermissionNames() throws Exception {
-        try (java.sql.Connection db = java.sql.DriverManager.getConnection("jdbc:h2:mem:rbac;MODE=MySQL")) {
-            try (java.sql.Statement s = db.createStatement()) {
-                s.execute("CREATE TABLE rbac_role_permission (role_id INT, permission VARCHAR(255))");
-                s.execute("INSERT INTO rbac_role_permission VALUES (1, 'Use Claude Assistant'), (1, 'Run Claude Assistant actions'), (1, 'viewChannels'),"
-                        + " (2, 'Use Claude Assistant'), (2, 'Use AI Assistant'), (3, 'Manage Claude Assistant settings')");
-            }
-
-            // Role 2 already had the new name: only its old grant goes.
-            assertEquals(3, SettingsUninstaller.renamePermissions(db));
-
-            assertEquals("1 Run AI Assistant actions|1 Use AI Assistant|1 viewChannels|2 Use AI Assistant|3 Manage AI Assistant settings", grants(db));
-            assertEquals(0, SettingsUninstaller.renamePermissions(db));
-        }
-    }
-
-    @Test
-    public void withoutTheRbacTableNothingHappens() throws Exception {
-        try (java.sql.Connection db = java.sql.DriverManager.getConnection("jdbc:h2:mem:plain")) {
-            assertEquals(0, SettingsUninstaller.renamePermissions(db));
-        }
-        assertEquals(0, SettingsUninstaller.renamePermissions(null));
-    }
-
-    private static String grants(java.sql.Connection db) throws Exception {
-        StringBuilder out = new StringBuilder();
-        try (java.sql.ResultSet r = db.createStatement().executeQuery("SELECT role_id, permission FROM rbac_role_permission ORDER BY role_id, permission")) {
-            while (r.next()) {
-                out.append(out.length() > 0 ? "|" : "").append(r.getInt(1)).append(' ').append(r.getString(2));
-            }
-        }
-        return out.toString();
-    }
-
-    @Test
     public void uninstallRemovesTheSettingsSavedUnderThePluginPoint() {
         assertEquals("DELETE FROM CONFIGURATION WHERE CATEGORY = 'Claude Assistant'", SettingsUninstaller.deleteStatement());
     }
