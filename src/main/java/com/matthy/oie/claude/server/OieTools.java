@@ -125,6 +125,7 @@ public class OieTools {
             Map.entry("oie_reprocess_message", "reprocessMessage"),
             Map.entry("oie_send_message", "processMessages"),
             Map.entry("oie_update_channel_script", "updateChannel"),
+            Map.entry("oie_update_channel_description", "updateChannel"),
             Map.entry("oie_update_global_script", "setGlobalScripts"),
             Map.entry("oie_update_filter", "updateChannel"),
             Map.entry("oie_update_transformer", "updateChannel"),
@@ -954,6 +955,12 @@ public class OieTools {
                 "index", integer("Position of the rule/step (from 0), only for filter_rule/transformer_step/response_transformer_step"),
                 "script", str("The complete new script")), this::prepareScriptUpdate, "channel", "scriptType", "script");
 
+        action("oie_update_channel_description", "Replaces the Description field of a channel (shown in the Channels view and the channel editor's Summary tab). "
+                + "Write a few sentences of plain text: purpose, source, main destinations and anything notable. If the channel already has a description, "
+                + "improve it and keep what its author wrote that is still true. Saves the channel but does not deploy it. Requires approval.", props(
+                "channel", str("Channel ID (UUID) or channel name"),
+                "description", str("The complete new description (plain text)")), this::prepareDescriptionUpdate, "channel", "description");
+
         action("oie_update_filter", "Replaces the filter rules of one connector with a new list: add, change, remove or reorder rules of any type. "
                 + "Give the complete new list in OIE channel XML, in order, as in oie_get_channel: <elements> with for example "
                 + "<com.mirth.connect.plugins.rulebuilder.RuleBuilderRule version=\"...\"> (name, sequenceNumber, enabled, operator AND/OR/NONE, field, condition EXISTS/NOT_EXIST/EQUALS/NOT_EQUAL/CONTAINS/NOT_CONTAIN, values of <string>), "
@@ -1247,6 +1254,25 @@ public class OieTools {
         return new PreparedAction("Change script", detail, ctx -> {
             String notSaved = save(copy, revision, ctx, () -> apply.apply(copy));
             return notSaved != null ? notSaved : "Script saved in channel '" + current.getName() + "' (new revision). Deploy the channel to activate the change.";
+        });
+    }
+
+    private PreparedAction prepareDescriptionUpdate(JsonNode in) throws Exception {
+        Channel current = channel(in);
+        String description = text(in, "description").trim();
+        if (description.isEmpty()) {
+            throw new IllegalArgumentException("Parameter 'description' is empty.");
+        }
+        String old = current.getDescription() == null ? "" : current.getDescription().trim();
+        if (description.equals(old)) {
+            throw new IllegalArgumentException("The new description is the same as the current one.");
+        }
+        ObjectXMLSerializer serializer = ObjectXMLSerializer.getInstance();
+        Channel copy = serializer.deserialize(serializer.serialize(current), Channel.class);
+        int revision = current.getRevision();
+        return new PreparedAction("Update channel description", ChannelEditor.describeDescriptionChange(current.getName(), old, description), ctx -> {
+            String notSaved = save(copy, revision, ctx, () -> copy.setDescription(description));
+            return notSaved != null ? notSaved : "Description saved in channel '" + current.getName() + "' (new revision). It shows right away; no deploy is needed.";
         });
     }
 

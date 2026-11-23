@@ -66,6 +66,7 @@ public class ClaudeClientPlugin extends ClientPlugin {
         addTask("claudeExplainError", "Explain error", "Let the AI Assistant diagnose why the selected message failed: root cause, where, which data, and a fix.", icon, parent.messageTasks, parent.messagePopupMenu);
         addTask("claudeChannelEdit", "Ask AI Assistant", "Let the AI Assistant explain or improve this channel and its scripts.", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
         addTask("claudeDocumentChannel", "Document channel", "Let the AI Assistant write documentation for this channel (Markdown; save it with Save answer).", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
+        addTask("claudeDescribeChannel", "Write description", "Let the AI Assistant write or improve this channel's Description; you approve it before it is saved.", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
 
         addTask("claudeGlobalScripts", "Ask AI Assistant", "Let the AI Assistant explain or improve the global scripts.", icon, parent.globalScriptsTasks, parent.globalScriptsPopupMenu);
 
@@ -184,6 +185,21 @@ public class ClaudeClientPlugin extends ClientPlugin {
                 + " The AI Assistant sees the saved version; unsaved changes in the editor are not visible.";
         dialog().open(context, "Write documentation for this channel as Markdown: purpose, source, filter, destinations, field mappings, scripts and code templates, Configuration Map keys and open points.");
     }
+
+    public void claudeDescribeChannel() {
+        Channel channel = parent.channelEditPanel == null ? null : parent.channelEditPanel.currentChannel;
+        if (channel == null) {
+            claudeOpen();
+            return;
+        }
+        String context = "Channel open in the editor: '" + channel.getName() + "' (" + channel.getId() + ", revision " + channel.getRevision() + ")."
+                + " The AI Assistant sees the saved version; unsaved changes in the editor are not visible.";
+        dialog().open(context, DESCRIPTION_SUGGESTION);
+    }
+
+    /** Same text as DESCRIPTION_SUGGESTION in webadmin/web/plugin.js. */
+    static final String DESCRIPTION_SUGGESTION = "Write a description for this channel: a few sentences of plain text on its purpose, source, main destinations and anything notable. "
+            + "If it already has a description, improve it and keep what is still true. Propose it with Update channel description.";
 
     public void claudeGlobalScripts() {
         dialog().open("Global Scripts (deploy, undeploy, preprocessor and postprocessor). The AI Assistant sees the saved version; unsaved changes in the Global Scripts editor are not visible.",

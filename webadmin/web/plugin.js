@@ -17,6 +17,9 @@ const EXPLAIN_ERROR_SUGGESTION = "Explain why this message failed. Read the mess
     + "Which data (the segment and field involved, from the message content; masked values show as ***); "
     + "Fix (what to change, proposed as a script, filter or transformer change when that fixes it). "
     + "If no connector of this message has an error, say so and explain what happened instead.";
+// Same text as ClaudeClientPlugin.DESCRIPTION_SUGGESTION.
+const DESCRIPTION_SUGGESTION = "Write a description for this channel: a few sentences of plain text on its purpose, source, main destinations and anything notable. "
+    + "If it already has a description, improve it and keep what is still true. Propose it with Update channel description.";
 const DOCUMENT_SUGGESTION ="Write documentation for this channel as Markdown: purpose, source, filter, destinations, field mappings, scripts and code templates, Configuration Map keys and open points.";
 /** Contexts that name one channel, so it can be documented. */
 const CHANNEL_CONTEXT = /^(Channel open in the editor|Selected channel)/;
@@ -600,6 +603,12 @@ function ChatPanel() {
                 disabled: !CHANNEL_CONTEXT.test(c.context || ""),
                 onClick: () => c.open(c.context, DOCUMENT_SUGGESTION)
             }, "Document channel"),
+            e("button", {
+                className: "btn",
+                title: "Let the AI Assistant write or improve the Description of the channel in the context; you approve it before it is saved",
+                disabled: c.busy || !CHANNEL_CONTEXT.test(c.context || ""),
+                onClick: () => c.open(c.context, DESCRIPTION_SUGGESTION)
+            }, "Write description"),
             mayUse("claudeQueues") ? e("button", {
                 className: "btn",
                 title: "Let the AI Assistant look for stuck queues and channels whose stored messages keep growing",
@@ -951,6 +960,18 @@ export function register(platform) {
         onInvoke: (channel) => {
             if (!channel) return;
             openWith(`Selected channel: '${channel.name}' (${channel.id}).`, DOCUMENT_SUGGESTION);
+        }
+    });
+
+    platform.registerChannelAction({
+        id: "claude-assistant.describe",
+        label: "Write description",
+        icon: "claude",
+        order: 62,
+        task: "claudeDescribeChannel",
+        onInvoke: (channel) => {
+            if (!channel) return;
+            openWith(`Selected channel: '${channel.name}' (${channel.id}).`, DESCRIPTION_SUGGESTION);
         }
     });
 
