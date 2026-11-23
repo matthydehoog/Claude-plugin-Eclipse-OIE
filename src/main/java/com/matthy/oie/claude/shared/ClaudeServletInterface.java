@@ -57,7 +57,7 @@ public interface ClaudeServletInterface extends BaseServletInterface {
      * Administrator tasks that open the chat (Swing task callbacks; the web UI uses the same names).
      * They are published with {@link #PERMISSION_USE} so an RBAC extension can hide them.
      */
-    String[] USE_TASKS = { "claudeOpen", "claudeDashboard", "claudeQueues", "claudeMessage", "claudeChannelEdit", "claudeDocumentChannel", "claudeGlobalScripts", "claudeCodeTemplate" };
+    String[] USE_TASKS = { "claudeOpen", "claudeDashboard", "claudeQueues", "claudeMessage", "claudeExplainError", "claudeChannelEdit", "claudeDocumentChannel", "claudeGlobalScripts", "claudeCodeTemplate" };
 
     /** Task group of the Settings tab (Swing names it "settings_" + tab name; the web UI does the same). */
     String SETTINGS_TASK_GROUP = "settings_" + DISPLAY_NAME;
