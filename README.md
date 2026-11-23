@@ -35,6 +35,7 @@ Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exerci
 | **Channel editor** (task + right-click) | *Write description* | the open channel; the assistant proposes a new Description, saved after your approval |
 | **Code Templates** (task + right-click, one template selected) | *Ask AI Assistant* | the selected code template and its library |
 | **Global Scripts** (task + right-click) | *Ask AI Assistant* | the global deploy/undeploy/pre/postprocessor scripts |
+| **JavaScript editors** (right-click in the code) | *Explain with AI Assistant* | the channel, template or global scripts; explains the selected code (unsaved edits included), or the whole step or script |
 
 The chat window stays open next to the Administrator. Ctrl+Enter sends; *New conversation* starts
 over; *Stop* aborts a running question. *Export…* saves the conversation as a Markdown file, *Save answer…* only
@@ -52,6 +53,7 @@ The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It
 | **Channels** view, right-click | *Ask AI Assistant* about the selected channel, *Document channel* or *Write description* |
 | **Message browser**, right-click | *Ask AI Assistant* about the selected message, or *Explain error* (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask AI Assistant* about the selected code template |
+| **Script editors**, right-click in the code | *Explain with AI Assistant*: the selected code (unsaved edits included), in a dialog over the editor |
 | **AI Assistant page**, button **Global Scripts** | the global scripts as context (the web admin has no hook on the Global Scripts view itself) |
 | **AI Assistant page**, button **Document channel** | documents the channel in the context |
 | **AI Assistant page**, button **Write description** | proposes a Description for the channel in the context |

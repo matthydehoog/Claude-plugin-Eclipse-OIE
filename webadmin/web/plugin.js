@@ -20,6 +20,11 @@ const EXPLAIN_ERROR_SUGGESTION = "Explain why this message failed. Read the mess
 // Same text as ClaudeClientPlugin.DESCRIPTION_SUGGESTION.
 const DESCRIPTION_SUGGESTION = "Write a description for this channel: a few sentences of plain text on its purpose, source, main destinations and anything notable. "
     + "If it already has a description, improve it and keep what is still true. Propose it with Update channel description.";
+// Same text as ExplainCodeMenu.EXPLAIN_CODE_REQUEST.
+const EXPLAIN_CODE_REQUEST = "what it does step by step, which message data and maps it reads and writes, and anything that looks wrong or risky. "
+    + "It is copied from the editor, so it may include unsaved changes.";
+/** Longest piece of code put in the question; the same limit as ExplainCodeMenu.MAX_CODE_CHARS. */
+const MAX_CODE_CHARS = 20000;
 const DOCUMENT_SUGGESTION ="Write documentation for this channel as Markdown: purpose, source, filter, destinations, field mappings, scripts and code templates, Configuration Map keys and open points.";
 /** Contexts that name one channel, so it can be documented. */
 const CHANNEL_CONTEXT = /^(Channel open in the editor|Selected channel)/;
@@ -64,6 +69,9 @@ const CSS = `
 .claude-page { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 12px 16px; box-sizing: border-box; gap: 8px; }
 .claude-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 8px; }
 .claude-embedded { height: 100%; min-height: 420px; padding: 8px 0; box-sizing: border-box; }
+.claude-dialog { height: 70vh; width: 100%; min-width: 0; padding: 0; }
+.modal.wide:has(.claude-dialog) { width: min(1200px, calc(100vw - 40px)); }
+.claude-dialog .claude-contextbar .claude-context { flex-basis: 100%; }
 .claude-contextbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--text-dim); font-size: 12px; }
 .claude-contextbar .claude-context { flex: 1 1 240px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .claude-contextbar .btn { flex: none; white-space: nowrap; }
@@ -268,9 +276,13 @@ const chat = {
     },
 
     /** Sets the context (and a suggested question) from an action in the Administrator. */
-    open(context, suggestion) {
+    /** replace: the suggestion replaces whatever is in the question box (Explain with AI Assistant). */
+    open(context, suggestion, replace) {
         this.context = context;
-        if (suggestion) this.suggestion = suggestion;
+        if (suggestion) {
+            this.suggestion = suggestion;
+            this.replaceSuggestion = !!replace;
+        }
         this.notify();
     },
     clearContext() {
@@ -560,12 +572,13 @@ function ChatPanel() {
     // their own (an untouched earlier suggestion is replaced).
     React.useEffect(() => {
         if (c.suggestion) {
-            if (!input.trim() || input === lastSuggestion.current) {
+            if (c.replaceSuggestion || !input.trim() || input === lastSuggestion.current) {
                 setInput(c.suggestion);
                 lastSuggestion.current = c.suggestion;
                 setTimeout(() => inputRef.current && inputRef.current.select(), 0);
             }
             c.suggestion = null;
+            c.replaceSuggestion = false;
         }
     });
 
@@ -915,6 +928,154 @@ function openWith(context, suggestion) {
     P.router.navigate("/claude");
 }
 
+// ------------------------------------------------------------------ Explain with AI Assistant (script editors)
+
+/** The question: what to explain, then the code itself. Same text as ExplainCodeMenu.request in Swing. */
+function explainCodeRequest(location, code, selection, firstLine, lastLine) {
+    const text = (code || "").trim();
+    const lines = firstLine <= 0 ? "the selected code" : firstLine === lastLine ? `line ${firstLine}` : `lines ${firstLine}-${lastLine}`;
+    const what = selection ? `${lines} of the ${location}` : `the whole ${location}`;
+    const clipped = text.length > MAX_CODE_CHARS
+        ? text.substring(0, MAX_CODE_CHARS) + `\n// ... ${text.length - MAX_CODE_CHARS} more characters left out`
+        : text;
+    return `Explain this code (${what}): ${EXPLAIN_CODE_REQUEST}\n\n\`\`\`javascript\n${clipped || "// (empty)"}\n\`\`\``;
+}
+
+/** The labels of the tabs around an editor, outermost first, e.g. ["Scripts", "Deploy"]. */
+function tabLabels(node) {
+    const labels = [];
+    for (let el = node; el; el = el.parentElement) {
+        if (el.getAttribute && el.getAttribute("role") === "tabpanel") {
+            const tab = el.getAttribute("aria-labelledby") && document.getElementById(el.getAttribute("aria-labelledby"));
+            const label = tab && tab.textContent.trim();
+            if (label) labels.unshift(label);
+        }
+    }
+    return labels;
+}
+
+/** "#2 'Map PID'" for the selected row of the filter or transformer table, or null. */
+function selectedElement() {
+    const row = document.querySelector("tr.selected[data-path]");
+    if (!row) return null;
+    const num = row.querySelector("td.num");
+    const name = row.querySelector("input.grid-name");
+    const label = name && (name.value || name.placeholder);
+    return `${num ? "#" + num.textContent.trim() + " " : ""}${label ? "'" + label + "'" : ""}`.trim() || null;
+}
+
+/** Where an editor is: { context, location }, or null where the item does not apply. */
+function explainTarget(editor) {
+    const path = window.location.pathname;
+    const node = editor.getDomNode && editor.getDomNode();
+    const tabs = node ? tabLabels(node) : [];
+    const channelRoute = path.match(/\/channels\/([^/]+)\/(edit|filter|transformer|response)(?:\/(\d+))?/);
+    if (channelRoute) {
+        if (!mayUse("claudeChannelEdit")) return null;
+        const channel = (P.store && P.store.getState && P.store.getState("editingChannel")) || {};
+        const id = channel.id || decodeURIComponent(channelRoute[1]);
+        const context = `Channel open in the editor: ${channel.name ? "'" + channel.name + "' " : ""}(${id}${channel.revision != null ? ", revision " + channel.revision : ""}). `
+            + "The AI Assistant sees the saved version; unsaved changes in the editor are not visible.";
+        if (channelRoute[2] === "edit") {
+            return { context, location: `${tabs.length ? "'" + tabs.join(" > ") + "' " : ""}script of the channel` };
+        }
+        const kind = { filter: "filter rule", transformer: "transformer step", response: "response transformer step" }[channelRoute[2]];
+        const element = selectedElement();
+        const connector = channelRoute[3] == null ? "" : ` of connector ${channelRoute[3]}${channelRoute[3] === "0" ? " (source)" : ""}`;
+        return { context, location: `${kind}${element ? " " + element : ""}${connector}` };
+    }
+    if (/\/code-templates(\/|$)/.test(path)) {
+        return mayUse("claudeCodeTemplate") ? { context: "Code template open in the Code Templates view.", location: "code template" } : null;
+    }
+    if (/\/global-scripts(\/|$)/.test(path)) {
+        return mayUse("claudeGlobalScripts") ? { context: GLOBAL_SCRIPTS_CONTEXT, location: `global ${tabs.length ? "'" + tabs.join(" > ") + "' " : ""}script` } : null;
+    }
+    return null;
+}
+
+/** The chat in a dialog over the editor: leaving the editor would ask to save or discard unsaved edits. */
+async function openOverEditor(context, question) {
+    chat.open(context, question, true);
+    try {
+        const ui = await import("@oie/web-ui");
+        const view = await P.reactView(ExplainDialogView)({ path: "/claude", params: {}, query: {}, meta: {} });
+        const body = view && (view.el || (view instanceof Node ? view : null));
+        if (!body || typeof ui.modal !== "function") throw new Error("no dialog");
+        ui.modal({ title: "AI Assistant", body, size: "wide", onClose: () => { try { view.teardown && view.teardown(); } catch (e) { /* closed */ } } });
+    } catch (e) {
+        // No dialog support in this web admin: show the chat page instead.
+        P.router.navigate("/claude");
+    }
+}
+
+function ExplainDialogView() {
+    return e("div", { className: "claude-panel claude-embedded claude-dialog" }, e(ChatPanel));
+}
+
+function explainCode(editor) {
+    const target = explainTarget(editor);
+    const model = editor.getModel && editor.getModel();
+    if (!target || !model) return;
+    const range = editor.getSelection();
+    const selection = !!range && !range.isEmpty();
+    const code = selection ? model.getValueInRange(range) : model.getValue();
+    let firstLine = 0, lastLine = 0;
+    if (selection) {
+        firstLine = range.startLineNumber;
+        // A selection that ends at the start of a line does not include that line.
+        lastLine = range.endColumn === 1 && range.endLineNumber > range.startLineNumber ? range.endLineNumber - 1 : range.endLineNumber;
+    }
+    openOverEditor(target.context, explainCodeRequest(target.location, code, selection, firstLine, lastLine));
+}
+
+/** Marks per editor whether "Explain with AI Assistant" applies: JavaScript in a place explainTarget knows. */
+function watchEditor(editor) {
+    if (!editor || editor.__claudeExplain || typeof editor.createContextKey !== "function") return;
+    editor.__claudeExplain = true;
+    try {
+        const applies = editor.createContextKey("claudeAssistantExplain", false);
+        const update = () => { try { applies.set(!!explainTarget(editor)); } catch (e) { applies.set(false); } };
+        editor.onMouseDown(update);
+        editor.onDidFocusEditorText(update);
+        // The view may still be settling (route, selected step) when the editor is created.
+        setTimeout(update, 0);
+    } catch (e) {
+        // Never break the host's editor.
+    }
+}
+
+/**
+ * The web admin loads Monaco on first use and exposes it as window.monaco (its own drag and drop
+ * finds editors there too). Wait for it without loading it, then add the menu item.
+ *
+ * The item is registered once with monaco.editor.addEditorAction: the per-editor addAction does
+ * nothing in the web admin, because Monaco only allows it with its own keybinding service and the
+ * web admin sets up Monaco with another one. A context key per editor decides where it shows.
+ */
+function hookScriptEditors() {
+    const attach = () => {
+        const monaco = window.monaco;
+        if (!monaco || !monaco.editor || typeof monaco.editor.addEditorAction !== "function" || typeof monaco.editor.onDidCreateEditor !== "function") return false;
+        try {
+            monaco.editor.addEditorAction({
+                id: "claude-assistant.explain-code",
+                label: "Explain with AI Assistant",
+                precondition: "claudeAssistantExplain && editorLangId == javascript",
+                contextMenuGroupId: "navigation",
+                contextMenuOrder: 0,
+                run: (editor) => explainCode(editor)
+            });
+            monaco.editor.onDidCreateEditor(watchEditor);
+            (typeof monaco.editor.getEditors === "function" ? monaco.editor.getEditors() : []).forEach(watchEditor);
+        } catch (e) {
+            // Never break the host's editors.
+        }
+        return true;
+    };
+    if (attach()) return;
+    const timer = setInterval(() => { if (attach()) clearInterval(timer); }, 1000);
+}
+
 export function register(platform) {
     P = platform;
     React = platform.React;
@@ -1047,6 +1208,9 @@ export function register(platform) {
             }
         });
     }
+
+    // Right-click "Explain with AI Assistant" in the Monaco script editors.
+    hookScriptEditors();
 
     // Hidden by the shell unless "settings_AI Assistant" doRefresh/doSave is allowed ("Manage AI Assistant settings").
     platform.registerSettingsPanel({ label: "AI Assistant", component: SettingsPanel });

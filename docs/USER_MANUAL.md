@@ -139,6 +139,7 @@ Start from the place your question is about: *Ask AI Assistant* there sends the 
 | **Channel editor** | Task or right-click, *Write description* | The open channel; the assistant proposes a new Description (see *Writing a channel description*) |
 | **Code Templates** | Task or right-click, one template selected | The template and its library |
 | **Global Scripts** | Task or right-click, *Ask AI Assistant* | The deploy, undeploy, preprocessor and postprocessor scripts |
+| **JavaScript editors** (filter rules, transformer steps, channel and connector scripts, code templates, global scripts) | Right-click in the code, *Explain with AI Assistant* | The channel, template or global scripts, plus the selected code (see *Explaining code*) |
 
 The context shows at the top of the chat window. *No context* means the assistant looks at the whole server.
 
@@ -165,6 +166,7 @@ The web administrator gets the same assistant once the **Web Support** extension
 | **Channels** view, right-click | *Ask AI Assistant* about the selected channel, *Document channel* or *Write description* |
 | **Message browser**, right-click | *Ask AI Assistant* about the selected message, or *Explain error* (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask AI Assistant* about the selected template |
+| **Script editors**, right-click in the code | *Explain with AI Assistant*: the selected code, or the whole script (see *Explaining code*) |
 | **AI Assistant page**, button **Global Scripts** | The global scripts as context |
 | **AI Assistant page**, button **Document channel** | Documents the channel in the context (from the channel editor tab or the Channels view) |
 | **AI Assistant page**, button **Write description** | Proposes a Description for the channel in the context |
@@ -211,6 +213,21 @@ At most 25 tool calls are made per question by default (*Max tool calls*). Raise
 - **Fix**: what to change. When a script, filter or transformer change fixes it, the assistant proposes that change, and it waits for your approval like any other action
 
 The message content is masked as usual and, with the default *Review before sending*, shown to you before it is sent. Masked fields such as PID-3 show as `***`: the assistant can see whether such a field is filled or empty, but not its value. If no connector of the message has an error, the assistant says so and explains what happened instead.
+
+### Explaining code
+
+Right-click in a JavaScript editor, in the Swing Administrator or the web administrator, and choose **Explain with AI Assistant**. It works in filter rules, transformer and response transformer steps, the channel's deploy, undeploy, preprocessor, postprocessor, attachment and batch scripts, connector scripts such as a JavaScript Reader or Writer, code templates and the global scripts.
+
+- **With a selection**, the assistant explains the selected lines. **Without one**, it explains the whole step or script.
+- The chat opens with the channel, code template or global scripts as context. The question names where the code is, for example *lines 4-7 of the transformer step #2 'Map PID' of connector 0 'sourceConnector'*, and contains the code itself.
+- The code is copied from the editor, so it includes unsaved edits. The rest of the channel the assistant reads is the saved version.
+- The question replaces what is in the question box, and is not sent until you click *Send*. You can add to it first, for example *why does this fail for an empty PID-3?*
+- The code is masked like every question. A script with patient data in it, such as a test message, shows that data as `***` to the assistant.
+- Very long code is cut off after 20,000 characters; select the part you want explained.
+
+The item shows for JavaScript only, and only where your role allows *Ask AI Assistant* for that channel editor, code template or the global scripts.
+
+In the **web administrator** the item is at the top of the script editor's right-click menu. The chat opens in a dialog over the editor, so you stay in the channel and keep your unsaved edits; the conversation is the same one as on the AI Assistant page. In the code template editor the context does not name the template; the code in the question is what the assistant explains.
 
 ### Documenting a channel
 

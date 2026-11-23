@@ -165,12 +165,23 @@ class ChatDialog extends JDialog {
 
     /** Opens the window with a context from the Administrator and a suggested question. */
     void open(String newContext, String suggestion) {
+        open(newContext, suggestion, false);
+    }
+
+    /**
+     * Opens the window with a context and a suggested question. The suggestion fills an empty
+     * question box, or with replace (an explicit request such as Explain with AI Assistant) any.
+     */
+    void open(String newContext, String suggestion, boolean replace) {
         if (newContext != null) {
             setContext(newContext);
         }
-        if (suggestion != null && input.getText().isBlank()) {
+        if (suggestion != null && (replace || input.getText().isBlank())) {
             input.setText(suggestion);
-            input.selectAll();
+            input.setCaretPosition(0);
+            if (!replace) {
+                input.selectAll();
+            }
         }
         setVisible(true);
         toFront();

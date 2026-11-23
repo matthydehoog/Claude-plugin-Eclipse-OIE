@@ -6,7 +6,9 @@
 
 package com.matthy.oie.claude.client;
 
+import java.awt.AWTEvent;
 import java.awt.Component;
+import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
@@ -28,6 +30,11 @@ import com.mirth.connect.client.ui.Frame;
 import com.mirth.connect.client.ui.PlatformUI;
 import com.mirth.connect.client.ui.browsers.message.MessageBrowser;
 import com.mirth.connect.client.ui.codetemplate.CodeTemplatePanel;
+import com.mirth.connect.client.ui.components.rsta.MirthRSyntaxTextArea;
+import com.mirth.connect.client.ui.editors.BaseEditorPane;
+import com.mirth.connect.client.ui.editors.filter.FilterPane;
+import com.mirth.connect.model.Connector;
+import com.mirth.connect.model.codetemplates.ContextType;
 import com.mirth.connect.model.Channel;
 import com.mirth.connect.model.DashboardStatus;
 import com.mirth.connect.model.codetemplates.CodeTemplate;
@@ -41,6 +48,7 @@ import com.mirth.connect.plugins.ClientPlugin;
 public class ClaudeClientPlugin extends ClientPlugin {
 
     private ChatDialog dialog;
+    private ExplainCodeMenu explainCodeMenu;
 
     public ClaudeClientPlugin(String name) {
         super(name);
@@ -81,10 +89,18 @@ public class ClaudeClientPlugin extends ClientPlugin {
             askAboutTemplate.putValue(Action.SHORT_DESCRIPTION, "Let the AI Assistant explain or improve the selected code template.");
             parent.codeTemplatePanel.addAction(askAboutTemplate, Collections.singleton(CodeTemplatePanel.OPTION_ONLY_SINGLE_CODE_TEMPLATES), "claudeCodeTemplate");
         }
+
+        // Right-click "Explain with AI Assistant" in the JavaScript editors.
+        explainCodeMenu = new ExplainCodeMenu(this::explainCodeTarget, (context, question) -> dialog().open(context, question, true), icon);
+        Toolkit.getDefaultToolkit().addAWTEventListener(explainCodeMenu, AWTEvent.MOUSE_EVENT_MASK);
     }
 
     @Override
     public void stop() {
+        if (explainCodeMenu != null) {
+            Toolkit.getDefaultToolkit().removeAWTEventListener(explainCodeMenu);
+            explainCodeMenu = null;
+        }
         reset();
     }
 
@@ -170,9 +186,7 @@ public class ClaudeClientPlugin extends ClientPlugin {
             claudeOpen();
             return;
         }
-        String context = "Channel open in the editor: '" + channel.getName() + "' (" + channel.getId() + ", revision " + channel.getRevision() + ")."
-                + " The AI Assistant sees the saved version; unsaved changes in the editor are not visible.";
-        dialog().open(context, "Explain what this channel does and point out weak spots in its scripts.");
+        dialog().open(channelContext(channel), "Explain what this channel does and point out weak spots in its scripts.");
     }
 
     public void claudeDocumentChannel() {
@@ -181,9 +195,7 @@ public class ClaudeClientPlugin extends ClientPlugin {
             claudeOpen();
             return;
         }
-        String context = "Channel open in the editor: '" + channel.getName() + "' (" + channel.getId() + ", revision " + channel.getRevision() + ")."
-                + " The AI Assistant sees the saved version; unsaved changes in the editor are not visible.";
-        dialog().open(context, "Write documentation for this channel as Markdown: purpose, source, filter, destinations, field mappings, scripts and code templates, Configuration Map keys and open points.");
+        dialog().open(channelContext(channel), "Write documentation for this channel as Markdown: purpose, source, filter, destinations, field mappings, scripts and code templates, Configuration Map keys and open points.");
     }
 
     public void claudeDescribeChannel() {
@@ -192,9 +204,7 @@ public class ClaudeClientPlugin extends ClientPlugin {
             claudeOpen();
             return;
         }
-        String context = "Channel open in the editor: '" + channel.getName() + "' (" + channel.getId() + ", revision " + channel.getRevision() + ")."
-                + " The AI Assistant sees the saved version; unsaved changes in the editor are not visible.";
-        dialog().open(context, DESCRIPTION_SUGGESTION);
+        dialog().open(channelContext(channel), DESCRIPTION_SUGGESTION);
     }
 
     /** Same text as DESCRIPTION_SUGGESTION in webadmin/web/plugin.js. */
@@ -202,17 +212,32 @@ public class ClaudeClientPlugin extends ClientPlugin {
             + "If it already has a description, improve it and keep what is still true. Propose it with Update channel description.";
 
     public void claudeGlobalScripts() {
-        dialog().open("Global Scripts (deploy, undeploy, preprocessor and postprocessor). The AI Assistant sees the saved version; unsaved changes in the Global Scripts editor are not visible.",
-                "Explain what the global scripts do and point out weak spots.");
+        dialog().open(GLOBAL_SCRIPTS_CONTEXT, "Explain what the global scripts do and point out weak spots.");
+    }
+
+    private static final String GLOBAL_SCRIPTS_CONTEXT = "Global Scripts (deploy, undeploy, preprocessor and postprocessor). The AI Assistant sees the saved version; unsaved changes in the Global Scripts editor are not visible.";
+
+    private static String channelContext(Channel channel) {
+        return "Channel open in the editor: '" + channel.getName() + "' (" + channel.getId() + ", revision " + channel.getRevision() + ")."
+                + " The AI Assistant sees the saved version; unsaved changes in the editor are not visible.";
     }
 
     public void claudeCodeTemplate() {
+        String context = codeTemplateContext();
+        if (context == null) {
+            parent.alertInformation(parent, "Select a code template first.");
+            return;
+        }
+        dialog().open(context, "Explain what this code template does, which channels use it, and point out weak spots.");
+    }
+
+    /** The code template selected in the Code Templates view as chat context, or null. */
+    private String codeTemplateContext() {
         CodeTemplatePanel panel = parent.codeTemplatePanel;
         String id = panel == null ? null : panel.getCurrentSelectedId();
         CodeTemplate template = id == null ? null : panel.getCachedCodeTemplates().get(id);
         if (template == null) {
-            parent.alertInformation(parent, "Select a code template first.");
-            return;
+            return null;
         }
         String library = null;
         for (CodeTemplateLibrary lib : panel.getCachedCodeTemplateLibraries().values()) {
@@ -224,9 +249,47 @@ public class ClaudeClientPlugin extends ClientPlugin {
                 }
             }
         }
-        String context = "Selected code template: '" + template.getName() + "' (" + id + ")" + (library == null ? "" : " in library '" + library + "'")
+        return "Selected code template: '" + template.getName() + "' (" + id + ")" + (library == null ? "" : " in library '" + library + "'")
                 + ". The AI Assistant sees the saved version; unsaved changes in the code template editor are not visible.";
-        dialog().open(context, "Explain what this code template does, which channels use it, and point out weak spots.");
+    }
+
+    /**
+     * Where a JavaScript editor is, for "Explain with AI Assistant": a filter rule or transformer
+     * step, a channel or connector script, a code template or a global script. Null elsewhere, or
+     * when the user's role does not allow asking about it.
+     */
+    private ExplainCodeMenu.Target explainCodeTarget(MirthRSyntaxTextArea area) {
+        ContextType type = area.getContextType();
+        String script = type == null ? "script" : type.getDisplayName().toLowerCase();
+        Channel channel = parent.channelEditPanel == null ? null : parent.channelEditPanel.currentChannel;
+
+        BaseEditorPane<?, ?> editor = (BaseEditorPane<?, ?>) SwingUtilities.getAncestorOfClass(BaseEditorPane.class, area);
+        if (editor != null) {
+            if (channel == null || !allowed(parent.channelEditTasks.getName(), "claudeChannelEdit")) {
+                return null;
+            }
+            String kind = type == ContextType.DESTINATION_RESPONSE_TRANSFORMER ? "response transformer step" : editor instanceof FilterPane ? "filter rule" : "transformer step";
+            String element = ExplainCodeMenu.selectedElement(editor);
+            Connector connector = editor.getConnector();
+            String location = kind + (element == null ? "" : " " + element)
+                    + (connector == null ? "" : " of connector " + connector.getMetaDataId() + " '" + connector.getName() + "'");
+            return new ExplainCodeMenu.Target(channelContext(channel), location);
+        }
+        if (parent.channelEditPanel != null && SwingUtilities.isDescendingFrom(area, parent.channelEditPanel)) {
+            if (channel == null || !allowed(parent.channelEditTasks.getName(), "claudeChannelEdit")) {
+                return null;
+            }
+            String place = type == ContextType.SOURCE_RECEIVER ? " of the source connector" : type == ContextType.DESTINATION_DISPATCHER ? " of the selected destination" : " of the channel";
+            return new ExplainCodeMenu.Target(channelContext(channel), script + place);
+        }
+        if (parent.codeTemplatePanel != null && SwingUtilities.isDescendingFrom(area, parent.codeTemplatePanel)) {
+            String context = allowed("codeTemplate", "claudeCodeTemplate") ? codeTemplateContext() : null;
+            return context == null ? null : new ExplainCodeMenu.Target(context, "code template");
+        }
+        if (parent.globalScriptsPanel != null && SwingUtilities.isDescendingFrom(area, parent.globalScriptsPanel)) {
+            return allowed(parent.globalScriptsTasks.getName(), "claudeGlobalScripts") ? new ExplainCodeMenu.Target(GLOBAL_SCRIPTS_CONTEXT, "global " + script) : null;
+        }
+        return null;
     }
 
     /** Adds the task when the user's role allows it; returns its index in the pane and menu, or -1. */
