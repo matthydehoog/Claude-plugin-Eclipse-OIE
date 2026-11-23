@@ -166,6 +166,7 @@ The web administrator gets the same assistant once the **Web Support** extension
 | **Channels** view, right-click | *Ask AI Assistant* about the selected channel, *Document channel* or *Write description* |
 | **Message browser**, right-click | *Ask AI Assistant* about the selected message, or *Explain error* (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask AI Assistant* about the selected template |
+| **Script editors**, right-click in the code | *Explain with AI Assistant*: the selected code, or the whole script (see *Explaining code*) |
 | **AI Assistant page**, button **Global Scripts** | The global scripts as context |
 | **AI Assistant page**, button **Document channel** | Documents the channel in the context (from the channel editor tab or the Channels view) |
 | **AI Assistant page**, button **Write description** | Proposes a Description for the channel in the context |
@@ -215,7 +216,7 @@ The message content is masked as usual and, with the default *Review before send
 
 ### Explaining code
 
-Right-click in a JavaScript editor in the Swing Administrator and choose **Explain with AI Assistant**. It works in filter rules, transformer and response transformer steps, the channel's deploy, undeploy, preprocessor, postprocessor, attachment and batch scripts, connector scripts such as a JavaScript Reader or Writer, code templates and the global scripts.
+Right-click in a JavaScript editor, in the Swing Administrator or the web administrator, and choose **Explain with AI Assistant**. It works in filter rules, transformer and response transformer steps, the channel's deploy, undeploy, preprocessor, postprocessor, attachment and batch scripts, connector scripts such as a JavaScript Reader or Writer, code templates and the global scripts.
 
 - **With a selection**, the assistant explains the selected lines. **Without one**, it explains the whole step or script.
 - The chat opens with the channel, code template or global scripts as context. The question names where the code is, for example *lines 4-7 of the transformer step #2 'Map PID' of connector 0 'sourceConnector'*, and contains the code itself.
@@ -224,7 +225,9 @@ Right-click in a JavaScript editor in the Swing Administrator and choose **Expla
 - The code is masked like every question. A script with patient data in it, such as a test message, shows that data as `***` to the assistant.
 - Very long code is cut off after 20,000 characters; select the part you want explained.
 
-The item shows for JavaScript only, and only where your role allows *Ask AI Assistant* for that channel editor, code template or the global scripts. The web administrator's script editor has no way for a plugin to add to its right-click menu yet; there, ask about the channel from its *AI Assistant* tab.
+The item shows for JavaScript only, and only where your role allows *Ask AI Assistant* for that channel editor, code template or the global scripts.
+
+In the **web administrator** the item is at the top of the script editor's right-click menu. The chat opens in a dialog over the editor, so you stay in the channel and keep your unsaved edits; the conversation is the same one as on the AI Assistant page. In the code template editor the context does not name the template; the code in the question is what the assistant explains.
 
 ### Documenting a channel
 

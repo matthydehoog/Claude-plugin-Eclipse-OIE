@@ -53,6 +53,7 @@ The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It
 | **Channels** view, right-click | *Ask AI Assistant* about the selected channel, *Document channel* or *Write description* |
 | **Message browser**, right-click | *Ask AI Assistant* about the selected message, or *Explain error* (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask AI Assistant* about the selected code template |
+| **Script editors**, right-click in the code | *Explain with AI Assistant*: the selected code (unsaved edits included), in a dialog over the editor |
 | **AI Assistant page**, button **Global Scripts** | the global scripts as context (the web admin has no hook on the Global Scripts view itself) |
 | **AI Assistant page**, button **Document channel** | documents the channel in the context |
 | **AI Assistant page**, button **Write description** | proposes a Description for the channel in the context |

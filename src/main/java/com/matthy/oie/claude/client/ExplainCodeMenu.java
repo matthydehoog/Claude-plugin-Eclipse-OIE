@@ -34,6 +34,10 @@ final class ExplainCodeMenu implements AWTEventListener {
     /** Longest piece of code put in the question; the rest is left out with a note. */
     static final int MAX_CODE_CHARS = 20_000;
 
+    /** Same text as EXPLAIN_CODE_REQUEST in webadmin/web/plugin.js. */
+    static final String EXPLAIN_CODE_REQUEST = "what it does step by step, which message data and maps it reads and writes, and anything that looks wrong or risky. "
+            + "It is copied from the editor, so it may include unsaved changes.";
+
     private static final String ITEM = "claude-assistant.explainCode";
     private static final String SEPARATOR = "claude-assistant.explainCodeSeparator";
 
@@ -130,8 +134,7 @@ final class ExplainCodeMenu implements AWTEventListener {
         String clipped = text.length() > MAX_CODE_CHARS
                 ? text.substring(0, MAX_CODE_CHARS) + "\n// ... " + (text.length() - MAX_CODE_CHARS) + " more characters left out"
                 : text;
-        return "Explain this code (" + what + "): what it does step by step, which message data and maps it reads and writes, "
-                + "and anything that looks wrong or risky. It is copied from the editor, so it may include unsaved changes.\n\n"
+        return "Explain this code (" + what + "): " + EXPLAIN_CODE_REQUEST + "\n\n"
                 + "```javascript\n" + (clipped.isEmpty() ? "// (empty)" : clipped) + "\n```";
     }
 
