@@ -1026,23 +1026,17 @@ function explainCode(editor) {
     openOverEditor(target.context, explainCodeRequest(target.location, code, selection, firstLine, lastLine));
 }
 
-/** Adds "Explain with AI Assistant" to a Monaco editor's right-click menu, shown for JavaScript where explainTarget applies. */
-function addExplainAction(editor) {
-    if (!editor || editor.__claudeExplain || typeof editor.addAction !== "function") return;
+/** Marks per editor whether "Explain with AI Assistant" applies: JavaScript in a place explainTarget knows. */
+function watchEditor(editor) {
+    if (!editor || editor.__claudeExplain || typeof editor.createContextKey !== "function") return;
     editor.__claudeExplain = true;
     try {
         const applies = editor.createContextKey("claudeAssistantExplain", false);
         const update = () => { try { applies.set(!!explainTarget(editor)); } catch (e) { applies.set(false); } };
         editor.onMouseDown(update);
         editor.onDidFocusEditorText(update);
-        editor.addAction({
-            id: "claude-assistant.explain-code",
-            label: "Explain with AI Assistant",
-            precondition: "claudeAssistantExplain && editorLangId == javascript",
-            contextMenuGroupId: "navigation",
-            contextMenuOrder: 0,
-            run: (ed) => explainCode(ed)
-        });
+        // The view may still be settling (route, selected step) when the editor is created.
+        setTimeout(update, 0);
     } catch (e) {
         // Never break the host's editor.
     }
@@ -1050,14 +1044,30 @@ function addExplainAction(editor) {
 
 /**
  * The web admin loads Monaco on first use and exposes it as window.monaco (its own drag and drop
- * finds editors there too). Wait for it without loading it, then hook every editor.
+ * finds editors there too). Wait for it without loading it, then add the menu item.
+ *
+ * The item is registered once with monaco.editor.addEditorAction: the per-editor addAction does
+ * nothing in the web admin, because Monaco only allows it with its own keybinding service and the
+ * web admin sets up Monaco with another one. A context key per editor decides where it shows.
  */
 function hookScriptEditors() {
     const attach = () => {
         const monaco = window.monaco;
-        if (!monaco || !monaco.editor || typeof monaco.editor.onDidCreateEditor !== "function") return false;
-        monaco.editor.onDidCreateEditor(addExplainAction);
-        (typeof monaco.editor.getEditors === "function" ? monaco.editor.getEditors() : []).forEach(addExplainAction);
+        if (!monaco || !monaco.editor || typeof monaco.editor.addEditorAction !== "function" || typeof monaco.editor.onDidCreateEditor !== "function") return false;
+        try {
+            monaco.editor.addEditorAction({
+                id: "claude-assistant.explain-code",
+                label: "Explain with AI Assistant",
+                precondition: "claudeAssistantExplain && editorLangId == javascript",
+                contextMenuGroupId: "navigation",
+                contextMenuOrder: 0,
+                run: (editor) => explainCode(editor)
+            });
+            monaco.editor.onDidCreateEditor(watchEditor);
+            (typeof monaco.editor.getEditors === "function" ? monaco.editor.getEditors() : []).forEach(watchEditor);
+        } catch (e) {
+            // Never break the host's editors.
+        }
         return true;
     };
     if (attach()) return;
