@@ -63,6 +63,7 @@ public class ClaudeClientPlugin extends ClientPlugin {
         keepVisible(addTask("claudeDashboard", "Ask AI Assistant", "Let the AI Assistant analyze the selected channel(s).", icon, parent.dashboardTasks, parent.dashboardPopupMenu), parent.dashboardTasks, parent.dashboardPopupMenu);
         keepVisible(addTask("claudeQueues", "Check queues and storage", "Let the AI Assistant look for stuck queues and channels whose stored messages keep growing.", icon, parent.dashboardTasks, parent.dashboardPopupMenu), parent.dashboardTasks, parent.dashboardPopupMenu);
         addTask("claudeMessage", "Ask AI Assistant", "Let the AI Assistant find out what happened to the selected message.", icon, parent.messageTasks, parent.messagePopupMenu);
+        addTask("claudeExplainError", "Explain error", "Let the AI Assistant diagnose why the selected message failed: root cause, where, which data, and a fix.", icon, parent.messageTasks, parent.messagePopupMenu);
         addTask("claudeChannelEdit", "Ask AI Assistant", "Let the AI Assistant explain or improve this channel and its scripts.", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
         addTask("claudeDocumentChannel", "Document channel", "Let the AI Assistant write documentation for this channel (Markdown; save it with Save answer).", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
 
@@ -126,17 +127,40 @@ public class ClaudeClientPlugin extends ClientPlugin {
     static final String QUEUES_SUGGESTION = "Check the queues and message storage: which destinations are stuck, and which channels need pruning?";
 
     public void claudeMessage() {
+        String context = selectedMessageContext();
+        if (context != null) {
+            dialog().open(context, "What happened to this message? If it failed: why, and how do I fix it?");
+        }
+    }
+
+    public void claudeExplainError() {
+        String context = selectedMessageContext();
+        if (context != null) {
+            dialog().open(context, EXPLAIN_ERROR_SUGGESTION);
+        }
+    }
+
+    /** Same text as EXPLAIN_ERROR_SUGGESTION in webadmin/web/plugin.js. */
+    static final String EXPLAIN_ERROR_SUGGESTION = "Explain why this message failed. Read the message with its errors and the scripts involved, and answer under these headings: "
+            + "Root cause (one or two sentences, from the stored errors); "
+            + "Where (the connector, and the filter rule, transformer step or script and the line that failed); "
+            + "Which data (the segment and field involved, from the message content; masked values show as ***); "
+            + "Fix (what to change, proposed as a script, filter or transformer change when that fixes it). "
+            + "If no connector of this message has an error, say so and explain what happened instead.";
+
+    /** The selected message as chat context, or null (after telling the user) when none is selected. */
+    private String selectedMessageContext() {
         MessageBrowser browser = parent.activeBrowser != null ? parent.activeBrowser : parent.messageBrowser;
         if (browser == null || browser.getSelectedMessageId() == null) {
             parent.alertInformation(parent, "Select a message first.");
-            return;
+            return null;
         }
         String channelId = browser.getSelectedMessageChannelId() != null ? browser.getSelectedMessageChannelId() : browser.getChannelId();
         String context = "Selected message in the message browser: channel ID " + channelId + ", message ID " + browser.getSelectedMessageId();
         if (browser.getSelectedMetaDataId() != null) {
             context += ", connector (metaDataId) " + browser.getSelectedMetaDataId();
         }
-        dialog().open(context, "What happened to this message? If it failed: why, and how do I fix it?");
+        return context;
     }
 
     public void claudeChannelEdit() {

@@ -133,6 +133,7 @@ Start from the place your question is about: *Ask AI Assistant* there sends the 
 | **Dashboard** | Task or right-click, *Ask AI Assistant* | Selected channel(s) or connectors |
 | **Dashboard** | Task or right-click, *Check queues and storage* | None: the assistant checks all queues and message storage (see *Queues and message storage*) |
 | **Message browser** | Task or right-click, *Ask AI Assistant* | Selected message (channel, message ID, connector) |
+| **Message browser** | Task or right-click, *Explain error* | Selected message; the assistant diagnoses why it failed (see *Explaining an error*) |
 | **Channel editor** | Task or right-click, *Ask AI Assistant* | The open channel (its saved version) |
 | **Channel editor** | Task or right-click, *Document channel* | The open channel; the assistant writes its documentation (see *Documenting a channel*) |
 | **Code Templates** | Task or right-click, one template selected | The template and its library |
@@ -161,7 +162,7 @@ The web administrator gets the same assistant once the **Web Support** extension
 | Left rail, **Plugins > AI Assistant** | The chat as a full page |
 | **Channel editor**, tab **AI Assistant** | The chat with the open channel as context |
 | **Channels** view, right-click | *Ask AI Assistant* about the selected channel, or *Document channel* |
-| **Message browser**, right-click | *Ask AI Assistant* about the selected message (web admin API 4.7+) |
+| **Message browser**, right-click | *Ask AI Assistant* about the selected message, or *Explain error* (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask AI Assistant* about the selected template |
 | **AI Assistant page**, button **Global Scripts** | The global scripts as context |
 | **AI Assistant page**, button **Document channel** | Documents the channel in the context (from the channel editor tab or the Channels view) |
@@ -197,6 +198,17 @@ The assistant uses these read tools on its own, without asking. They change noth
 | Configuration Map | The keys only; values are never returned |
 
 At most 25 tool calls are made per question by default (*Max tool calls*). Raise it for broad questions across many channels.
+
+### Explaining an error
+
+*Explain error* (message browser, task or right-click, in Swing and the web administrator) asks the assistant why the selected message failed. Select the message, or the connector that has status ERROR, and click *Send*. The assistant reads the message with its errors, the connector's scripts and, where needed, the channel's filter and transformer, and answers under four headings:
+
+- **Root cause**: one or two sentences, from the errors OIE stored
+- **Where**: the connector, and the filter rule, transformer step or script and the line that failed
+- **Which data**: the segment and field involved, for example an empty OBX-5 or a missing PID segment
+- **Fix**: what to change. When a script, filter or transformer change fixes it, the assistant proposes that change, and it waits for your approval like any other action
+
+The message content is masked as usual and, with the default *Review before sending*, shown to you before it is sent. Masked fields such as PID-3 show as `***`: the assistant can see whether such a field is filled or empty, but not its value. If no connector of the message has an error, the assistant says so and explains what happened instead.
 
 ### Documenting a channel
 

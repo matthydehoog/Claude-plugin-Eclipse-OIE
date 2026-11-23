@@ -29,6 +29,7 @@ Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exerci
 | **Dashboard** (task + right-click) | *Ask AI Assistant* | selected channel(s)/connectors |
 | **Dashboard** (task + right-click) | *Check queues and storage* | none: the assistant looks for stuck queues and channels that need pruning |
 | **Message browser** (task + right-click) | *Ask AI Assistant* | selected message (channel, message ID, connector) |
+| **Message browser** (task + right-click) | *Explain error* | selected message; a diagnosis: root cause, where, which data, fix |
 | **Channel editor** (task + right-click) | *Ask AI Assistant* | the channel that is open (saved version) |
 | **Channel editor** (task + right-click) | *Document channel* | the open channel; the assistant writes its documentation as Markdown |
 | **Code Templates** (task + right-click, one template selected) | *Ask AI Assistant* | the selected code template and its library |
@@ -48,7 +49,7 @@ The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It
 | Left rail, **Plugins > AI Assistant** | the chat as a full page |
 | **Channel editor**, tab **AI Assistant** | the chat with the open channel as context |
 | **Channels** view, right-click | *Ask AI Assistant* about the selected channel, or *Document channel* |
-| **Message browser**, right-click | *Ask AI Assistant* about the selected message (web admin API 4.7+) |
+| **Message browser**, right-click | *Ask AI Assistant* about the selected message, or *Explain error* (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask AI Assistant* about the selected code template |
 | **AI Assistant page**, button **Global Scripts** | the global scripts as context (the web admin has no hook on the Global Scripts view itself) |
 | **AI Assistant page**, button **Document channel** | documents the channel in the context |

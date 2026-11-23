@@ -10,7 +10,14 @@ const GLOBAL_SCRIPTS_CONTEXT = "Global Scripts (deploy, undeploy, preprocessor a
 const GLOBAL_SCRIPTS_SUGGESTION = "Explain what the global scripts do and point out weak spots.";
 // Same text as ClaudeClientPlugin.QUEUES_SUGGESTION.
 const QUEUES_SUGGESTION = "Check the queues and message storage: which destinations are stuck, and which channels need pruning?";
-const DOCUMENT_SUGGESTION = "Write documentation for this channel as Markdown: purpose, source, filter, destinations, field mappings, scripts and code templates, Configuration Map keys and open points.";
+// Same text as ClaudeClientPlugin.EXPLAIN_ERROR_SUGGESTION.
+const EXPLAIN_ERROR_SUGGESTION = "Explain why this message failed. Read the message with its errors and the scripts involved, and answer under these headings: "
+    + "Root cause (one or two sentences, from the stored errors); "
+    + "Where (the connector, and the filter rule, transformer step or script and the line that failed); "
+    + "Which data (the segment and field involved, from the message content; masked values show as ***); "
+    + "Fix (what to change, proposed as a script, filter or transformer change when that fixes it). "
+    + "If no connector of this message has an error, say so and explain what happened instead.";
+const DOCUMENT_SUGGESTION ="Write documentation for this channel as Markdown: purpose, source, filter, destinations, field mappings, scripts and code templates, Configuration Map keys and open points.";
 /** Contexts that name one channel, so it can be documented. */
 const CHANNEL_CONTEXT = /^(Channel open in the editor|Selected channel)/;
 const POLL_MS = 800;
@@ -988,6 +995,14 @@ export function register(platform) {
 
     // Message actions arrived in @oie API 4.7; on an older web admin the option is simply absent.
     if (typeof platform.registerMessageAction === "function") {
+        const messageContext = (message, ctx) => {
+            const messageId = message && (message.messageId != null ? message.messageId : message.id);
+            if (messageId == null) return null;
+            const channelId = (ctx && ctx.channelId) || (message && message.channelId);
+            let context = `Selected message in the message browser: channel ID ${channelId}, message ID ${messageId}`;
+            if (ctx && ctx.metaDataId != null) context += `, connector (metaDataId) ${ctx.metaDataId}`;
+            return context + ".";
+        };
         platform.registerMessageAction({
             id: "claude-assistant.ask",
             label: "Ask AI Assistant",
@@ -995,12 +1010,19 @@ export function register(platform) {
             order: 60,
             task: "claudeMessage",
             onInvoke: (message, ctx) => {
-                const messageId = message && (message.messageId != null ? message.messageId : message.id);
-                if (messageId == null) return;
-                const channelId = (ctx && ctx.channelId) || (message && message.channelId);
-                let context = `Selected message in the message browser: channel ID ${channelId}, message ID ${messageId}`;
-                if (ctx && ctx.metaDataId != null) context += `, connector (metaDataId) ${ctx.metaDataId}`;
-                openWith(context + ".", "What happened to this message? If it failed: why, and how do I fix it?");
+                const context = messageContext(message, ctx);
+                if (context) openWith(context, "What happened to this message? If it failed: why, and how do I fix it?");
+            }
+        });
+        platform.registerMessageAction({
+            id: "claude-assistant.explain-error",
+            label: "Explain error",
+            icon: "claude",
+            order: 61,
+            task: "claudeExplainError",
+            onInvoke: (message, ctx) => {
+                const context = messageContext(message, ctx);
+                if (context) openWith(context, EXPLAIN_ERROR_SUGGESTION);
             }
         });
     }
