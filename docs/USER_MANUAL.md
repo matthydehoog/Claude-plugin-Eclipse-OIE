@@ -136,6 +136,7 @@ Start from the place your question is about: *Ask AI Assistant* there sends the 
 | **Message browser** | Task or right-click, *Explain error* | Selected message; the assistant diagnoses why it failed (see *Explaining an error*) |
 | **Channel editor** | Task or right-click, *Ask AI Assistant* | The open channel (its saved version) |
 | **Channel editor** | Task or right-click, *Document channel* | The open channel; the assistant writes its documentation (see *Documenting a channel*) |
+| **Channel editor** | Task or right-click, *Write description* | The open channel; the assistant proposes a new Description (see *Writing a channel description*) |
 | **Code Templates** | Task or right-click, one template selected | The template and its library |
 | **Global Scripts** | Task or right-click, *Ask AI Assistant* | The deploy, undeploy, preprocessor and postprocessor scripts |
 
@@ -161,11 +162,12 @@ The web administrator gets the same assistant once the **Web Support** extension
 | --- | --- |
 | Left rail, **Plugins > AI Assistant** | The chat as a full page |
 | **Channel editor**, tab **AI Assistant** | The chat with the open channel as context |
-| **Channels** view, right-click | *Ask AI Assistant* about the selected channel, or *Document channel* |
+| **Channels** view, right-click | *Ask AI Assistant* about the selected channel, *Document channel* or *Write description* |
 | **Message browser**, right-click | *Ask AI Assistant* about the selected message, or *Explain error* (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask AI Assistant* about the selected template |
 | **AI Assistant page**, button **Global Scripts** | The global scripts as context |
 | **AI Assistant page**, button **Document channel** | Documents the channel in the context (from the channel editor tab or the Channels view) |
+| **AI Assistant page**, button **Write description** | Proposes a Description for the channel in the context |
 | **AI Assistant page**, button **Queues and storage** | Checks queues and message storage |
 | **Command palette** (Ctrl+K) | *AI Assistant*, *Check queues and storage* and *Ask AI Assistant about Global Scripts* |
 | **Settings**, tab **AI Assistant** | Same settings and usage as in Swing; save with the page's own *Save* |
@@ -226,6 +228,18 @@ The answer is only the documentation. Save it as a separate file with **Save ans
 
 For a very large channel, the assistant reads a few connectors at a time.
 
+### Writing a channel description
+
+*Write description* (channel editor, right-click in the web administrator's Channels view, or the **Write description** button on the AI Assistant page) fills in the channel's own *Description* field, which other users see in the Channels view and on the editor's *Summary* tab. *Document channel* writes a separate file; this puts a short summary in the channel itself.
+
+- The assistant reads the channel overview and writes a few sentences of plain text: the purpose, the source, the main destinations and anything notable.
+- If the channel already has a description, the assistant improves it and keeps what its author wrote that is still true.
+- The request is filled in, not sent. Add a hint before you click *Send*, for example *focus on the routing* or *in Dutch*.
+- The assistant proposes the text as the action **Update channel description**. The approval dialog shows the current and the new description. A warning appears if the new text contains `***`: the assistant saw the old description masked, so check that no real value is lost.
+- After approval the channel is saved as a new revision, without deploying it; the description shows right away. If someone changed the channel in the meantime, nothing is saved. The change is logged under *Events* like every action.
+
+If you have the channel open in the editor, reload it after the change. Otherwise saving the editor later conflicts with the new revision.
+
 ### Queues and message storage
 
 Growing queues and a growing message database cause most slow-burning incidents: a destination that is down queues messages for days, and channels without pruning fill the disk. *Check queues and storage* (Dashboard task or right-click; in the web administrator the **Queues and storage** button on the AI Assistant page or the command palette) asks the assistant to look for both. The assistant reports:
@@ -264,11 +278,12 @@ The dialog shows exactly what will happen. For a script change it shows the new 
 | Send message | Sends a raw message to a deployed channel, for example to test a fix |
 | Update channel script | Replaces a deploy, undeploy, pre/postprocessor script, JavaScript filter rule or transformer step |
 | Update global script | Replaces a global deploy, undeploy, preprocessor or postprocessor script |
+| Update channel description | Replaces the *Description* field of a channel |
 | Change filter | Adds, changes, removes or reorders the filter rules of a connector, of any type (Rule Builder, JavaScript, External Script, Iterator) |
 | Change transformer | The same for the transformer steps of a connector (Mapper, Message Builder, JavaScript, XSLT, Destination Set Filter, Iterator), or for a destination's response transformer |
 | Create channel | Creates a new channel from a description, or a copy of an existing channel with changes |
 
-**Script, filter and transformer changes** save the channel as a new revision but do not deploy it. Deploy separately when you are ready. If someone changed the channel in the meantime, nothing is saved. The channel's settings outside the change (enabled or disabled, message pruning, tags) stay as they are.
+**Script, filter, transformer and description changes** save the channel as a new revision but do not deploy it. Deploy separately when you are ready. If someone changed the channel in the meantime, nothing is saved. The channel's settings outside the change (enabled or disabled, message pruning, tags) stay as they are.
 
 For a **filter or transformer change** the dialog lists the current and the new rules or steps, in order, with their type and name, and shows for every new or changed element the JavaScript OIE generates from it. That script tells you what a Mapper or Rule Builder element really does. The assistant prefers Mapper, Message Builder and Rule Builder elements where they fit, so you can edit them later without code.
 
@@ -376,6 +391,7 @@ The assistant only gets what you could see or do yourself in OIE. Every tool che
 | Send message | Process Messages |
 | Update channel script | Manage Channels |
 | Update global script | Edit Global Scripts |
+| Update channel description | Manage Channels |
 | Change filter / transformer | Manage Channels |
 | Create channel | Manage Channels |
 

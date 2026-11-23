@@ -141,4 +141,25 @@ public class ChannelEditorTest {
         rule.setEnabled(enabled);
         return rule;
     }
+
+    @Test
+    public void descriptionChangeShowsTheOldAndTheNewText() {
+        String detail = ChannelEditor.describeDescriptionChange("ADT in", "Receives ADT.", "Receives ADT A01-A08 from the HIS over MLLP and files them.");
+        assertTrue(detail, detail.contains("--- current description\nReceives ADT.\n"));
+        assertTrue(detail, detail.contains("+++ new description\nReceives ADT A01-A08 from the HIS over MLLP and files them."));
+        assertTrue(detail, detail.contains("not deployed"));
+        assertFalse(detail, detail.contains("WARNING"));
+    }
+
+    @Test
+    public void anEmptyDescriptionShowsAsEmpty() {
+        assertTrue(ChannelEditor.describeDescriptionChange("ADT in", "", "Receives ADT.").contains("--- current description\n(empty)\n"));
+    }
+
+    @Test
+    public void maskedValuesCopiedIntoTheDescriptionAreFlagged() {
+        assertTrue(ChannelEditor.describeDescriptionChange("ADT in", "Test patient 123456", "Test patient ***").contains("WARNING"));
+        // Already masked text in the old description is no loss.
+        assertFalse(ChannelEditor.describeDescriptionChange("ADT in", "Password *** in the map", "Password *** in the map; files ADT").contains("WARNING"));
+    }
 }

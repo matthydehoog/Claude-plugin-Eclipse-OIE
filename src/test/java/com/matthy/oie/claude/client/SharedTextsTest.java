@@ -44,6 +44,11 @@ public class SharedTextsTest {
     }
 
     @Test
+    public void descriptionRequestIsTheSameInSwingAndWeb() throws Exception {
+        assertEquals(ClaudeClientPlugin.DESCRIPTION_SUGGESTION, jsConstant("DESCRIPTION_SUGGESTION"));
+    }
+
+    @Test
     public void explainErrorAsksForTheFourHeadings() {
         for (String heading : new String[] { "Root cause", "Where", "Which data", "Fix" }) {
             assertTrue(heading, ClaudeClientPlugin.EXPLAIN_ERROR_SUGGESTION.contains(heading + " ("));

@@ -121,6 +121,16 @@ final class ChannelEditor {
         return sb.toString();
     }
 
+    /** The approval text for a description change: the old and the new text, and a warning when masked values were copied in. */
+    static String describeDescriptionChange(String channelName, String old, String description) {
+        // The AI Assistant saw the description masked; a "***" it copied back would replace real text.
+        boolean suspicious = description.contains(Masker.MASK) && !old.contains(Masker.MASK);
+        return "Channel '" + channelName + "', description.\n"
+                + (suspicious ? "WARNING: the new description contains '" + Masker.MASK + "'. The AI Assistant saw the description masked; check that no real value is lost.\n" : "")
+                + "The channel is saved (new revision) but not deployed. If you have this channel open in the editor, reload it afterwards.\n\n"
+                + "--- current description\n" + (old.isEmpty() ? "(empty)" : old) + "\n\n+++ new description\n" + description;
+    }
+
     /** The JavaScript OIE generates for an element: shows what a Mapper or Rule Builder element really does. */
     static String script(FilterTransformerElement element) {
         try {

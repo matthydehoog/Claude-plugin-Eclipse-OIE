@@ -32,6 +32,7 @@ Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exerci
 | **Message browser** (task + right-click) | *Explain error* | selected message; a diagnosis: root cause, where, which data, fix |
 | **Channel editor** (task + right-click) | *Ask AI Assistant* | the channel that is open (saved version) |
 | **Channel editor** (task + right-click) | *Document channel* | the open channel; the assistant writes its documentation as Markdown |
+| **Channel editor** (task + right-click) | *Write description* | the open channel; the assistant proposes a new Description, saved after your approval |
 | **Code Templates** (task + right-click, one template selected) | *Ask AI Assistant* | the selected code template and its library |
 | **Global Scripts** (task + right-click) | *Ask AI Assistant* | the global deploy/undeploy/pre/postprocessor scripts |
 
@@ -48,11 +49,12 @@ The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It
 |---|---|
 | Left rail, **Plugins > AI Assistant** | the chat as a full page |
 | **Channel editor**, tab **AI Assistant** | the chat with the open channel as context |
-| **Channels** view, right-click | *Ask AI Assistant* about the selected channel, or *Document channel* |
+| **Channels** view, right-click | *Ask AI Assistant* about the selected channel, *Document channel* or *Write description* |
 | **Message browser**, right-click | *Ask AI Assistant* about the selected message, or *Explain error* (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask AI Assistant* about the selected code template |
 | **AI Assistant page**, button **Global Scripts** | the global scripts as context (the web admin has no hook on the Global Scripts view itself) |
 | **AI Assistant page**, button **Document channel** | documents the channel in the context |
+| **AI Assistant page**, button **Write description** | proposes a Description for the channel in the context |
 | **AI Assistant page**, button **Queues and storage** | checks queues and message storage |
 | **Command palette** (Ctrl+K) | *AI Assistant*, *Check queues and storage*, and *Ask AI Assistant about Global Scripts* |
 | **Settings**, tab **AI Assistant** | the same settings and usage as in Swing, using the settings page's own Save |
@@ -80,8 +82,8 @@ It reads counts, dates and settings only, never message content.
 start/stop/pause/resume, reset statistics, reprocess a message, send a message to a channel and
 change a JavaScript script (deploy/undeploy/pre/postprocessor, filter rule or transformer step) or a
 global script, change the filter rules or transformer steps of a connector (any type: Mapper, Message
-Builder, Rule Builder, Iterator, XSLT, ...) and create a new channel (or a changed copy of one).
-A script, filter or transformer change saves the channel with a new revision but does not deploy it;
+Builder, Rule Builder, Iterator, XSLT, ...), write a channel's Description, and create a new channel (or a changed copy of one).
+A script, filter, transformer or description change saves the channel with a new revision but does not deploy it;
 if the channel changed in the meantime, nothing is saved. The approval dialog shows the current and
 new rules or steps, and the script OIE generates for each new one. A new channel is created disabled
 and undeployed, with credentials left empty for you to fill in. Every executed action is written to the audit log as

@@ -178,7 +178,7 @@ Polling instead of one long request keeps long answers clear of the Administrato
 
 | Read tools (run at once) | Action tools (run after approval) |
 | --- | --- |
-| `oie_server_info`, `oie_list_channels`, `oie_get_channel`, `oie_channel_scripts`, `oie_channel_overview`, `oie_global_scripts`, `oie_channel_statistics`, `oie_search_messages`, `oie_get_message`, `oie_events`, `oie_server_log`, `oie_list_code_templates`, `oie_get_code_template`, `oie_configuration_map` (keys only) | `oie_deploy_channel`, `oie_undeploy_channel`, `oie_start_channel`, `oie_stop_channel`, `oie_pause_channel`, `oie_resume_channel`, `oie_reset_statistics`, `oie_reprocess_message`, `oie_send_message`, `oie_update_channel_script`, `oie_update_global_script`, `oie_update_filter`, `oie_update_transformer`, `oie_create_channel` |
+| `oie_server_info`, `oie_list_channels`, `oie_get_channel`, `oie_channel_scripts`, `oie_channel_overview`, `oie_global_scripts`, `oie_channel_statistics`, `oie_search_messages`, `oie_get_message`, `oie_events`, `oie_server_log`, `oie_list_code_templates`, `oie_get_code_template`, `oie_configuration_map` (keys only) | `oie_deploy_channel`, `oie_undeploy_channel`, `oie_start_channel`, `oie_stop_channel`, `oie_pause_channel`, `oie_resume_channel`, `oie_reset_statistics`, `oie_reprocess_message`, `oie_send_message`, `oie_update_channel_script`, `oie_update_channel_description`, `oie_update_global_script`, `oie_update_filter`, `oie_update_transformer`, `oie_create_channel` |
 
 The tools mirror those of `oie-mcp-server`. A channel can be given by ID or by name (case-insensitive); dates are ISO dates or date-times, a plain date meaning midnight in the server's time zone.
 
