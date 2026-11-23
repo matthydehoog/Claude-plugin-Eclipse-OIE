@@ -61,6 +61,15 @@ public class PermissionsTest {
     }
 
     @Test
+    public void permissionNamesStayTheSame() {
+        // RBAC keys a role's grant by the permission's display name: a renamed permission is a new
+        // permission, and every role would lose it. Never change these names.
+        assertEquals("Use AI Assistant", ClaudeServletInterface.PERMISSION_USE);
+        assertEquals("Run AI Assistant actions", ClaudeServletInterface.PERMISSION_ACTIONS);
+        assertEquals("Manage AI Assistant settings", ClaudeServletInterface.PERMISSION_SETTINGS);
+    }
+
+    @Test
     public void permissionsAndOperationsShareTheGroupName() {
         // RBAC maps an operation to its permission by "<extension name>#<operation>": the permissions
         // must use the same extension name as the servlet (PERMISSION_GROUP).

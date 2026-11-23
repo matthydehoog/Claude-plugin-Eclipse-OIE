@@ -355,7 +355,7 @@ The extension adds three permissions, which you assign to roles in the RBAC exte
 
 A user without *Run AI Assistant actions* can chat but cannot run actions.
 
-**Upgrading from 1.x:** before 2.0.0 the permissions were called *Use Claude Assistant*, *Run Claude Assistant actions* and *Manage Claude Assistant settings*. At the restart after the upgrade, the plugin renames the grants in the Role-Based Access Control extension to the new names, so every role keeps what it allowed. Another access-control extension stores its grants elsewhere: there, grant the new names by hand.
+**Upgrading from 1.x:** before 2.0.0 the permissions were called *Use Claude Assistant*, *Run Claude Assistant actions* and *Manage Claude Assistant settings*. Your access-control extension sees the new names as new permissions, so after the upgrade grant *Use AI Assistant*, *Run AI Assistant actions* and *Manage AI Assistant settings* once to the roles that had the old ones, and remove the old grants. The names stay the same from 2.0.0 on.
 
 The assistant only gets what you could see or do yourself in OIE. Every tool checks your own OIE permission, via the RBAC extension when it is installed:
 

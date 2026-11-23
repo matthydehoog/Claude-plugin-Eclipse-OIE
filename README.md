@@ -131,7 +131,7 @@ The extension adds three permissions (visible in the RBAC extension):
 - **Run AI Assistant actions**: approve proposed actions
 - **Manage AI Assistant settings**: change the API key, model and mask patterns
 
-Before 2.0.0 they were called *... Claude Assistant ...*. At the restart after an upgrade, the plugin renames the grants in the Role-Based Access Control extension, so roles keep what they allowed.
+Before 2.0.0 they were called *... Claude Assistant ...*. An access-control extension sees the new names as new permissions: after upgrading from 1.x, grant them once to the roles that had the old ones. The names stay the same from 2.0.0 on.
 
 The assistant only gets what the user could see or do in OIE: every tool checks the user's own OIE
 permission (via the RBAC extension when installed), e.g. *View Messages* for message search. Tools
