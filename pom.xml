@@ -114,6 +114,14 @@
       <scope>system</scope>
       <systemPath>${oie.home}/client-lib/swingx-core-1.6.2.jar</systemPath>
     </dependency>
+    <!-- OIE's script editor, for the Explain with AI Assistant menu item; the same version in 4.6 and 4.7. -->
+    <dependency>
+      <groupId>oie</groupId>
+      <artifactId>rsyntaxtextarea</artifactId>
+      <version>2.5.6</version>
+      <scope>system</scope>
+      <systemPath>${oie.home}/client-lib/rsyntaxtextarea-2.5.6.jar</systemPath>
+    </dependency>
     <dependency>
       <groupId>oie</groupId>
       <artifactId>miglayout-swing</artifactId>
