@@ -69,7 +69,9 @@ const CSS = `
 .claude-page { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 12px 16px; box-sizing: border-box; gap: 8px; }
 .claude-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 8px; }
 .claude-embedded { height: 100%; min-height: 420px; padding: 8px 0; box-sizing: border-box; }
-.claude-dialog { height: 70vh; width: min(1100px, 90vw); }
+.claude-dialog { height: 70vh; width: 100%; min-width: 0; padding: 0; }
+.modal.wide:has(.claude-dialog) { width: min(1200px, calc(100vw - 40px)); }
+.claude-dialog .claude-contextbar .claude-context { flex-basis: 100%; }
 .claude-contextbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--text-dim); font-size: 12px; }
 .claude-contextbar .claude-context { flex: 1 1 240px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .claude-contextbar .btn { flex: none; white-space: nowrap; }
