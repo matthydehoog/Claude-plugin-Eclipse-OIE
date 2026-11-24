@@ -28,6 +28,7 @@ public class SuggestionsTest {
         assertEquals(Suggestions.CODE_TEMPLATE, Suggestions.kind("Code template open in the Code Templates view."));
         assertEquals(Suggestions.GLOBAL_SCRIPTS, Suggestions.kind("Global Scripts (deploy, undeploy, preprocessor and postprocessor). The AI Assistant sees the saved version; unsaved changes in the Global Scripts editor are not visible."));
         assertEquals(Suggestions.DASHBOARD, Suggestions.kind("Selected in the dashboard: 'ADT in' (c-1, STARTED), connector 1 'Lab out' (c-2, STOPPED)"));
+        assertEquals(Suggestions.DASHBOARD, Suggestions.kind("Selected in the dashboard: connector 2 of channel c-1"));
     }
 
     @Test

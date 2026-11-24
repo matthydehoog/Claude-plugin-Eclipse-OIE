@@ -175,6 +175,7 @@ The web administrator gets the same assistant once the **Web Support** extension
 | Left rail, **Plugins > AI Assistant** | The chat as a full page |
 | **Channel editor**, tab **AI Assistant** | The chat with the open channel as context |
 | **Channels** view, right-click | *Ask AI Assistant* about the selected channel, *Document channel* or *Write description* |
+| **Dashboard**, tab **AI Assistant** (in the strip with *Server Log*) | *Ask AI Assistant* about the channels or connector selected above, or *Check queues and storage*; the chat opens in a dialog over the Dashboard |
 | **Message browser**, right-click | *Ask AI Assistant* about the selected message, or *Explain error* (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask AI Assistant* about the selected template |
 | **Script editors**, right-click in the code | *Explain with AI Assistant*: the selected code, or the whole script (see *Explaining code*) |
@@ -187,7 +188,7 @@ The web administrator gets the same assistant once the **Web Support** extension
 
 A conversation stays open while you move between the AI Assistant page and other views. The AI Assistant page has the same **Conversations…**, **Export** and **Save answer** buttons as the Swing window; they download the Markdown file. Every code block in a finished answer has a **Copy** button in its top-right corner, which copies the block exactly and briefly shows *Copied*.
 
-The Global Scripts view in the web administrator has no *Ask AI Assistant* action. Use the **Global Scripts** button on the AI Assistant page instead.
+The Global Scripts view in the web administrator has no *Ask AI Assistant* action. Use the **Global Scripts** button on the AI Assistant page instead. The web Dashboard's task pane and right-click menu cannot be extended by plugins, so its *Ask AI Assistant* and *Check queues and storage* are on the **AI Assistant** tab below the channel table.
 
 **Command palette:** open the Dashboard once before searching for "AI Assistant" with Ctrl+K. Searching earlier crashes the palette ([oie-web-client#65](https://github.com/gibson9583/oie-web-client/issues/65)).
 

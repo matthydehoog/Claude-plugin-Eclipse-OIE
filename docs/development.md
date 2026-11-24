@@ -321,11 +321,12 @@ Bodies and responses are **JSON as text** (`text/plain`), so no plugin class pas
 | --- | --- |
 | `registerNavItem` / `reactView` | The Claude page (chat), with a *Global Scripts* button |
 | `registerChannelTab` | The *Claude* tab in the channel editor |
+| `registerDashboardTab` | The *AI Assistant* tab below the Dashboard table (task `claudeDashboard`): *Ask AI Assistant* with the selection as context (`dashboardContext`, the same "Selected in the dashboard: …" text as Swing) and *Check queues and storage*, both opening the chat in a dialog (`openInDialog`). The Dashboard's task pane and context menu have no plugin hook. |
 | `registerChannelAction`, `registerMessageAction`, `registerCodeTemplateAction` | *Ask Claude* in context menus (message actions need web admin API 4.7+) |
 | `registerCommand` | Command palette entries |
 | `registerSettingsPanel` | The settings tab, using the settings page's own *Save* |
 
-It uses the same REST API and the same 800 ms polling, so masking, permissions, approval and audit are identical. Keep the two UIs in step when you add a feature; differences that cannot be avoided (the web admin has no hook on the Global Scripts view) belong in the README.
+It uses the same REST API and the same 800 ms polling, so masking, permissions, approval and audit are identical. Keep the two UIs in step when you add a feature; differences that cannot be avoided (the web admin has no hook on the Global Scripts view, or on the Dashboard's tasks and menu) belong in the README.
 
 ## Testing
 

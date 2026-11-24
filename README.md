@@ -52,6 +52,7 @@ The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It
 | Left rail, **Plugins > AI Assistant** | the chat as a full page |
 | **Channel editor**, tab **AI Assistant** | the chat with the open channel as context |
 | **Channels** view, right-click | *Ask AI Assistant* about the selected channel, *Document channel* or *Write description* |
+| **Dashboard**, tab **AI Assistant** | *Ask AI Assistant* about the selected channels or connector, or *Check queues and storage* (the web admin has no hook on the Dashboard's tasks or menu) |
 | **Message browser**, right-click | *Ask AI Assistant* about the selected message, or *Explain error* (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask AI Assistant* about the selected code template |
 | **Script editors**, right-click in the code | *Explain with AI Assistant*: the selected code (unsaved edits included), in a dialog over the editor |
