@@ -982,7 +982,7 @@ public class OieTools {
                 + "<com.mirth.connect.plugins.rulebuilder.RuleBuilderRule version=\"...\"> (name, sequenceNumber, enabled, operator AND/OR/NONE, field, condition EXISTS/NOT_EXIST/EQUALS/NOT_EQUAL/CONTAINS/NOT_CONTAIN, values of <string>), "
                 + "<com.mirth.connect.plugins.javascriptrule.JavaScriptRule> (name, sequenceNumber, enabled, operator, script), "
                 + "<com.mirth.connect.plugins.scriptfilerule.ExternalScriptRule> (scriptPath) or <com.mirth.connect.model.IteratorRule>. "
-                + "Copy unchanged rules exactly. <elements/> removes all rules. Saves the channel but does not deploy it. Requires approval.", props(
+                + "Copy unchanged rules exactly. Write scripts as XML text: escape & as &amp; and < as &lt;, or wrap the script in <![CDATA[...]]>. <elements/> removes all rules. Saves the channel but does not deploy it. Requires approval.", props(
                 "channel", str("Channel ID (UUID) or channel name"),
                 "metaDataId", integer("Connector: 0 = source, 1..n = destination"),
                 "elements", str("The complete new list of filter rules as OIE XML (<elements>...</elements>)")),
@@ -994,7 +994,7 @@ public class OieTools {
                 + "<com.mirth.connect.plugins.messagebuilder.MessageBuilderStep> (messageSegment, mapping, defaultValue, replacements), "
                 + "<com.mirth.connect.plugins.javascriptstep.JavaScriptStep> (script), <com.mirth.connect.plugins.xsltstep.XsltStep>, "
                 + "<com.mirth.connect.plugins.destinationsetfilter.DestinationSetFilterStep> or <com.mirth.connect.model.IteratorStep>. "
-                + "Copy unchanged steps exactly. <elements/> removes all steps. Data types and templates stay as they are. Saves the channel but does not deploy it. Requires approval.", props(
+                + "Copy unchanged steps exactly. Write scripts and mappings as XML text: escape & as &amp; and < as &lt;, or wrap them in <![CDATA[...]]>. <elements/> removes all steps. Data types and templates stay as they are. Saves the channel but does not deploy it. Requires approval.", props(
                 "channel", str("Channel ID (UUID) or channel name"),
                 "metaDataId", integer("Connector: 0 = source, 1..n = destination"),
                 "response", bool("true = the response transformer of a destination (default false)"),
@@ -1003,7 +1003,7 @@ public class OieTools {
 
         action("oie_create_channel", "Creates a new channel from complete OIE channel XML, in the format oie_get_channel returns (root <channel version=\"...\">, "
                 + "sourceConnector, destinationConnectors, filters, transformers, data types, scripts). To clone a channel, fetch it with oie_get_channel, change it and give a new name. "
-                + "The channel gets a new ID and is created disabled and undeployed. Passwords and other credentials are left empty for the user to fill in. Requires approval.", props(
+                + "The channel gets a new ID and is created disabled and undeployed. Passwords and other credentials are left empty for the user to fill in. Write scripts as XML text: escape & as &amp; and < as &lt;, or use <![CDATA[...]]>. Requires approval.", props(
                 "channel", str("The complete channel XML")), this::prepareCreateChannel, "channel");
     }
 

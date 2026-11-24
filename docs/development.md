@@ -207,6 +207,7 @@ Script, filter and transformer changes save the channel with a new revision but 
 Claude writes filter rules, transformer steps and whole channels as OIE XML. `ChannelEditor` makes that safe for OIE's serializer, without engine calls, so it is tested on its own:
 
 - It accepts `<elements>…</elements>`, `<list>…</list>` or the element XML itself.
+- It **escapes a bare `&` and `<` in code elements** before parsing: every element whose name ends in `script` or `Script`, and `mapping` and `defaultValue`. Models often write JavaScript straight into the XML (`a && b`, `i < n`), which is not well-formed. XML's own entities, character references and CDATA sections are left as they are. The tool descriptions also ask for escaping or CDATA.
 - It gives **every object a `version` attribute**. OIE reads an object without one as version 3.0.0 and migrates it, which can garble XML in the current format.
 - It **empties credential elements** in connector properties: Claude has only seen them masked and cannot set them. The user fills them in.
 - It describes the result for the approval dialog, one line per element, for example `2. OR [Rule Builder] 'Is ADT' (disabled)`.
