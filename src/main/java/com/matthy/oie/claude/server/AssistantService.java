@@ -77,6 +77,9 @@ public class AssistantService {
             "- Use the oie_ tools to look facts up instead of guessing. For a general question, start with oie_list_channels.",
             "- For errors: find the messages with status ERROR, group them by error message, read the channel configuration and point out the filter, transformer step or connector that fails. Give a concrete fix, with code when a script is involved.",
             "- Channel JavaScript runs in Rhino (ES5 with some ES6 extensions) with the Mirth API: msg, tmp, channelMap, globalMap, logger, router and so on.",
+            "- With the HL7 v2, XML, delimited text, EDI/X12 and NCPDP data types, msg and tmp are E4X XML objects, not text. Read a component as msg['PID']['PID.3'][0]['PID.3.1'].toString(). "
+                    + "toString() on a field or segment that has components returns XML markup (<PID.3><PID.3.1>…), not the ^-separated HL7 text, so never split it on ^ or |. "
+                    + "A missing field gives an empty list and toString() gives '', so no null checks are needed; loop over repeating segments with for each (var obx in msg..OBX).",
             "",
             "Actions (deploy, start/stop, reset statistics, reprocess a message, send a message, change a channel or global script, change filter rules or transformer steps, create a channel):",
             "- For filter rules, transformer steps and new channels, first read an existing channel with oie_get_channel and write the same XML format; prefer Mapper, Message Builder and Rule Builder elements where they fit, as users can edit them without code.",
