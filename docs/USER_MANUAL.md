@@ -93,7 +93,7 @@ Since 2.0.0 the plugin's jars are signed with the X Connections code-signing cer
 
 ## First-time setup
 
-Open *Settings > AI Assistant*, enter the API key and click *Save*. That is all you need to start chatting.
+Open *Settings > AI Assistant*, enter the API key and click *Save*. That is all you need to start chatting. To check the settings before the first question, click *Test connection* (see below).
 
 The key is stored encrypted on the server and never sent back to the Administrator. After saving, the field empties and the line below it shows *Set: sk-ant-…xxxx*. An empty field on reopening is normal.
 
@@ -122,6 +122,14 @@ To get an API key, sign in at [console.anthropic.com](https://console.anthropic.
 **Other models (OpenAI-compatible).** Set *Provider* to *OpenAI-compatible* to use OpenAI, or a local Ollama or vLLM server, instead of Claude. Enter the *API base URL* and, if needed, the API key, click *Save*, then *Refresh list* and choose a model. The list then comes from that server (newest first where it reports dates) and can include models that cannot answer questions, such as embedding, image or audio models: choose a chat model that supports tool calling. Masking, review before sending, approvals and permissions work as with Claude, but the masked data goes to that provider, so check that this is allowed. Effort and spend this month only apply to Anthropic, answers appear at once instead of streaming, and a conversation saved with one provider continues with the other without its earlier context.
 
 **Mistral.** Set *Provider* to *Mistral* to use Mistral's API. The base URL is filled in (`https://api.mistral.ai/v1`), so enter an API key from console.mistral.ai, click *Save*, then *Refresh list* and choose a model that supports tool calling, such as `mistral-large-latest` or `mistral-medium-latest`. Everything above about OpenAI-compatible providers applies to Mistral too; the settings are saved as an OpenAI-compatible provider with Mistral's base URL.
+
+**Test connection.** *Test connection*, below the model, checks the saved settings in a few seconds, so a wrong key, base URL or model shows up before the first question instead of with it. Save your changes first: the test always uses the saved settings. It sends only a fixed test prompt, no OIE data, so nothing is masked or reviewed. The result has three lines, each with ✔ (passed), ✘ (failed), ! (could not be confirmed) or – (not checked, because an earlier check failed):
+
+- **Reachable**: the provider (`api.anthropic.com` or the API base URL) answers. If not, the network error is shown; check the URL, the firewall and the proxy of the OIE server.
+- **Key accepted**: the provider accepts the API key. If not, you see the provider's authentication error, or a message that the account has no credit or quota left.
+- **Model**: the selected model exists and called the test tool, so it supports tool calling, which the assistant needs. A model that answers without calling the tool, or that the server refuses tools for (Ollama: *does not support tools*), fails here: choose another model.
+
+A failed test is also logged in *Dashboard > Server Log* as an `AI Assistant` line. The test needs the *Manage AI Assistant settings* permission and costs a few tokens at a paid provider.
 
 ## Using the Administrator (Swing) client
 
@@ -383,7 +391,7 @@ The extension adds three permissions, which you assign to roles in the RBAC exte
 | --- | --- |
 | Use AI Assistant | Chatting (read-only tools) |
 | Run AI Assistant actions | Approving proposed actions |
-| Manage AI Assistant settings | Changing API keys, model and mask patterns; viewing spend |
+| Manage AI Assistant settings | Changing API keys, model and mask patterns; *Test connection*; viewing spend |
 
 A user without *Run AI Assistant actions* can chat but cannot run actions.
 
@@ -467,9 +475,11 @@ Connecting times out after 10 seconds and is tried three times, so you get the m
 | --- | --- | --- |
 | *AI Assistant* missing under *Other* | Extension not loaded or service not restarted | Check *Settings > Extensions*, restart the OIE service, log in again |
 | API key field is empty after *Save* | By design: the key is never sent back | Check the line *Set: sk-ant-…xxxx* below the field |
+| Not sure the provider, key or model are right | Settings not tested yet | Save, then click *Test connection* in *Settings > AI Assistant*; each failed check says what to fix |
 | *Cannot reach the Anthropic API* | No internet, firewall or proxy on the OIE server | Allow `api.anthropic.com`, or set `oie.claude.baseUrl` |
 | Authentication error | Wrong, revoked or expired API key | Create a new key in the Console and save it |
 | Error about credits or billing | No credit left on the Anthropic account | Add credits under Billing in the Console |
+| *Test connection*: the model *does not support tool calling* | The model cannot call tools (common with small local models) | Choose a model with tool calling, for example a recent Llama, Qwen or Mistral model on Ollama |
 | *No context* in the chat header | Opened from *Other*, not from a view | Normal: the assistant looks at the whole server; use *Ask AI Assistant* in a view for a specific item |
 | Answers in the wrong language | *Response language* is *Automatic* and follows the question or data | Pick a fixed language in *Settings > AI Assistant* |
 | The assistant doesn't see my latest change | The channel editor has unsaved changes | Save the channel, then ask again |

@@ -133,7 +133,7 @@ The extension adds three permissions (visible in the RBAC extension):
 
 - **Use AI Assistant**: chat (read only)
 - **Run AI Assistant actions**: approve proposed actions
-- **Manage AI Assistant settings**: change the API key, model and mask patterns
+- **Manage AI Assistant settings**: change the API key, model and mask patterns, test the connection
 
 Before 2.0.0 they were called *... Claude Assistant ...*. An access-control extension sees the new names as new permissions: after upgrading from 1.x, grant them once to the roles that had the old ones. The names stay the same from 2.0.0 on.
 
@@ -155,7 +155,9 @@ was reviewed. The content itself is never logged.
 2. Go to *Settings > AI Assistant*. For Claude, enter an Anthropic API key (from
    [console.anthropic.com](https://console.anthropic.com)) and click *Save*. The key is stored
    encrypted and never sent back to the Administrator; the field is emptied after saving and the
-   line below it shows *Set: sk-ant-…xxxx*.
+   line below it shows *Set: sk-ant-…xxxx*. Then click *Test connection*: it checks that the provider
+   is reachable, accepts the key and that the model supports tool calling, with a fixed test prompt
+   and no OIE data.
 3. Defaults: model `claude-opus-5`, effort `high`, at most 25 tool calls per question, response
    language *Automatic* (the assistant answers in the language of the question). The **Model** list comes
    from Anthropic's Models API for your key (newest first, refreshed daily), so new models appear

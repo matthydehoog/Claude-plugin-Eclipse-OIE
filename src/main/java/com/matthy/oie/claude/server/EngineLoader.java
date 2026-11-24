@@ -29,6 +29,8 @@ final class EngineLoader {
     private static final String MODELS_CLASS = "com.matthy.oie.claude.engine.SdkModelReader";
     private static final String OPENAI_ENGINE_CLASS = "com.matthy.oie.claude.engine.OpenAiCompatibleLoop";
     private static final String OPENAI_MODELS_CLASS = "com.matthy.oie.claude.engine.OpenAiModelReader";
+    private static final String TESTER_CLASS = "com.matthy.oie.claude.engine.SdkConnectionTester";
+    private static final String OPENAI_TESTER_CLASS = "com.matthy.oie.claude.engine.OpenAiConnectionTester";
 
     /** Always from the engine's parent: the JDK, the host side of this plugin and the OIE APIs it uses. */
     private static final String[] PARENT_FIRST = { "java.", "javax.", "jdk.", "sun.", "com.sun.", "org.w3c.", "org.xml.", "com.matthy.oie.claude.server.", "com.matthy.oie.claude.shared.", "com.mirth.", "org.apache.logging.", "org.slf4j." };
@@ -70,6 +72,14 @@ final class EngineLoader {
     /** The model list of an OpenAI-compatible provider (GET {baseUrl}/models). */
     ModelReader createOpenAiModelReader(String baseUrl) throws Exception {
         return (ModelReader) Class.forName(OPENAI_MODELS_CLASS, true, loader).getConstructor(String.class).newInstance(baseUrl);
+    }
+
+    /** Test connection for the provider of these settings. */
+    ConnectionTester createConnectionTester(Settings settings) throws Exception {
+        if (settings.openAiCompatible()) {
+            return (ConnectionTester) Class.forName(OPENAI_TESTER_CLASS, true, loader).getConstructor(String.class).newInstance(settings.baseUrl);
+        }
+        return (ConnectionTester) Class.forName(TESTER_CLASS, true, loader).getConstructor().newInstance();
     }
 
     /** extensions/claude-assistant/lib, next to the server jar this class was loaded from. */

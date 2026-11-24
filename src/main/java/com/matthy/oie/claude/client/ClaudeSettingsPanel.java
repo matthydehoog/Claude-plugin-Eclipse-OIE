@@ -113,6 +113,8 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     private final JComboBox<String> modelBox = new JComboBox<>();
     private final JButton refreshModels = new JButton("Refresh list");
     private final JLabel modelNote = new JLabel(" ");
+    private final JButton testConnection = new JButton("Test connection");
+    private final JLabel testResult = new JLabel(" ");
     /** Display names by model ID, for the dropdown. */
     private final Map<String, String> modelNames = new HashMap<>();
     private final JComboBox<String> effortBox = new JComboBox<>(EFFORTS);
@@ -176,6 +178,10 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         form.add(leftRow(modelBox, refreshModels), "wrap");
         form.add(new JLabel(""));
         form.add(modelNote, "wrap, w 600!");
+        form.add(new JLabel("Connection:"));
+        form.add(leftRow(testConnection, new JLabel("Tests the saved settings. Only a fixed test prompt is sent, no OIE data.")), "wrap");
+        form.add(new JLabel(""));
+        form.add(testResult, "wrap, w 600!");
         form.add(new JLabel("Effort:"));
         form.add(effortBox, "wrap, w 120!");
         form.add(new JLabel("Response language:"));
@@ -256,6 +262,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         clearAdminKey.addActionListener(e -> markChanged());
         refreshSpend.addActionListener(e -> loadSpend(true));
         refreshModels.addActionListener(e -> loadModels(true));
+        testConnection.addActionListener(e -> testConnection());
         openBilling.addActionListener(e -> openBilling());
     }
 
@@ -369,6 +376,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         loading = true;
         try {
             apiKeyField.setText("");
+            testResult.setText(" ");
             providerBox.setSelectedIndex(providerChoice(s.path("provider").asText(""), s.path("baseUrl").asText("")));
             baseUrlField.setText(s.path("baseUrl").asText(""));
             showProviderFields();
@@ -399,6 +407,46 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         } else {
             showSpend(null, "Set an Admin API key to show the spend this month.");
         }
+    }
+
+    /** Test connection: always the saved settings, so unsaved changes must be saved first. */
+    private void testConnection() {
+        if (isSaveEnabled()) {
+            testResult.setText("<html><font color='#b35900'>Save the settings first: the test uses the saved settings.</font></html>");
+            return;
+        }
+        testResult.setText("Testing the connection…");
+        testConnection.setEnabled(false);
+        new SwingWorker<JsonNode, Void>() {
+            @Override
+            protected JsonNode doInBackground() throws Exception {
+                return ClaudeApi.testConnection();
+            }
+
+            @Override
+            protected void done() {
+                testConnection.setEnabled(true);
+                try {
+                    testResult.setText(testResultHtml(get()));
+                } catch (Exception e) {
+                    testResult.setText("<html><font color='#b00020'>" + Markdown.escape(ClaudeApi.message(e)) + "</font></html>");
+                }
+            }
+        }.execute();
+    }
+
+    /** One line per check: a coloured mark, the check's name and its message. */
+    static String testResultHtml(JsonNode report) {
+        StringBuilder html = new StringBuilder("<html>");
+        for (JsonNode check : report.path("checks")) {
+            String status = check.path("status").asText();
+            String mark = "ok".equals(status) ? "<font color='#1a7f37'>&#10004;</font>"
+                    : "failed".equals(status) ? "<font color='#b00020'>&#10008;</font>"
+                    : "warning".equals(status) ? "<font color='#b35900'>!</font>" : "<font color='#707070'>&ndash;</font>";
+            html.append(mark).append(" <b>").append(Markdown.escape(check.path("label").asText())).append(":</b> ")
+                    .append(Markdown.escape(check.path("message").asText())).append("<br>");
+        }
+        return html.append("</html>").toString();
     }
 
     private void loadModels(boolean refresh) {

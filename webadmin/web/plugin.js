@@ -108,6 +108,11 @@ const CSS = `
   font: inherit; color: var(--text); background: var(--bg1); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 4px 6px; box-sizing: border-box; }
 .claude-settings input[type=password], .claude-settings input[type=text], .claude-settings textarea { width: 100%; }
 .claude-settings .claude-hint { color: var(--text-faint); font-size: 12px; }
+.claude-settings .claude-test { margin-top: 6px; line-height: 18px; }
+.claude-settings .claude-test .ok { color: var(--ok); }
+.claude-settings .claude-test .failed { color: var(--err); }
+.claude-settings .claude-test .warning { color: var(--warn); }
+.claude-settings .claude-test .skipped { color: var(--text-faint); }
 .claude-settings h3 { margin: 18px 0 4px; padding-top: 12px; border-top: 1px solid var(--line); }
 .claude-settings .claude-spend { font-weight: 600; }
 .claude-conversations { width: 100%; font-family: inherit; margin-bottom: 8px; }
@@ -689,6 +694,9 @@ function ChannelTab(props) {
  * Settings > AI Assistant. Hooks into the settings shell like the built-in tabs: setSave for
  * the shell's Save (and its unsaved-changes prompt), markDirty/markClean, and a task pane.
  */
+/** Marks of the Test connection checks, by status. */
+const TEST_MARKS = { ok: "✔", failed: "✘", warning: "!", skipped: "–" };
+
 function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
     const [form, setForm] = React.useState(null);
     const [status, setStatus] = React.useState({});
@@ -698,10 +706,27 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
     // True after "Other model ID…": the model is typed instead of chosen from the list.
     const [typeModel, setTypeModel] = React.useState(false);
     const [error, setError] = React.useState(null);
+    // Test connection: { state: "idle" | "loading" | "ok" | "error", data?, message? }
+    const [test, setTest] = React.useState({ state: "idle" });
     const formRef = React.useRef(null);
     formRef.current = form;
-    const dirty = () => markDirty && markDirty();
-    const clean = () => markClean && markClean();
+    // Whether the form has unsaved changes: Test connection uses the saved settings.
+    const unsaved = React.useRef(false);
+    const dirty = () => { unsaved.current = true; if (markDirty) markDirty(); };
+    const clean = () => { unsaved.current = false; if (markClean) markClean(); };
+
+    const testConnection = async () => {
+        if (unsaved.current) {
+            setTest({ state: "error", message: "Save the settings first: the test uses the saved settings." });
+            return;
+        }
+        setTest({ state: "loading" });
+        try {
+            setTest({ state: "ok", data: await call("POST", "/test-connection", null) });
+        } catch (err) {
+            setTest({ state: "error", message: errorText(err) });
+        }
+    };
 
     const loadSpend = React.useCallback(async (refresh) => {
         setSpend({ state: "loading" });
@@ -725,6 +750,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
         setStatus(s);
         setForm({ apiKey: "", provider: providerChoice(s.provider, s.baseUrl), baseUrl: s.baseUrl || "", adminApiKey: "", clearAdminApiKey: false, model: s.model || "", effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic", reviewBeforeSending: s.reviewBeforeSending || "data", keepConversationsDays: s.keepConversationsDays || 0 });
         clean();
+        setTest({ state: "idle" });
         loadModels(false);
         if (s.adminApiKeySet && s.provider !== "openai-compatible") loadSpend(false);
         else setSpend({ state: "idle" });
@@ -878,6 +904,14 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
         row("Model:", e("span", { className: "claude-inline" },
             modelField(),
             e("button", { className: "btn", disabled: models.state === "loading", onClick: () => loadModels(true) }, "Refresh list")), modelHint),
+        row("Connection:", e("span", { className: "claude-inline" },
+            e("button", { className: "btn", disabled: test.state === "loading", onClick: testConnection }, "Test connection"),
+            e("span", { className: "claude-hint" }, "Tests the saved settings. Only a fixed test prompt is sent, no OIE data.")),
+            test.state === "idle" ? null : e("div", { className: "claude-test" },
+                test.state === "loading" ? "Testing the connection…"
+                    : test.state === "error" ? e("span", { className: "failed" }, test.message)
+                        : (test.data.checks || []).map((c) => e("div", { key: c.id },
+                            e("span", { className: c.status }, TEST_MARKS[c.status] || "–"), " ", e("b", null, c.label + ":"), " ", c.message)))),
         row("Effort:", e("select", { value: form.effort, onChange: set("effort") }, EFFORTS.map((x) => e("option", { key: x, value: x }, x)))),
         row("Response language:", e("select", { value: form.responseLanguage, onChange: set("responseLanguage") }, LANGUAGES.map(([value, label]) => e("option", { key: value, value }, label)))),
         row("Max. tool calls per question:", e("input", { type: "number", min: 1, max: 100, value: form.maxToolCalls, onChange: set("maxToolCalls"), style: { width: 80 } })),

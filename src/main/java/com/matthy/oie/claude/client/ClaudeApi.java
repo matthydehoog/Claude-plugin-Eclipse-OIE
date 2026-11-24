@@ -82,6 +82,10 @@ final class ClaudeApi {
         return MAPPER.readTree(servlet().getModels(refresh));
     }
 
+    static JsonNode testConnection() throws Exception {
+        return MAPPER.readTree(servlet().testConnection());
+    }
+
     static JsonNode spend(boolean refresh) throws Exception {
         return MAPPER.readTree(servlet().getSpend(refresh));
     }
