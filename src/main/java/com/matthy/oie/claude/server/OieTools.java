@@ -26,6 +26,7 @@ import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -116,6 +117,7 @@ public class OieTools {
             Map.entry("oie_global_scripts", "getGlobalScripts"),
             Map.entry("oie_configuration_map", "getConfigurationMap"),
             Map.entry("oie_find_usages", "getChannel"),
+            Map.entry("oie_check_channel", "getChannel"),
             Map.entry("oie_deploy_channel", "deployChannels"),
             Map.entry("oie_undeploy_channel", "undeployChannels"),
             Map.entry("oie_start_channel", "startChannels"),
@@ -334,6 +336,13 @@ public class OieTools {
 
         read("oie_configuration_map", "Keys of the Configuration Map. Values are never returned because they often contain passwords or paths.", props(), in -> String.join("\n", new TreeMap<>(configurationController.getConfigurationMap()).keySet()));
 
+        read("oie_check_channel", "Checks one channel, or every channel when no channel is given, for known weak spots, in one call: "
+                + "credentials typed into scripts or connector settings (reported by location only, never the value), calls to code template functions whose library is not linked to the channel, "
+                + "TCP/HTTP/database/web service/SMTP/JMS/DICOM destinations without a queue, message storage set to Development or pruning switched off, "
+                + "logger.info/debug/trace in scripts that run for every message, and disabled destinations, filter rules and transformer steps. "
+                + "Use it when asked to check or review a channel or the server for weak spots; explain each finding and propose fixes where an action can make them.", props(
+                "channel", str("Channel ID or name; omit to check every channel")), this::checkChannels);
+
         read("oie_find_usages", "Finds where something is used, in one call over all channels (channel scripts, filter rules, transformer steps, response transformers, connector settings), "
                 + "code templates and global scripts. Returns only locations (channel, connector, element, line or setting) and the form of each use, never code or values. "
                 + "Use it before changing or removing something, to answer 'what breaks if I change X?', and to see which channels send to a channel. "
@@ -341,6 +350,57 @@ public class OieTools {
                 + "(get/put and $g, $gc, $c, $co, $r, $s, $()); function = a code template function (definition and calls); channel = a channel by ID or name (Channel Writer, router.routeMessage, routeMessageByChannelId).", props(
                 "kind", enumStr("What to look for", Usages.KINDS),
                 "name", str("The key, variable or function name (case-sensitive), or the channel's ID or name")), this::findUsages, "kind", "name");
+    }
+
+    private String checkChannels(JsonNode in) throws Exception {
+        String name = in.path("channel").asText("").trim();
+        List<Channel> channels = name.isEmpty() ? channelController.getChannels(null) : List.of(channel(in));
+        Map<String, ChannelMetadata> metadata = configurationController.getChannelMetadata();
+        List<CodeTemplateLibrary> libraries = codeTemplateController.getLibraries(null, true);
+        // The functions each library defines.
+        Map<CodeTemplateLibrary, Set<String>> functions = new LinkedHashMap<>();
+        for (CodeTemplateLibrary lib : libraries) {
+            Set<String> names = new LinkedHashSet<>();
+            if (lib.getCodeTemplates() != null) {
+                for (com.mirth.connect.model.codetemplates.CodeTemplate t : lib.getCodeTemplates()) {
+                    names.addAll(ChannelCheck.functions(t.getCode()));
+                }
+            }
+            functions.put(lib, names);
+        }
+        ObjectXMLSerializer serializer = ObjectXMLSerializer.getInstance();
+        List<Map.Entry<String, List<ChannelCheck.Finding>>> results = new ArrayList<>();
+        for (Channel c : channels) {
+            Set<String> linkedFunctions = new HashSet<>();
+            Map<String, String> unlinked = new TreeMap<>();
+            for (Map.Entry<CodeTemplateLibrary, Set<String>> lib : functions.entrySet()) {
+                if (linked(lib.getKey(), c.getId())) {
+                    linkedFunctions.addAll(lib.getValue());
+                }
+            }
+            for (Map.Entry<CodeTemplateLibrary, Set<String>> lib : functions.entrySet()) {
+                if (!linked(lib.getKey(), c.getId())) {
+                    for (String f : lib.getValue()) {
+                        if (!linkedFunctions.contains(f)) {
+                            unlinked.putIfAbsent(f, lib.getKey().getName());
+                        }
+                    }
+                }
+            }
+            ChannelMetadata md = metadata == null ? null : metadata.get(c.getId());
+            ChannelPruningSettings pruning = md == null ? null : md.getPruningSettings();
+            List<ChannelCheck.Finding> findings = ChannelCheck.check(c, pruning == null ? null : pruning.getPruneMetaDataDays(), pruning == null ? null : pruning.getPruneContentDays(),
+                    unlinked, serializer::serialize);
+            results.add(Map.entry("Channel '" + c.getName() + "' (" + c.getId() + ")" + (md != null && !md.isEnabled() ? ", disabled" : ""), findings));
+        }
+        return ChannelCheck.report(results);
+    }
+
+    /** Whether a code template library is available to a channel: linked to it, or to new channels and not unlinked. */
+    private static boolean linked(CodeTemplateLibrary lib, String channelId) {
+        boolean linked = lib.getEnabledChannelIds() != null && lib.getEnabledChannelIds().contains(channelId);
+        boolean byDefault = lib.isIncludeNewChannels() && (lib.getDisabledChannelIds() == null || !lib.getDisabledChannelIds().contains(channelId));
+        return linked || byDefault;
     }
 
     private String findUsages(JsonNode in) throws Exception {
@@ -523,9 +583,7 @@ public class OieTools {
         ChannelMetadata metadata = configurationController.getChannelMetadata().get(channel.getId());
         List<String> libraries = new ArrayList<>();
         for (CodeTemplateLibrary lib : codeTemplateController.getLibraries(null, false)) {
-            boolean linked = lib.getEnabledChannelIds() != null && lib.getEnabledChannelIds().contains(channel.getId());
-            boolean byDefault = lib.isIncludeNewChannels() && (lib.getDisabledChannelIds() == null || !lib.getDisabledChannelIds().contains(channel.getId()));
-            if (linked || byDefault) {
+            if (linked(lib, channel.getId())) {
                 libraries.add(lib.getName());
             }
         }

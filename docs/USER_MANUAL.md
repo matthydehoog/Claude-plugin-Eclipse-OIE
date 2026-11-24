@@ -139,11 +139,13 @@ Start from the place your question is about: *Ask AI Assistant* there sends the 
 | --- | --- | --- |
 | Left menu, **Other** | *AI Assistant* | None: questions about the whole server |
 | **Dashboard** | Task or right-click, *Ask AI Assistant* | Selected channel(s) or connectors |
+| **Dashboard** | Task or right-click, *Check channels* | The selected channels, or all channels when none is selected; the assistant checks them for weak spots (see *Checking channels for weak spots*) |
 | **Dashboard** | Task or right-click, *Check queues and storage* | None: the assistant checks all queues and message storage (see *Queues and message storage*) |
 | **Message browser** | Task or right-click, *Ask AI Assistant* | Selected message (channel, message ID, connector) |
 | **Message browser** | Task or right-click, *Explain error* | Selected message; the assistant diagnoses why it failed (see *Explaining an error*) |
 | **Channel editor** | Task or right-click, *Ask AI Assistant* | The open channel (its saved version) |
 | **Channel editor** | Task or right-click, *Document channel* | The open channel; the assistant writes its documentation (see *Documenting a channel*) |
+| **Channel editor** | Task or right-click, *Check channel* | The open channel; the assistant checks it for weak spots (see *Checking channels for weak spots*) |
 | **Channel editor** | Task or right-click, *Write description* | The open channel; the assistant proposes a new Description (see *Writing a channel description*) |
 | **Code Templates** | Task or right-click, one template selected | The template and its library |
 | **Global Scripts** | Task or right-click, *Ask AI Assistant* | The deploy, undeploy, preprocessor and postprocessor scripts |
@@ -174,21 +176,22 @@ The web administrator gets the same assistant once the **Web Support** extension
 | --- | --- |
 | Left rail, **Plugins > AI Assistant** | The chat as a full page |
 | **Channel editor**, tab **AI Assistant** | The chat with the open channel as context |
-| **Channels** view, right-click | *Ask AI Assistant* about the selected channel, *Document channel* or *Write description* |
-| **Dashboard**, tab **AI Assistant** (in the strip with *Server Log*) | *Ask AI Assistant* about the channels or connector selected above, or *Check queues and storage*; the chat opens in a dialog over the Dashboard |
+| **Channels** view, right-click | *Ask AI Assistant* about the selected channel, *Document channel*, *Check channel* or *Write description* |
+| **Dashboard**, tab **AI Assistant** (in the strip with *Server Log*) | *Ask AI Assistant* about the channels or connector selected above, *Check channels* (or *Check all channels* with nothing selected), or *Check queues and storage*; the chat opens in a dialog over the Dashboard |
 | **Message browser**, right-click | *Ask AI Assistant* about the selected message, or *Explain error* (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask AI Assistant* about the selected template |
 | **Script editors**, right-click in the code | *Explain with AI Assistant*: the selected code, or the whole script (see *Explaining code*) |
 | **AI Assistant page**, button **Global Scripts** | The global scripts as context |
 | **AI Assistant page**, button **Document channel** | Documents the channel in the context (from the channel editor tab or the Channels view) |
+| **AI Assistant page**, button **Check channel** | Checks the channel in the context for weak spots |
 | **AI Assistant page**, button **Write description** | Proposes a Description for the channel in the context |
 | **AI Assistant page**, button **Queues and storage** | Checks queues and message storage |
-| **Command palette** (Ctrl+K) | *AI Assistant*, *Check queues and storage* and *Ask AI Assistant about Global Scripts* |
+| **Command palette** (Ctrl+K) | *AI Assistant*, *Check queues and storage*, *Check all channels for weak spots* and *Ask AI Assistant about Global Scripts* |
 | **Settings**, tab **AI Assistant** | Same settings and usage as in Swing; save with the page's own *Save* |
 
 A conversation stays open while you move between the AI Assistant page and other views. The AI Assistant page has the same **Conversations…**, **Export** and **Save answer** buttons as the Swing window; they download the Markdown file. Every code block in a finished answer has a **Copy** button in its top-right corner, which copies the block exactly and briefly shows *Copied*.
 
-The Global Scripts view in the web administrator has no *Ask AI Assistant* action. Use the **Global Scripts** button on the AI Assistant page instead. The web Dashboard's task pane and right-click menu cannot be extended by plugins, so its *Ask AI Assistant* and *Check queues and storage* are on the **AI Assistant** tab below the channel table.
+The Global Scripts view in the web administrator has no *Ask AI Assistant* action. Use the **Global Scripts** button on the AI Assistant page instead. The web Dashboard's task pane and right-click menu cannot be extended by plugins, so its *Ask AI Assistant*, *Check channels* and *Check queues and storage* are on the **AI Assistant** tab below the channel table.
 
 **Command palette:** open the Dashboard once before searching for "AI Assistant" with Ctrl+K. Searching earlier crashes the palette ([oie-web-client#65](https://github.com/gibson9583/oie-web-client/issues/65)).
 
@@ -212,6 +215,7 @@ The assistant uses these read tools on its own, without asking. They change noth
 | Code templates | Libraries, templates, their code and linked channels |
 | Global scripts | The global deploy, undeploy, preprocessor and postprocessor scripts |
 | Configuration Map | The keys only; values are never returned |
+| Check channel | Known weak spots in one channel or all channels (see *Checking channels for weak spots*). Credentials are reported by location only, never by value |
 | Find usages | Where a Configuration Map key, a map variable (globalMap, channelMap, …), a code template function or a channel is used, across all channels, code templates and global scripts. Only the locations (channel, connector, element, line or setting) and the form of each use, never code or values |
 
 **Before changing or removing something**, ask for example *Which channels use the Configuration Map key dbHost?*, *What breaks if I rename the code template function formatDate?* or *Which channels send to 'Lab out'?*. The assistant answers with one search over the whole server instead of reading every channel. For a channel it finds Channel Writers that send to it, `router.routeMessage` and `routeMessageByChannelId` calls, and other places that name its ID.
@@ -271,6 +275,21 @@ For a very large channel, the assistant reads a few connectors at a time.
 - After approval the channel is saved as a new revision, without deploying it; the description shows right away. If someone changed the channel in the meantime, nothing is saved. The change is logged under *Events* like every action.
 
 If you have the channel open in the editor, reload it after the change. Otherwise saving the editor later conflicts with the new revision.
+
+### Checking channels for weak spots
+
+*Check channel* (channel editor task or right-click; in the web administrator right-click in the Channels view, or the **Check channel** button on the AI Assistant page) and *Check channels* (Dashboard task or right-click for the selected channels, or all channels when none is selected; in the web administrator on the Dashboard's **AI Assistant** tab) ask the assistant to look for common mistakes. You can also ask *Check all channels for weak spots*. One check covers the whole server, also with a hundred channels. It finds:
+
+| Finding | What it means |
+| --- | --- |
+| **credential** | A password, token or API key typed into a script (`var password = '…'`, a connection string with `password=`, `user:password@` in a URL, a `Bearer` or `Basic` header, the password argument of `createDatabaseConnection`) or into a connector setting such as a Database Writer's password. Use a Configuration Map key (`$cfg('dbPassword')` or `${dbPassword}`) instead. Only the location is reported, never the value |
+| **code template** | A script calls a code template function whose library is not linked to the channel, so the call fails with *is not defined* |
+| **no queue** | A TCP, HTTP, database, web service, SMTP, JMS or DICOM destination with its queue off: when the other system is down, messages end in ERROR instead of waiting |
+| **storage** | Message storage set to *Development* (stores every content type), or message pruning switched off |
+| **logging** | `logger.info`, `logger.debug` or `logger.trace` in a script that runs for every message (preprocessor, postprocessor, filter rules, transformer steps, JavaScript Writer). `logger.error` and `logger.warn` are fine |
+| **disabled** | A disabled destination, filter rule or transformer step: check that this is intended |
+
+The assistant explains each finding, most important first, and can propose a fix as an action you approve, such as a script or transformer change. Queue, storage and pruning settings you change yourself in the channel editor. The check is a safety net: it recognises common patterns, not every possible mistake.
 
 ### Queues and message storage
 
@@ -413,7 +432,7 @@ The assistant only gets what you could see or do yourself in OIE. Every tool che
 | Tool | OIE permission needed |
 | --- | --- |
 | List channels, channel statistics | View Dashboard |
-| Get channel, channel scripts | View Channels |
+| Get channel, channel scripts, check channel, find usages | View Channels |
 | Search messages, get message, queues and storage | View Messages |
 | Events | View Events |
 | Server log | View Server Log |

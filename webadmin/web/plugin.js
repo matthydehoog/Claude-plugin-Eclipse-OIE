@@ -25,6 +25,10 @@ const EXPLAIN_CODE_REQUEST = "what it does step by step, which message data and 
     + "It is copied from the editor, so it may include unsaved changes.";
 /** Longest piece of code put in the question; the same limit as ExplainCodeMenu.MAX_CODE_CHARS. */
 const MAX_CODE_CHARS = 20000;
+// Same texts as ClaudeClientPlugin.CHECK_*_SUGGESTION.
+const CHECK_CHANNEL_SUGGESTION = "Check this channel for common weak spots. Explain each finding, most important first, and propose a fix where you can.";
+const CHECK_SELECTED_SUGGESTION = "Check these channels for common weak spots. Explain the findings, most important first, and propose fixes where you can.";
+const CHECK_ALL_SUGGESTION = "Check all channels for common weak spots. Summarize the findings by importance and name the channels that need attention first.";
 const DOCUMENT_SUGGESTION ="Write documentation for this channel as Markdown: purpose, source, filter, destinations, field mappings, scripts and code templates, Configuration Map keys and open points.";
 /** Contexts that name one channel, so it can be documented. */
 const CHANNEL_CONTEXT = /^(Channel open in the editor|Selected channel)/;
@@ -735,6 +739,12 @@ function ChatPanel() {
             }, "Document channel"),
             e("button", {
                 className: "btn",
+                title: "Let the AI Assistant check the channel in the context for common weak spots",
+                disabled: !CHANNEL_CONTEXT.test(c.context || ""),
+                onClick: () => c.open(c.context, CHECK_CHANNEL_SUGGESTION, true)
+            }, "Check channel"),
+            e("button", {
+                className: "btn",
                 title: "Let the AI Assistant write or improve the Description of the channel in the context; you approve it before it is saved",
                 disabled: c.busy || !CHANNEL_CONTEXT.test(c.context || ""),
                 onClick: () => c.open(c.context, DESCRIPTION_SUGGESTION)
@@ -1195,6 +1205,11 @@ function DashboardAssistantTab(props) {
             : "No channel selected: the AI Assistant looks at the whole server. Select channels or a connector above to ask about them."),
         e("div", { className: "claude-row-buttons" },
             e("button", { className: "btn", title: "Let the AI Assistant analyze the selected channel(s)", onClick: ask }, "Ask AI Assistant"),
+            e("button", {
+                className: "btn",
+                title: "Let the AI Assistant check the selected channels, or all channels, for common weak spots",
+                onClick: () => openInDialog(context, !context ? CHECK_ALL_SUGGESTION : selection.length === 1 ? CHECK_CHANNEL_SUGGESTION : CHECK_SELECTED_SUGGESTION)
+            }, context ? "Check channels" : "Check all channels"),
             e("button", { className: "btn", title: "Let the AI Assistant look for stuck queues and channels whose stored messages keep growing", onClick: () => openInDialog(null, QUEUES_SUGGESTION) }, "Check queues and storage")));
 }
 
@@ -1320,6 +1335,18 @@ export function register(platform) {
     });
 
     platform.registerChannelAction({
+        id: "claude-assistant.check",
+        label: "Check channel",
+        icon: "claude",
+        order: 62,
+        task: "claudeCheckChannel",
+        onInvoke: (channel) => {
+            if (!channel) return;
+            openWith(`Selected channel: '${channel.name}' (${channel.id}).`, CHECK_CHANNEL_SUGGESTION);
+        }
+    });
+
+    platform.registerChannelAction({
         id: "claude-assistant.describe",
         label: "Write description",
         icon: "claude",
@@ -1343,6 +1370,16 @@ export function register(platform) {
             task: "claudeQueues",
             rbac: "other",
             run: () => openWith(null, QUEUES_SUGGESTION)
+        });
+        platform.registerCommand({
+            id: "claude-assistant.check-all",
+            label: "Check all channels for weak spots",
+            icon: "claude",
+            section: "Plugins",
+            keywords: ["claude", "check", "weak spots", "review", "audit", "credentials", "passwords", "pruning", "queue"],
+            task: "claudeCheckChannels",
+            rbac: "other",
+            run: () => openWith(null, CHECK_ALL_SUGGESTION)
         });
         platform.registerCommand({
             id: "claude-assistant.global-scripts",
