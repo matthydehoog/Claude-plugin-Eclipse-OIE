@@ -423,6 +423,11 @@ public class AssistantServiceTest {
         String detail = job.pending().prepared.detail;
         assertTrue(detail, detail.startsWith("WARNING: the script does not compile in OIE's JavaScript engine (Rhino)."));
         assertTrue(detail, detail.contains("var mrn = msg?.PID;"));
+        // The diff the dialog shows by default carries the warning too.
+        String changes = job.pending().prepared.changes;
+        assertTrue(changes, changes.startsWith("WARNING: the script does not compile"));
+        assertTrue(changes, changes.contains("=== global deploy script\n"));
+        assertTrue(changes, changes.contains("\n+ var mrn = msg?.PID;\n"));
         service.decide(job, job.pending().id, false, new ServerEventContext(USER), ADDRESS);
         await(() -> finished(job), "the chat");
     }
@@ -434,6 +439,9 @@ public class AssistantServiceTest {
         await(() -> job.pending() != null, "the approval");
 
         assertTrue(job.pending().prepared.detail.startsWith("Global deploy script"));
+        String changes = job.pending().prepared.changes;
+        assertTrue(changes, changes.startsWith("Global deploy script") && changes.contains("\n+ logger.info('deployed');\n"));
+        assertTrue("the job JSON carries the diff for the clients", job.toJson(0).path("pendingAction").path("changes").asText().equals(changes));
         service.decide(job, job.pending().id, false, new ServerEventContext(USER), ADDRESS);
         await(() -> finished(job), "the chat");
     }

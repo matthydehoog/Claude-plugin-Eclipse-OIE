@@ -7,8 +7,10 @@
 package com.matthy.oie.claude.client;
 
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.InputEvent;
@@ -26,7 +28,9 @@ import java.util.function.Consumer;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
+import javax.swing.ButtonGroup;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JEditorPane;
 import javax.swing.JFileChooser;
@@ -37,12 +41,18 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.JTextPane;
+import javax.swing.JToggleButton;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.WindowConstants;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 import javax.swing.text.html.HTMLEditorKit;
 import javax.swing.text.html.StyleSheet;
 
@@ -485,12 +495,73 @@ class ChatDialog extends JDialog {
         detail.setCaretPosition(0);
         JPanel panel = new JPanel(new BorderLayout(0, 8));
         panel.add(new JLabel("<html>The AI Assistant wants to run the following action on server <b>" + Markdown.escape(String.valueOf(PlatformUI.SERVER_NAME)) + "</b>:</html>"), BorderLayout.NORTH);
-        panel.add(new JScrollPane(detail), BorderLayout.CENTER);
+        panel.add(approvalBody(pending.path("changes").asText(null), detail), BorderLayout.CENTER);
         Object[] options = { "Run", "Reject" };
         int choice = JOptionPane.showOptionDialog(this, panel, "Approve: " + pending.path("title").asText(), JOptionPane.DEFAULT_OPTION, JOptionPane.WARNING_MESSAGE, null, options, options[1]);
         boolean approved = choice == 0;
         statusLabel.setText(approved ? "Running action…" : "AI Assistant continues…");
         background(() -> ClaudeApi.confirm(id, actionId, approved), r -> statusLabel.setText("AI Assistant continues…"), error -> add("<div class=\"error\">Approval failed: " + Markdown.escape(error) + "</div>"));
+    }
+
+    /**
+     * For a script, filter or transformer change: the diff (Changes, the default) with a toggle to the
+     * full details. Otherwise the details alone.
+     */
+    private static JComponent approvalBody(String changes, JTextArea detail) {
+        JScrollPane full = new JScrollPane(detail);
+        if (changes == null) {
+            return full;
+        }
+        JScrollPane diff = new JScrollPane(diffPane(changes));
+        diff.setPreferredSize(full.getPreferredSize());
+        CardLayout cards = new CardLayout();
+        JPanel views = new JPanel(cards);
+        views.add(diff, "changes");
+        views.add(full, "full");
+        JToggleButton changesButton = new JToggleButton("Changes", true);
+        JToggleButton fullButton = new JToggleButton("Full details");
+        ButtonGroup group = new ButtonGroup();
+        group.add(changesButton);
+        group.add(fullButton);
+        changesButton.addActionListener(e -> cards.show(views, "changes"));
+        fullButton.addActionListener(e -> cards.show(views, "full"));
+        JPanel toggle = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        toggle.add(changesButton);
+        toggle.add(fullButton);
+        JPanel body = new JPanel(new BorderLayout(0, 4));
+        body.add(toggle, BorderLayout.NORTH);
+        body.add(views, BorderLayout.CENTER);
+        return body;
+    }
+
+    /** The diff with added lines green, removed lines red and hunk headers grey (from the first "=== " block on). */
+    private static JTextPane diffPane(String changes) {
+        JTextPane pane = new JTextPane();
+        pane.setEditable(false);
+        pane.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        StyledDocument doc = pane.getStyledDocument();
+        SimpleAttributeSet plain = new SimpleAttributeSet();
+        SimpleAttributeSet added = new SimpleAttributeSet();
+        StyleConstants.setBackground(added, new Color(0xD4F4DC));
+        SimpleAttributeSet removed = new SimpleAttributeSet();
+        StyleConstants.setBackground(removed, new Color(0xFADBD8));
+        SimpleAttributeSet hunk = new SimpleAttributeSet();
+        StyleConstants.setForeground(hunk, Color.GRAY);
+        SimpleAttributeSet block = new SimpleAttributeSet();
+        StyleConstants.setBold(block, true);
+        boolean inBlocks = false;
+        try {
+            for (String line : changes.split("\n", -1)) {
+                inBlocks |= line.startsWith("=== ");
+                SimpleAttributeSet style = !inBlocks ? plain : line.startsWith("=== ") ? block : line.startsWith("@@ ") ? hunk
+                        : line.startsWith("+ ") ? added : line.startsWith("- ") ? removed : plain;
+                doc.insertString(doc.getLength(), line + "\n", style);
+            }
+        } catch (BadLocationException e) {
+            pane.setText(changes);
+        }
+        pane.setCaretPosition(0);
+        return pane;
     }
 
     /** Shows exactly what Claude would receive; the user can edit it, send it or withhold it. */

@@ -674,10 +674,11 @@ public class AssistantService {
                 logger.info("AI Assistant: proposed " + name + " does not compile; sent back to the model: " + errors.replace('\n', ' '));
                 return masker.mask(scriptRejection(scriptCheck.languageVersion(), errors));
             }
-            prepared = prepared.withDetail(scriptWarning(errors) + prepared.detail);
+            prepared = prepared.withWarning(scriptWarning(errors));
         }
         // The confirmation dialog shows the detail, so it goes through the masker like everything else.
-        OieTools.PreparedAction shown = new OieTools.PreparedAction(prepared.title, masker.mask(prepared.detail), prepared.runner);
+        OieTools.PreparedAction shown = new OieTools.PreparedAction(prepared.title, masker.mask(prepared.detail), prepared.runner)
+                .withChanges(prepared.changes == null ? null : masker.mask(prepared.changes));
         ChatJob.PendingAction pending = job.await(name, shown, false);
         try {
             return pending.decision.get(ACTION_TIMEOUT_MINUTES, TimeUnit.MINUTES);

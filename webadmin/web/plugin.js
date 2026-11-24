@@ -99,6 +99,13 @@ const CSS = `
 .claude-input .claude-buttons { display: flex; flex-direction: column; gap: 6px; }
 .claude-status { color: var(--text-faint); font-size: 12px; min-height: 16px; }
 .claude-detail { font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap; max-height: 55vh; overflow: auto; background: var(--bg1); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; margin: 8px 0 0; }
+.claude-diff .add { display: block; background: rgba(46, 160, 67, 0.18); }
+.claude-diff .del { display: block; background: rgba(248, 81, 73, 0.18); }
+.claude-diff .hunk { display: block; color: var(--text-faint); }
+.claude-diff .block { display: block; font-weight: 600; margin-top: 6px; }
+.claude-view-toggle { display: flex; gap: 6px; margin-top: 8px; }
+.claude-view-toggle button { font: inherit; font-size: 12px; color: var(--text); background: var(--bg1); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 2px 10px; cursor: pointer; }
+.claude-view-toggle button[aria-pressed=true] { background: var(--line-strong); font-weight: 600; }
 .claude-review { display: block; width: 100%; box-sizing: border-box; height: 50vh; margin: 8px 0 4px; resize: vertical; font-family: var(--font-mono); font-size: 12px; color: var(--text); background: var(--bg1); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 8px; }
 .claude-hint { color: var(--text-faint); font-size: 12px; }
 .claude-settings { padding: 12px 16px; max-width: 760px; }
@@ -140,6 +147,54 @@ async function call(method, path, body, params) {
         text = await api.put(EXT + path, JSON.stringify(body), { params, contentType: "text/plain", raw: true });
     }
     return text ? JSON.parse(text) : {};
+}
+
+/**
+ * The approval dialog's body: for a script, filter or transformer change the diff (Changes, the
+ * default) with a toggle to the full details; otherwise the details alone. Plain DOM, so the
+ * toggle works whatever the shell's h() returns.
+ */
+function approvalBody(pending) {
+    const full = document.createElement("pre");
+    full.className = "claude-detail";
+    full.textContent = pending.detail || "";
+    if (!pending.changes) return full;
+    const diff = document.createElement("pre");
+    diff.className = "claude-detail claude-diff";
+    let inBlocks = false;
+    for (const line of pending.changes.replace(/\n$/, "").split("\n")) {
+        inBlocks = inBlocks || line.startsWith("=== ");
+        const span = document.createElement("span");
+        span.textContent = line;
+        if (inBlocks) {
+            span.className = line.startsWith("=== ") ? "block" : line.startsWith("@@ ") ? "hunk" : line.startsWith("+ ") ? "add" : line.startsWith("- ") ? "del" : "";
+        }
+        diff.appendChild(span);
+        if (!span.className) diff.appendChild(document.createTextNode("\n"));
+    }
+    full.style.display = "none";
+    const toggle = document.createElement("div");
+    toggle.className = "claude-view-toggle";
+    const show = (changes) => {
+        diff.style.display = changes ? "" : "none";
+        full.style.display = changes ? "none" : "";
+        changesButton.setAttribute("aria-pressed", String(changes));
+        fullButton.setAttribute("aria-pressed", String(!changes));
+    };
+    const button = (label, changes) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = label;
+        b.addEventListener("click", () => show(changes));
+        toggle.appendChild(b);
+        return b;
+    };
+    const changesButton = button("Changes", true);
+    const fullButton = button("Full details", false);
+    show(true);
+    const box = document.createElement("div");
+    box.append(toggle, diff, full);
+    return box;
 }
 
 function errorText(err) {
@@ -497,7 +552,7 @@ const chat = {
             size: "lg",
             body: h("div", null,
                 h("div", null, "The AI Assistant wants to run the following action on this server:"),
-                h("pre.claude-detail", null, pending.detail || "")),
+                approvalBody(pending)),
             buttons: [
                 { label: "Reject", onClick: () => decide(false) },
                 { label: "Run", danger: true, onClick: () => decide(true) }
