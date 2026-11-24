@@ -1,6 +1,6 @@
 # AI Assistant for Open Integration Engine
 
-<img width="1468" height="840" alt="image" src="https://github.com/user-attachments/assets/3fd44ec8-d272-4f17-a293-c3e9fb19569d" />
+<img width="1469" height="780" alt="image" src="https://github.com/user-attachments/assets/e1e8a424-7fa6-4dc2-87d9-90db967c58db" />
 
 An extension for the OIE Administrator that lets you talk to an AI model about your server from inside
 the GUI: channels, messages, errors, scripts, code templates and server status. It works with Claude
