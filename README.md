@@ -69,7 +69,9 @@ identical; a conversation stays open while you move between the AI Assistant pag
 
 **Read** (immediately): server info, channels with status and counters, channel configuration and
 scripts, the global scripts, statistics per connector, queues and message storage, searching and viewing messages, events, the server log, code
-templates and the keys of the Configuration Map (never the values).
+templates and the keys of the Configuration Map (never the values). *Find usages* shows, in one search over all
+channels, code templates and global scripts, where a Configuration Map key, a map variable, a code template function
+or a channel is used: only the locations, never code or values.
 
 **Channel documentation:** *Document channel* has the assistant write a Markdown description of a channel
 (purpose, source, filter, destinations, field mappings, scripts, code templates, Configuration Map keys

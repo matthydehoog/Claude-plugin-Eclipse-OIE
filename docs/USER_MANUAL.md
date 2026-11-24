@@ -209,6 +209,9 @@ The assistant uses these read tools on its own, without asking. They change noth
 | Code templates | Libraries, templates, their code and linked channels |
 | Global scripts | The global deploy, undeploy, preprocessor and postprocessor scripts |
 | Configuration Map | The keys only; values are never returned |
+| Find usages | Where a Configuration Map key, a map variable (globalMap, channelMap, …), a code template function or a channel is used, across all channels, code templates and global scripts. Only the locations (channel, connector, element, line or setting) and the form of each use, never code or values |
+
+**Before changing or removing something**, ask for example *Which channels use the Configuration Map key dbHost?*, *What breaks if I rename the code template function formatDate?* or *Which channels send to 'Lab out'?*. The assistant answers with one search over the whole server instead of reading every channel. For a channel it finds Channel Writers that send to it, `router.routeMessage` and `routeMessageByChannelId` calls, and other places that name its ID.
 
 At most 25 tool calls are made per question by default (*Max tool calls*). Raise it for broad questions across many channels.
 
