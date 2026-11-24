@@ -174,7 +174,10 @@ was reviewed. The content itself is never logged.
    line below it shows *Set: sk-ant-…xxxx*. Then click *Test connection*: it checks that the provider
    is reachable, accepts the key and that the model supports tool calling, with a fixed test prompt
    and no OIE data.
-3. Defaults: model `claude-opus-5`, effort `high`, at most 25 tool calls per question, response
+   
+   <img width="1060" height="1092" alt="image" src="https://github.com/user-attachments/assets/c66901a0-16f4-4f53-ae35-5b3030cc1d5a" />
+
+4. Defaults: model `claude-opus-5`, effort `high`, at most 25 tool calls per question, response
    language *Automatic* (the assistant answers in the language of the question). The **Model** list comes
    from Anthropic's Models API for your key (newest first, refreshed daily), so new models appear
    without a plugin update; without a connection a fixed list is shown. Pick a fixed language in
