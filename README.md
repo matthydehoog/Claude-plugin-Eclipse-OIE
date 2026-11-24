@@ -15,6 +15,9 @@ troubleshooting.
 [AI Assistant for Eclipse OIE](https://eclipse-oie.moodiy.cloud/course/view.php?id=3) at the
 Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exercises on a test channel.
 
+<img width="1200" height="675" alt="course-claude-assistant-card" src="https://github.com/user-attachments/assets/019a959c-af9c-40f1-8b20-000b6ad887f2" />
+
+
 > **Unofficial plugin.** This is a community-built plugin. It is not affiliated with, endorsed by or
 > supported by Anthropic. Claude and Anthropic are trademarks of Anthropic, PBC.
 >
