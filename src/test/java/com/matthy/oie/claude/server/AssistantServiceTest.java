@@ -399,4 +399,38 @@ public class AssistantServiceTest {
         assertTrue(operations.getAllValues().stream()
                 .anyMatch(op -> op instanceof ExtensionOperation && CONFIRM.equals(op.getName())));
     }
+
+    @Test
+    public void theServiceTestsTheSavedSettingsAndSendsNoOieData() throws Exception {
+        Settings settings = new Settings("sk-key", "", "gpt-x", null, 0, "", null, "off", 0, Settings.PROVIDER_OPENAI, "http://host/v1");
+        AssistantService service = new AssistantService(settings, (s, prompt, tools, caller) -> null);
+        services.add(service);
+        List<String> calls = new ArrayList<>();
+        service.setTesterFactory(s -> (key, model) -> {
+            calls.add(s.baseUrl + " " + key + " " + model);
+            return "{\"server\":\"host\",\"list\":{\"status\":200,\"models\":[\"gpt-x\"]},\"tool\":{\"status\":200,\"toolCalled\":true}}";
+        });
+        JsonNode r = new com.fasterxml.jackson.databind.ObjectMapper().readTree(service.testConnection());
+        assertTrue(r.path("ok").asBoolean());
+        assertEquals(List.of("http://host/v1 sk-key gpt-x"), calls);
+        assertFalse(ConnectionTest.PROMPT.contains("{"));
+    }
+
+    @Test
+    public void incompleteSettingsAreRefusedBeforeAnyRequest() {
+        Settings settings = new Settings("", "", "claude-x", null, 0, "", null, "off", 0);
+        AssistantService service = new AssistantService(settings, (s, prompt, tools, caller) -> null);
+        services.add(service);
+        service.setTesterFactory(s -> {
+            throw new AssertionError("no request expected");
+        });
+        try {
+            service.testConnection();
+            fail();
+        } catch (IllegalStateException e) {
+            assertEquals("Set the Anthropic API key and save the settings first.", e.getMessage());
+        } catch (Exception e) {
+            fail(e.toString());
+        }
+    }
 }

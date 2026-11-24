@@ -127,6 +127,17 @@ public class ClaudeServlet extends MirthServlet implements ClaudeServletInterfac
     }
 
     @Override
+    public String testConnection() {
+        try {
+            return service().testConnection();
+        } catch (IllegalStateException e) {
+            throw new MirthApiException(Response.status(Response.Status.CONFLICT).entity(e.getMessage()).build());
+        } catch (Exception e) {
+            throw new MirthApiException(Response.status(Response.Status.BAD_GATEWAY).entity("The connection test failed: " + (e.getMessage() != null ? e.getMessage() : e.toString())).build());
+        }
+    }
+
+    @Override
     public String getSpend(boolean refresh) {
         try {
             return service().spend(refresh);

@@ -311,6 +311,47 @@ public class AssistantService {
         }
     }
 
+    /** Creates the connection tester for a configuration: the engine's in OIE, a fake one in tests. */
+    interface TesterFactory {
+        ConnectionTester create(Settings settings) throws Exception;
+    }
+
+    private TesterFactory testerFactory;
+
+    /** Tests only: replaces the engine's connection testers. */
+    void setTesterFactory(TesterFactory factory) {
+        this.testerFactory = factory;
+    }
+
+    /**
+     * Test connection: whether the provider of the saved settings is reachable, accepts the key and
+     * has the model with tool calling. Sends only {@link ConnectionTest#PROMPT}, no OIE data.
+     *
+     * @return JSON text (see {@link ConnectionTest#report})
+     * @throws IllegalStateException when the settings are incomplete or the engine is not loaded
+     */
+    public String testConnection() throws Exception {
+        Settings s = settings;
+        if (!s.configured()) {
+            throw new IllegalStateException(s.openAiCompatible() ? "Set the API base URL and save the settings first." : "Set the Anthropic API key and save the settings first.");
+        }
+        TesterFactory factory = testerFactory;
+        if (factory == null) {
+            if (engine == null) {
+                throw new IllegalStateException("The AI Assistant cannot start: " + engineError);
+            }
+            factory = engine::createConnectionTester;
+        }
+        ObjectNode report = ConnectionTest.report(MAPPER.readTree(factory.create(s).probe(s.apiKey, s.model)), s.model, s.openAiCompatible());
+        String where = s.openAiCompatible() ? s.baseUrl : "Anthropic";
+        if (report.path("ok").asBoolean()) {
+            logger.info("AI Assistant: connection test with " + where + " and model " + s.model + " passed.");
+        } else {
+            logger.warn("AI Assistant: connection test with " + where + " and model " + s.model + " failed. " + ConnectionTest.summary(report));
+        }
+        return report.toString();
+    }
+
     public void shutdown() {
         for (ChatJob job : jobs.values()) {
             job.cancel();

@@ -48,4 +48,13 @@ public class ClaudeSettingsPanelTest {
         assertEquals("openai-compatible", ClaudeSettingsPanel.storedProvider(ClaudeSettingsPanel.OPENAI_COMPATIBLE));
         assertEquals("openai-compatible", ClaudeSettingsPanel.storedProvider(ClaudeSettingsPanel.MISTRAL));
     }
+
+    @Test
+    public void testResultShowsEachCheckEscaped() throws Exception {
+        String html = ClaudeSettingsPanel.testResultHtml(new ObjectMapper().readTree(
+                "{\"checks\":[{\"label\":\"Reachable\",\"status\":\"ok\",\"message\":\"api.openai.com answered.\"},"
+                + "{\"label\":\"Model\",\"status\":\"failed\",\"message\":\"<b>x</b> & y\"}]}"));
+        assertEquals("<html><font color='#1a7f37'>&#10004;</font> <b>Reachable:</b> api.openai.com answered.<br>"
+                + "<font color='#b00020'>&#10008;</font> <b>Model:</b> &lt;b&gt;x&lt;/b&gt; &amp; y<br></html>", html);
+    }
 }

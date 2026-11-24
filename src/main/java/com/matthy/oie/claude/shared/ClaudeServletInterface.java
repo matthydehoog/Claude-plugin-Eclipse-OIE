@@ -135,6 +135,12 @@ public interface ClaudeServletInterface extends BaseServletInterface {
     @MirthOperation(name = "claudeGetModels", display = "Get AI Assistant models", permission = PERMISSION_USE, auditable = false)
     String getModels(@Param("refresh") @Parameter(description = "Bypass the one-day cache.") @QueryParam("refresh") boolean refresh) throws ClientException;
 
+    @POST
+    @Path("/test-connection")
+    @Operation(summary = "Tests the saved provider settings: reachable, API key accepted, model with tool calling. Sends only a fixed test prompt. Returns {ok, checks}.")
+    @MirthOperation(name = "claudeTestConnection", display = "Test AI Assistant connection", permission = PERMISSION_SETTINGS)
+    String testConnection() throws ClientException;
+
     @GET
     @Path("/spend")
     @Operation(summary = "Returns the organization's spend this month from the Anthropic Cost API. Needs an Admin API key in the settings.")

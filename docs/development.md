@@ -246,7 +246,7 @@ The user sends, edits or withholds it (`POST /jobs/{id}/review`). **Edited text 
 | --- | --- |
 | Use AI Assistant (`PERMISSION_USE`) | chat, jobs, review, cancel, conversations, read settings, model list |
 | Run AI Assistant actions (`PERMISSION_ACTIONS`) | confirm an action |
-| Manage AI Assistant settings (`PERMISSION_SETTINGS`) | change settings, read spend |
+| Manage AI Assistant settings (`PERMISSION_SETTINGS`) | change settings, test the connection, read spend |
 
 On top of that, **every tool checks the user's own OIE permission** for its operation (`AuthorizationController.isUserAuthorized`, through the RBAC extension when installed). A tool the user lacks is skipped and Claude is told which permission is missing. The check fails closed on errors. Users with channel restrictions cannot use the assistant, because the tools see all channels.
 
@@ -273,6 +273,8 @@ Audit events:
 
 **The model list** (`GET /models`, *Use* permission) comes from Anthropic's Models API: `SdkModelReader` lists the models the plugin's API key can use (all pages), `AssistantService.models` caches the result for a day per API key (*Refresh list* bypasses the cache), and `ModelList` sorts it newest first. When the list cannot be read (no API key, no engine, an error from Anthropic) `ModelList.FALLBACK` is used instead, with the reason in `note`; failures are not cached. A saved model that is not in the list is kept at the top, marked `unlisted`, and with Anthropic's list also gets a `warning`. Both clients only show what the server returns, so the fixed list lives in one place: `ModelList.FALLBACK`. Keep `Settings.DEFAULT_MODEL` in it (a test checks that).
 
+**Test connection** (`POST /test-connection`, *Manage settings* permission) tests the saved settings. The engine's `ConnectionTester` (`SdkConnectionTester` for Anthropic, without retries; `OpenAiConnectionTester` for OpenAI-compatible providers, sent like `OpenAiCompatibleLoop`) only gathers raw answers: the model list, then, unless the server was unreachable or refused the key, one request with `ConnectionTest.PROMPT` and the single tool `report_test_result`. `ConnectionTest.report` on the host side turns those into the three checks (`reachable`, `key`, `model`, each `ok`, `failed`, `warning` or `skipped`), so the wording is the same for every provider and is unit-tested without a network. Billing errors (HTTP 402, *credit balance*, *insufficient_quota*) count against the key; a 400 that mentions tools, or an answer without the tool call, against the model. A failed test is logged as a warning.
+
 ## The REST API
 
 `ClaudeServletInterface`, under `/api/extensions/claude`:
@@ -290,6 +292,7 @@ Audit events:
 | `GET /settings`, `PUT /settings` | Read and change the settings (keys only as hints). |
 | `GET /models` | The models for the settings screens (Anthropic's list or the fixed one). |
 | `GET /spend` | Spend and tokens this month. |
+| `POST /test-connection` | Test connection: reachable, key accepted, model with tool calling. |
 
 Bodies and responses are **JSON as text** (`text/plain`), so no plugin class passes through the engine's XStream serializer. Errors carry a readable explanation in the response body; both clients show that rather than a stack trace.
 
