@@ -302,7 +302,7 @@ Bodies and responses are **JSON as text** (`text/plain`), so no plugin class pas
 ## The Swing client
 
 - `ClaudeClientPlugin` adds the tasks: *AI Assistant* under **Other**, and *Ask AI Assistant* in the dashboard, message browser, channel editor, code templates and global scripts (plus *Document channel* in the channel editor), each with its context (selected channels, message, channel, template, scripts) and a suggested question.
-- `ChatDialog` is a non-modal window, one per Administrator session. It polls every 800 ms, renders Claude's Markdown with `Markdown`, shows the approval and review dialogs, and offers *New conversation*, *Stop*, *Export…*, *Save answer…* (only Claude's last answer, named after its first heading by `Markdown.fileName`) and *Conversations…*.
+- `ChatDialog` is a non-modal window, one per Administrator session. It polls every 800 ms, renders Claude's Markdown with `Markdown`, shows the approval and review dialogs, and offers *New conversation*, *Stop*, *Export…*, *Save answer…* (only Claude's last answer, named after its first heading by `Markdown.fileName`) and *Conversations…*. Finished answers are rendered with `Markdown.toHtml(text, codeBlocks)`: each code block's exact text goes into the dialog's `codeBlocks` list and gets a `copy:<index>` link, which a `HyperlinkListener` puts on the clipboard. The answer that is still being written is rendered without links, so the list only grows with finished answers; it is cleared with the transcript. The web UI does the same with `markdown(text, withCopy)`: a Copy button per block copies the `textContent` of its `<code>`, through the Clipboard API or, on plain http, a hidden text area.
 - `ClaudeApi` wraps the servlet (`mirthClient.getServlet(ClaudeServletInterface.class)`). All calls block; never call them on the event thread.
 - `ClaudeSettingsPlugin` and `ClaudeSettingsPanel` make the settings tab, with *Usage* and *Open Billing in Console*.
 
@@ -340,7 +340,7 @@ There are 100 tests (JUnit 4). They need no engine, no network and no API key.
 | `ModelListTest` (6) | Newest first without duplicates, the fixed list with its reason, a saved model that is no longer listed |
 | `SettingsTest` (7) | Defaults and limits (review, keep days, language), updates that keep what is not given, the language in the system prompt |
 | `engine/FallbackTest`, `HistoryTest`, `UsageTest` (2 each) | Fallback handling, history JSON, usage lines |
-| `client/MarkdownTest` (3) | The file name *Save answer* gives: the first heading, cleaned of emphasis and characters Windows forbids |
+| `client/MarkdownTest` (5) | The file name *Save answer* gives (the first heading, cleaned of emphasis and characters Windows forbids), and the Copy link and exact text of each code block |
 | `client/ClaudeSettingsPanelTest` (1) | The cache share in the token figures |
 
 Masking is the part where a mistake hurts most: when you touch a masker, run it over the test messages in `src/test/resources` and check the output by eye as well.

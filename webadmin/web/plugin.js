@@ -84,6 +84,8 @@ const CSS = `
 .claude-text pre { font-family: var(--font-mono); font-size: 12px; background: var(--bg2); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; overflow: auto; }
 .claude-text code { font-family: var(--font-mono); font-size: 12px; background: var(--bg2); padding: 0 3px; border-radius: 2px; }
 .claude-text pre code { background: none; padding: 0; }
+.claude-text .claude-code { position: relative; }
+.claude-text .claude-code .claude-copy { position: absolute; top: 4px; right: 4px; padding: 1px 8px; font-size: 11px; line-height: 18px; }
 .claude-text table { border-collapse: collapse; margin: 6px 0; }
 .claude-text th, .claude-text td { border: 1px solid var(--line-strong); padding: 3px 8px; text-align: left; vertical-align: top; }
 .claude-text th { background: var(--bg2); }
@@ -177,7 +179,8 @@ function cells(row) {
     return r.split(/(?<!\\)\|/).map((c) => c.trim().replace(/\\\|/g, "|"));
 }
 
-function markdown(md) {
+/** @param withCopy give every code block a Copy button (finished answers; not while one is being written) */
+function markdown(md, withCopy) {
     const lines = String(md).replace(/\r\n?/g, "\n").split("\n");
     const ORDERED = /^\s*\d+[.)]\s+(.*)$/;
     const UNORDERED = /^\s*[-*+]\s+(.*)$/;
@@ -198,7 +201,8 @@ function markdown(md) {
             i++;
             while (i < lines.length && !lines[i].trim().startsWith("```")) code.push(lines[i++]);
             i++;
-            out += "<pre><code>" + esc(code.join("\n")) + "</code></pre>";
+            const block = "<pre><code>" + esc(code.join("\n")) + "</code></pre>";
+            out += withCopy ? '<div class="claude-code"><button type="button" class="btn claude-copy" data-copy="1" title="Copy this code block">Copy</button>' + block + "</div>" : block;
             continue;
         }
         if (!t) { flush(); i++; continue; }
@@ -543,6 +547,32 @@ const chat = {
 
 // ------------------------------------------------------------------ React components
 
+/** Copy button of a code block: copies the code exactly (the text of its <code>, without fences). */
+async function copyCodeBlock(ev) {
+    const button = ev.target.closest && ev.target.closest("[data-copy]");
+    if (!button) return;
+    const code = button.parentElement.querySelector("pre code");
+    const text = code ? code.textContent : "";
+    let copied = false;
+    try {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+    } catch (err) {
+        // No Clipboard API (plain http): copy through a hidden text area.
+        const area = document.createElement("textarea");
+        area.value = text;
+        area.setAttribute("readonly", "");
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.select();
+        try { copied = document.execCommand("copy"); } catch (e2) { copied = false; }
+        area.remove();
+    }
+    button.textContent = copied ? "Copied" : "Copy failed";
+    setTimeout(() => { button.textContent = "Copy"; }, 1500);
+}
+
 function useChat() {
     const [, setTick] = React.useState(0);
     React.useEffect(() => chat.subscribe(() => setTick((n) => n + 1)), []);
@@ -554,7 +584,7 @@ function Entry({ entry }) {
         case "user":
             return e("div", { className: "claude-user" }, e("b", null, "You: "), entry.text);
         case "text":
-            return e("div", { className: "claude-text", dangerouslySetInnerHTML: { __html: markdown(entry.text) } });
+            return e("div", { className: "claude-text", onClick: copyCodeBlock, dangerouslySetInnerHTML: { __html: markdown(entry.text, !entry.partial) } });
         case "tool":
             return e("div", { className: "claude-tool" }, "→ " + entry.text);
         case "action":
@@ -641,7 +671,7 @@ function ChatPanel() {
         e("div", { className: "claude-transcript", ref: transcriptRef },
             welcome,
             c.entries.map((entry, i) => e(Entry, { key: i, entry })),
-            c.partial ? e(Entry, { key: "partial", entry: { kind: "text", text: c.partial } }) : null),
+            c.partial ? e(Entry, { key: "partial", entry: { kind: "text", text: c.partial, partial: true } }) : null),
         e("div", { className: "claude-input" },
             e("textarea", {
                 ref: inputRef,
