@@ -27,11 +27,13 @@ Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exerci
 |---|---|---|
 | Left menu, **Other** | *AI Assistant* | none: questions about the whole server |
 | **Dashboard** (task + right-click) | *Ask AI Assistant* | selected channel(s)/connectors |
+| **Dashboard** (task + right-click) | *Check channels* | selected channels, or all; the assistant checks them for weak spots |
 | **Dashboard** (task + right-click) | *Check queues and storage* | none: the assistant looks for stuck queues and channels that need pruning |
 | **Message browser** (task + right-click) | *Ask AI Assistant* | selected message (channel, message ID, connector) |
 | **Message browser** (task + right-click) | *Explain error* | selected message; a diagnosis: root cause, where, which data, fix |
 | **Channel editor** (task + right-click) | *Ask AI Assistant* | the channel that is open (saved version) |
 | **Channel editor** (task + right-click) | *Document channel* | the open channel; the assistant writes its documentation as Markdown |
+| **Channel editor** (task + right-click) | *Check channel* | the open channel; the assistant checks it for weak spots |
 | **Channel editor** (task + right-click) | *Write description* | the open channel; the assistant proposes a new Description, saved after your approval |
 | **Code Templates** (task + right-click, one template selected) | *Ask AI Assistant* | the selected code template and its library |
 | **Global Scripts** (task + right-click) | *Ask AI Assistant* | the global deploy/undeploy/pre/postprocessor scripts |
@@ -51,8 +53,8 @@ The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It
 |---|---|
 | Left rail, **Plugins > AI Assistant** | the chat as a full page |
 | **Channel editor**, tab **AI Assistant** | the chat with the open channel as context |
-| **Channels** view, right-click | *Ask AI Assistant* about the selected channel, *Document channel* or *Write description* |
-| **Dashboard**, tab **AI Assistant** | *Ask AI Assistant* about the selected channels or connector, or *Check queues and storage* (the web admin has no hook on the Dashboard's tasks or menu) |
+| **Channels** view, right-click | *Ask AI Assistant* about the selected channel, *Document channel*, *Check channel* or *Write description* |
+| **Dashboard**, tab **AI Assistant** | *Ask AI Assistant* about the selected channels or connector, *Check channels*, or *Check queues and storage* (the web admin has no hook on the Dashboard's tasks or menu) |
 | **Message browser**, right-click | *Ask AI Assistant* about the selected message, or *Explain error* (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask AI Assistant* about the selected code template |
 | **Script editors**, right-click in the code | *Explain with AI Assistant*: the selected code (unsaved edits included), in a dialog over the editor |
@@ -60,7 +62,7 @@ The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It
 | **AI Assistant page**, button **Document channel** | documents the channel in the context |
 | **AI Assistant page**, button **Write description** | proposes a Description for the channel in the context |
 | **AI Assistant page**, button **Queues and storage** | checks queues and message storage |
-| **Command palette** (Ctrl+K) | *AI Assistant*, *Check queues and storage*, and *Ask AI Assistant about Global Scripts* |
+| **Command palette** (Ctrl+K) | *AI Assistant*, *Check queues and storage*, *Check all channels for weak spots*, and *Ask AI Assistant about Global Scripts* |
 | **Settings**, tab **AI Assistant** | the same settings and usage as in Swing, using the settings page's own Save |
 
 Both UIs use the same REST API, so masking, permissions, action approval and the audit log are
@@ -78,6 +80,12 @@ or a channel is used: only the locations, never code or values.
 (purpose, source, filter, destinations, field mappings, scripts, code templates, Configuration Map keys
 and open points) from a readable overview in which passwords and other secrets are hidden. Save it as
 a separate file with *Save answer*.
+
+**Weak spots:** *Check channel* and *Check channels* have the assistant check one channel, the selected ones or all
+of them in one go for common mistakes: credentials typed into scripts or settings (reported by location, never by
+value), calls to code templates whose library is not linked, network destinations without a queue, Development
+storage or pruning switched off, logging in scripts that run for every message, and disabled destinations, rules
+and steps.
 
 **Queues and storage:** *Check queues and storage* has the assistant look for slow-burning problems: destinations
 that are stopped or have not moved their queue for a long time (with the age of the oldest queued message

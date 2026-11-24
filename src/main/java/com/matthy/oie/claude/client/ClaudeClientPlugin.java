@@ -69,11 +69,13 @@ public class ClaudeClientPlugin extends ClientPlugin {
         // The Dashboard hides every task after its own ones whenever the selection changes
         // (DashboardPanel.updatePopupMenu), so these two show themselves again.
         keepVisible(addTask("claudeDashboard", "Ask AI Assistant", "Let the AI Assistant analyze the selected channel(s).", icon, parent.dashboardTasks, parent.dashboardPopupMenu), parent.dashboardTasks, parent.dashboardPopupMenu);
+        keepVisible(addTask("claudeCheckChannels", "Check channels", "Let the AI Assistant check the selected channels, or all channels, for common weak spots.", icon, parent.dashboardTasks, parent.dashboardPopupMenu), parent.dashboardTasks, parent.dashboardPopupMenu);
         keepVisible(addTask("claudeQueues", "Check queues and storage", "Let the AI Assistant look for stuck queues and channels whose stored messages keep growing.", icon, parent.dashboardTasks, parent.dashboardPopupMenu), parent.dashboardTasks, parent.dashboardPopupMenu);
         addTask("claudeMessage", "Ask AI Assistant", "Let the AI Assistant find out what happened to the selected message.", icon, parent.messageTasks, parent.messagePopupMenu);
         addTask("claudeExplainError", "Explain error", "Let the AI Assistant diagnose why the selected message failed: root cause, where, which data, and a fix.", icon, parent.messageTasks, parent.messagePopupMenu);
         addTask("claudeChannelEdit", "Ask AI Assistant", "Let the AI Assistant explain or improve this channel and its scripts.", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
         addTask("claudeDocumentChannel", "Document channel", "Let the AI Assistant write documentation for this channel (Markdown; save it with Save answer).", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
+        addTask("claudeCheckChannel", "Check channel", "Let the AI Assistant check this channel for common weak spots: credentials, unlinked code templates, queues, storage, logging, disabled parts.", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
         addTask("claudeDescribeChannel", "Write description", "Let the AI Assistant write or improve this channel's Description; you approve it before it is saved.", icon, parent.channelEditTasks, parent.channelEditPopupMenu);
 
         addTask("claudeGlobalScripts", "Ask AI Assistant", "Let the AI Assistant explain or improve the global scripts.", icon, parent.globalScriptsTasks, parent.globalScriptsPopupMenu);
@@ -135,6 +137,33 @@ public class ClaudeClientPlugin extends ClientPlugin {
         }
         dialog().open("Selected in the dashboard: " + String.join(", ", parts), "Analyze the status and errors of " + (selected.size() == 1 ? "this channel." : "these channels."));
     }
+
+    public void claudeCheckChannels() {
+        List<DashboardStatus> selected = parent.dashboardPanel == null ? null : parent.dashboardPanel.getSelectedStatuses();
+        if (selected == null || selected.isEmpty()) {
+            dialog().open(null, CHECK_ALL_SUGGESTION, true);
+            return;
+        }
+        List<String> parts = new ArrayList<>();
+        for (DashboardStatus s : selected) {
+            parts.add("'" + s.getName() + "' (" + s.getChannelId() + ", " + s.getState() + ")");
+        }
+        dialog().open("Selected in the dashboard: " + String.join(", ", parts), selected.size() == 1 ? CHECK_CHANNEL_SUGGESTION : CHECK_SELECTED_SUGGESTION, true);
+    }
+
+    public void claudeCheckChannel() {
+        Channel channel = parent.channelEditPanel == null ? null : parent.channelEditPanel.currentChannel;
+        if (channel == null) {
+            claudeOpen();
+            return;
+        }
+        dialog().open(channelContext(channel), CHECK_CHANNEL_SUGGESTION, true);
+    }
+
+    /** Same texts as CHECK_*_SUGGESTION in webadmin/web/plugin.js. */
+    static final String CHECK_CHANNEL_SUGGESTION = "Check this channel for common weak spots. Explain each finding, most important first, and propose a fix where you can.";
+    static final String CHECK_SELECTED_SUGGESTION = "Check these channels for common weak spots. Explain the findings, most important first, and propose fixes where you can.";
+    static final String CHECK_ALL_SUGGESTION = "Check all channels for common weak spots. Summarize the findings by importance and name the channels that need attention first.";
 
     public void claudeQueues() {
         dialog().open(null, QUEUES_SUGGESTION);
