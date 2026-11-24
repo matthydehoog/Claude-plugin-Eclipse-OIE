@@ -89,8 +89,9 @@ change a JavaScript script (deploy/undeploy/pre/postprocessor, filter rule or tr
 global script, change the filter rules or transformer steps of a connector (any type: Mapper, Message
 Builder, Rule Builder, Iterator, XSLT, ...), write a channel's Description, and create a new channel (or a changed copy of one).
 A script, filter, transformer or description change saves the channel with a new revision but does not deploy it;
-if the channel changed in the meantime, nothing is saved. The approval dialog shows the current and
-new rules or steps, and the script OIE generates for each new one. A new channel is created disabled
+if the channel changed in the meantime, nothing is saved. The approval dialog opens on a diff of the
+change (added lines green, removed lines red, unchanged code folded); *Full details* shows the current and new
+script, or the current and new rules or steps and the script OIE generates for each new one. A new channel is created disabled
 and undeployed, with credentials left empty for you to fill in. Every executed action is written to the audit log as
 event `AI Assistant: …`, in the name of the user who approved it. Before the dialog opens, every
 proposed script is compiled with OIE's own Rhino and language version (nothing is run). A script that

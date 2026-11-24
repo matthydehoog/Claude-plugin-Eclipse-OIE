@@ -156,6 +156,8 @@ public class OieTools {
         final ActionRunner runner;
         /** New or changed JavaScript by label, compiled before the user sees the proposal. */
         final Map<String, String> scripts = new LinkedHashMap<>();
+        /** The changes as a diff (see {@link LineDiff}), shown by default in the approval dialog; null when there is none. */
+        String changes;
 
         PreparedAction(String title, String detail, ActionRunner runner) {
             this.title = title;
@@ -170,10 +172,16 @@ public class OieTools {
             return this;
         }
 
-        /** The same action with another detail text, keeping the scripts. */
-        PreparedAction withDetail(String newDetail) {
-            PreparedAction copy = new PreparedAction(title, newDetail, runner);
+        PreparedAction withChanges(String diff) {
+            this.changes = diff;
+            return this;
+        }
+
+        /** The same action with a warning above the detail and the changes, keeping the scripts. */
+        PreparedAction withWarning(String warning) {
+            PreparedAction copy = new PreparedAction(title, warning + detail, runner);
             copy.scripts.putAll(scripts);
+            copy.changes = changes == null ? null : warning + changes;
             return copy;
         }
     }
@@ -428,10 +436,10 @@ public class OieTools {
         String script = text(in, "script");
         String oldScript = scriptController.getGlobalScripts().get(key);
         boolean suspicious = script.contains(Masker.MASK) && (oldScript == null || !oldScript.contains(Masker.MASK));
-        String detail = "Global " + type + " script (runs for every channel).\n"
+        String head = "Global " + type + " script (runs for every channel).\n"
                 + (suspicious ? "WARNING: the new script contains '" + Masker.MASK + "'. The AI Assistant saw the script masked; check that no real value (e.g. a number or HL7 sample) is lost.\n" : "")
-                + "Saved now; it takes effect for channels deployed afterwards. If you have Global Scripts open in the Administrator, reload them first.\n\n"
-                + "--- current script\n" + (oldScript == null ? "" : oldScript) + "\n\n+++ new script\n" + script;
+                + "Saved now; it takes effect for channels deployed afterwards. If you have Global Scripts open in the Administrator, reload them first.\n\n";
+        String detail = head + "--- current script\n" + (oldScript == null ? "" : oldScript) + "\n\n+++ new script\n" + script;
         return new PreparedAction("Change global script", detail, ctx -> {
             Map<String, String> latest = new HashMap<>(scriptController.getGlobalScripts());
             if (!java.util.Objects.equals(latest.get(key), oldScript)) {
@@ -440,7 +448,7 @@ public class OieTools {
             latest.put(key, script);
             scriptController.setGlobalScripts(latest);
             return "Global " + type + " script saved. Redeploy channels to use it.";
-        }).withScript("global " + type + " script", script);
+        }).withScript("global " + type + " script", script).withChanges(head + LineDiff.block("global " + type + " script", oldScript, script));
     }
 
     private String serverInfo() {
@@ -1151,9 +1159,13 @@ public class OieTools {
         }
 
         String location = what + " of connector " + metaDataId + " '" + connector.getName() + "'";
-        String detail = "Channel '" + current.getName() + "', " + location + ".\n"
+        String head = "Channel '" + current.getName() + "', " + location + ".\n"
                 + (suspicious ? "WARNING: a new or changed element contains '" + Masker.MASK + "'. The AI Assistant saw the channel masked; check that no real value is lost.\n" : "")
-                + "The channel is saved (new revision) but not deployed. If you have this channel open in the editor, reload it afterwards.\n\n"
+                + "The channel is saved (new revision) but not deployed. If you have this channel open in the editor, reload it afterwards.\n\n";
+        String kind = transformer ? (response ? "response transformer step " : "transformer step ") : "filter rule ";
+        String changes = head + "New " + what + ":\n" + ChannelEditor.describe(parsed) + "\n"
+                + LineDiff.elementBlocks(kind, diffElements(serializer, old), diffElements(serializer, parsed));
+        String detail = head
                 + "Current " + what + ":\n" + ChannelEditor.describe(old) + "\nNew " + what + ":\n" + ChannelEditor.describe(parsed)
                 + (changed.length() == 0 ? "\nNo element is new or changed (only the order or the removals differ).\n" : "\nNew or changed elements, as the script OIE runs:\n\n" + changed.toString().trim());
         int revision = current.getRevision();
@@ -1162,7 +1174,17 @@ public class OieTools {
             return notSaved != null ? notSaved : "The " + location + " of '" + current.getName() + "' has been saved (new revision). Deploy the channel to activate the change.";
         });
         changedScripts.forEach((label, script) -> action.withScript(label + " of connector " + metaDataId, script));
-        return action;
+        return action.withChanges(changes);
+    }
+
+    private static List<LineDiff.Element> diffElements(ObjectXMLSerializer serializer, List<? extends FilterTransformerElement> elements) {
+        List<LineDiff.Element> out = new ArrayList<>();
+        if (elements != null) {
+            for (FilterTransformerElement e : elements) {
+                out.add(new LineDiff.Element(e.getName(), withoutSequence(serializer.serialize(e)), ChannelEditor.script(e)));
+            }
+        }
+        return out;
     }
 
     /** The JavaScript OIE generates from an element, or null when it cannot (e.g. an external script file). */
@@ -1377,15 +1399,15 @@ public class OieTools {
 
         // Claude only ever saw the masked script, so a "***" it copied back would overwrite real content.
         boolean suspicious = script.contains(Masker.MASK) && (oldScript == null || !oldScript.contains(Masker.MASK));
-        String detail = "Channel '" + current.getName() + "', " + location + ".\n"
+        String head = "Channel '" + current.getName() + "', " + location + ".\n"
                 + (suspicious ? "WARNING: the new script contains '" + Masker.MASK + "'. The AI Assistant saw the script masked; check that no real value (e.g. a number or HL7 sample) is lost.\n" : "")
-                + "The channel is saved (new revision) but not deployed. If you have this channel open in the editor, reload it afterwards.\n\n"
-                + "--- current script\n" + (oldScript == null ? "" : oldScript) + "\n\n+++ new script\n" + script;
+                + "The channel is saved (new revision) but not deployed. If you have this channel open in the editor, reload it afterwards.\n\n";
+        String detail = head + "--- current script\n" + (oldScript == null ? "" : oldScript) + "\n\n+++ new script\n" + script;
         int revision = current.getRevision();
         return new PreparedAction("Change script", detail, ctx -> {
             String notSaved = save(copy, revision, ctx, () -> apply.apply(copy));
             return notSaved != null ? notSaved : "Script saved in channel '" + current.getName() + "' (new revision). Deploy the channel to activate the change.";
-        }).withScript(location, script);
+        }).withScript(location, script).withChanges(head + LineDiff.block(location, oldScript, script));
     }
 
     private PreparedAction prepareDescriptionUpdate(JsonNode in) throws Exception {

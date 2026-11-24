@@ -188,6 +188,9 @@ public class ChatJob {
             pa.put("tool", pending.toolName);
             pa.put("title", pending.prepared.title);
             pa.put("detail", pending.prepared.detail);
+            if (pending.prepared.changes != null) {
+                pa.put("changes", pending.prepared.changes);
+            }
         }
         return node;
     }
