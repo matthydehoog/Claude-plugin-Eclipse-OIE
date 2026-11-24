@@ -153,11 +153,27 @@ public class OieTools {
         final String title;
         final String detail;
         final ActionRunner runner;
+        /** New or changed JavaScript by label, compiled before the user sees the proposal. */
+        final Map<String, String> scripts = new LinkedHashMap<>();
 
         PreparedAction(String title, String detail, ActionRunner runner) {
             this.title = title;
             this.detail = detail;
             this.runner = runner;
+        }
+
+        PreparedAction withScript(String label, String script) {
+            if (script != null && !script.isBlank()) {
+                scripts.put(label, script);
+            }
+            return this;
+        }
+
+        /** The same action with another detail text, keeping the scripts. */
+        PreparedAction withDetail(String newDetail) {
+            PreparedAction copy = new PreparedAction(title, newDetail, runner);
+            copy.scripts.putAll(scripts);
+            return copy;
         }
     }
 
@@ -354,7 +370,7 @@ public class OieTools {
             latest.put(key, script);
             scriptController.setGlobalScripts(latest);
             return "Global " + type + " script saved. Redeploy channels to use it.";
-        });
+        }).withScript("global " + type + " script", script);
     }
 
     private String serverInfo() {
@@ -966,7 +982,7 @@ public class OieTools {
                 + "<com.mirth.connect.plugins.rulebuilder.RuleBuilderRule version=\"...\"> (name, sequenceNumber, enabled, operator AND/OR/NONE, field, condition EXISTS/NOT_EXIST/EQUALS/NOT_EQUAL/CONTAINS/NOT_CONTAIN, values of <string>), "
                 + "<com.mirth.connect.plugins.javascriptrule.JavaScriptRule> (name, sequenceNumber, enabled, operator, script), "
                 + "<com.mirth.connect.plugins.scriptfilerule.ExternalScriptRule> (scriptPath) or <com.mirth.connect.model.IteratorRule>. "
-                + "Copy unchanged rules exactly. <elements/> removes all rules. Saves the channel but does not deploy it. Requires approval.", props(
+                + "Copy unchanged rules exactly. Write scripts as XML text: escape & as &amp; and < as &lt;, or wrap the script in <![CDATA[...]]>. <elements/> removes all rules. Saves the channel but does not deploy it. Requires approval.", props(
                 "channel", str("Channel ID (UUID) or channel name"),
                 "metaDataId", integer("Connector: 0 = source, 1..n = destination"),
                 "elements", str("The complete new list of filter rules as OIE XML (<elements>...</elements>)")),
@@ -978,7 +994,7 @@ public class OieTools {
                 + "<com.mirth.connect.plugins.messagebuilder.MessageBuilderStep> (messageSegment, mapping, defaultValue, replacements), "
                 + "<com.mirth.connect.plugins.javascriptstep.JavaScriptStep> (script), <com.mirth.connect.plugins.xsltstep.XsltStep>, "
                 + "<com.mirth.connect.plugins.destinationsetfilter.DestinationSetFilterStep> or <com.mirth.connect.model.IteratorStep>. "
-                + "Copy unchanged steps exactly. <elements/> removes all steps. Data types and templates stay as they are. Saves the channel but does not deploy it. Requires approval.", props(
+                + "Copy unchanged steps exactly. Write scripts and mappings as XML text: escape & as &amp; and < as &lt;, or wrap them in <![CDATA[...]]>. <elements/> removes all steps. Data types and templates stay as they are. Saves the channel but does not deploy it. Requires approval.", props(
                 "channel", str("Channel ID (UUID) or channel name"),
                 "metaDataId", integer("Connector: 0 = source, 1..n = destination"),
                 "response", bool("true = the response transformer of a destination (default false)"),
@@ -987,7 +1003,7 @@ public class OieTools {
 
         action("oie_create_channel", "Creates a new channel from complete OIE channel XML, in the format oie_get_channel returns (root <channel version=\"...\">, "
                 + "sourceConnector, destinationConnectors, filters, transformers, data types, scripts). To clone a channel, fetch it with oie_get_channel, change it and give a new name. "
-                + "The channel gets a new ID and is created disabled and undeployed. Passwords and other credentials are left empty for the user to fill in. Requires approval.", props(
+                + "The channel gets a new ID and is created disabled and undeployed. Passwords and other credentials are left empty for the user to fill in. Write scripts as XML text: escape & as &amp; and < as &lt;, or use <![CDATA[...]]>. Requires approval.", props(
                 "channel", str("The complete channel XML")), this::prepareCreateChannel, "channel");
     }
 
@@ -1052,10 +1068,12 @@ public class OieTools {
             oldXml.add(withoutSequence(serializer.serialize(e)));
         }
         StringBuilder changed = new StringBuilder();
+        Map<String, String> changedScripts = new LinkedHashMap<>();
         boolean suspicious = false;
         for (int i = 0; i < parsed.size(); i++) {
             String xml = serializer.serialize(parsed.get(i));
             if (!oldXml.contains(withoutSequence(xml))) {
+                changedScripts.put((transformer ? (response ? "response transformer step " : "transformer step ") : "filter rule ") + i + " '" + parsed.get(i).getName() + "'", generatedScript(parsed.get(i)));
                 changed.append("--- ").append(i).append(". [").append(parsed.get(i).getType()).append("] '").append(parsed.get(i).getName()).append("'\n")
                         .append(ChannelEditor.script(parsed.get(i))).append("\n\n");
                 suspicious |= xml.contains(Masker.MASK);
@@ -1069,10 +1087,51 @@ public class OieTools {
                 + "Current " + what + ":\n" + ChannelEditor.describe(old) + "\nNew " + what + ":\n" + ChannelEditor.describe(parsed)
                 + (changed.length() == 0 ? "\nNo element is new or changed (only the order or the removals differ).\n" : "\nNew or changed elements, as the script OIE runs:\n\n" + changed.toString().trim());
         int revision = current.getRevision();
-        return new PreparedAction(transformer ? "Change transformer" : "Change filter", detail, ctx -> {
+        PreparedAction action = new PreparedAction(transformer ? "Change transformer" : "Change filter", detail, ctx -> {
             String notSaved = save(copy, revision, ctx, apply);
             return notSaved != null ? notSaved : "The " + location + " of '" + current.getName() + "' has been saved (new revision). Deploy the channel to activate the change.";
         });
+        changedScripts.forEach((label, script) -> action.withScript(label + " of connector " + metaDataId, script));
+        return action;
+    }
+
+    /** The JavaScript OIE generates from an element, or null when it cannot (e.g. an external script file). */
+    private static String generatedScript(FilterTransformerElement element) {
+        try {
+            return element.getScript(false);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Every script of a new channel: channel scripts, JavaScript connectors, filters and transformers. */
+    private static void addChannelScripts(PreparedAction action, Channel channel) {
+        action.withScript("deploy script", channel.getDeployScript())
+                .withScript("undeploy script", channel.getUndeployScript())
+                .withScript("preprocessor", channel.getPreprocessingScript())
+                .withScript("postprocessor", channel.getPostprocessingScript());
+        for (Connector c : connectors(channel)) {
+            String of = " of connector " + c.getMetaDataId() + " '" + c.getName() + "'";
+            if (c.getProperties() != null && c.getProperties().getClass().getSimpleName().startsWith("JavaScript")) {
+                try {
+                    action.withScript("JavaScript" + of, (String) c.getProperties().getClass().getMethod("getScript").invoke(c.getProperties()));
+                } catch (ReflectiveOperationException | ClassCastException e) {
+                    // No script property: nothing to check.
+                }
+            }
+            addElements(action, "filter rule ", c.getFilter() == null ? null : c.getFilter().getElements(), of);
+            addElements(action, "transformer step ", c.getTransformer() == null ? null : c.getTransformer().getElements(), of);
+            addElements(action, "response transformer step ", c.getResponseTransformer() == null ? null : c.getResponseTransformer().getElements(), of);
+        }
+    }
+
+    private static void addElements(PreparedAction action, String kind, List<? extends FilterTransformerElement> elements, String of) {
+        if (elements == null) {
+            return;
+        }
+        for (int i = 0; i < elements.size(); i++) {
+            action.withScript(kind + i + " '" + elements.get(i).getName() + "'" + of, generatedScript(elements.get(i)));
+        }
     }
 
     private static String withoutSequence(String xml) {
@@ -1126,7 +1185,7 @@ public class OieTools {
             detail.append("\n  Filter:\n").append(indent(ChannelEditor.describe(c.getFilter() == null ? null : c.getFilter().getElements())))
                     .append("  Transformer:\n").append(indent(ChannelEditor.describe(c.getTransformer() == null ? null : c.getTransformer().getElements())));
         }
-        return new PreparedAction("Create channel", detail.toString().trim(), ctx -> {
+        PreparedAction action = new PreparedAction("Create channel", detail.toString().trim(), ctx -> {
             for (Channel existing : channelController.getChannels(null)) {
                 if (existing.getName().equalsIgnoreCase(name)) {
                     return "Not created: a channel named '" + existing.getName() + "' was created in the meantime.";
@@ -1139,6 +1198,8 @@ public class OieTools {
                     + (cleared.isEmpty() ? "" : " The user must fill in: " + String.join(", ", cleared) + ".")
                     + " Enable and deploy it in the Administrator when it is ready.";
         });
+        addChannelScripts(action, channel);
+        return action;
     }
 
     private static String indent(String lines) {
@@ -1254,7 +1315,7 @@ public class OieTools {
         return new PreparedAction("Change script", detail, ctx -> {
             String notSaved = save(copy, revision, ctx, () -> apply.apply(copy));
             return notSaved != null ? notSaved : "Script saved in channel '" + current.getName() + "' (new revision). Deploy the channel to activate the change.";
-        });
+        }).withScript(location, script);
     }
 
     private PreparedAction prepareDescriptionUpdate(JsonNode in) throws Exception {

@@ -168,7 +168,31 @@ final class ChannelEditor {
         return xml.replaceFirst("^<\\?xml[^>]*\\?>\\s*", "");
     }
 
+    /** Elements that hold code: scripts (script, deployScript, preprocessingScript, …) and Mapper fields. */
+    private static final Pattern CODE = Pattern.compile("(?s)<([A-Za-z]*[Ss]cript|mapping|defaultValue)((?:\\s[^>]*)?)(?<!/)>(.*?)</\\1>");
+    /** An ampersand that does not start one of XML's own entities or a character reference. */
+    private static final Pattern BARE_AMPERSAND = Pattern.compile("&(?!(?:amp|lt|gt|quot|apos|#[0-9]+|#x[0-9A-Fa-f]+);)");
+
+    /**
+     * Escapes a bare &amp; and &lt; in code elements, so JavaScript written into the XML as it is
+     * (a && b, i < n) still parses. Escaped text and CDATA sections are left as they are.
+     */
+    static String escapeCode(String xml) {
+        Matcher m = CODE.matcher(xml);
+        StringBuilder out = new StringBuilder();
+        while (m.find()) {
+            String body = m.group(3);
+            if (!body.contains("<![CDATA[")) {
+                body = BARE_AMPERSAND.matcher(body).replaceAll("&amp;").replace("<", "&lt;");
+            }
+            m.appendReplacement(out, Matcher.quoteReplacement("<" + m.group(1) + m.group(2) + ">" + body + "</" + m.group(1) + ">"));
+        }
+        m.appendTail(out);
+        return out.toString();
+    }
+
     private static Document parse(String xml) throws Exception {
+        xml = escapeCode(xml);
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);

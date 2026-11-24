@@ -162,4 +162,28 @@ public class ChannelEditorTest {
         // Already masked text in the old description is no loss.
         assertFalse(ChannelEditor.describeDescriptionChange("ADT in", "Password *** in the map", "Password *** in the map; files ADT").contains("WARNING"));
     }
+
+    private static final String JS_STEP_OPEN = "<com.mirth.connect.plugins.javascriptstep.JavaScriptStep version=\"4.6.0\"><name>mrn</name><sequenceNumber>0</sequenceNumber><enabled>true</enabled><script>";
+    private static final String JS_STEP_CLOSE = "</script></com.mirth.connect.plugins.javascriptstep.JavaScriptStep>";
+
+    @Test
+    public void bareAmpersandsAndLessThanInScriptsAreEscaped() throws Exception {
+        // As the model wrote it in a real test: JavaScript straight into the XML.
+        String raw = "<elements>" + JS_STEP_OPEN + "var mrn = msg && msg.PID && msg.PID['PID.3']; for (var i = 0; i < 3; i++) {}" + JS_STEP_CLOSE + "</elements>";
+        String escaped = "<list>" + JS_STEP_OPEN + "var mrn = msg &amp;&amp; msg.PID &amp;&amp; msg.PID['PID.3']; for (var i = 0; i &lt; 3; i++) {}" + JS_STEP_CLOSE + "</list>";
+        assertEquals(escaped, ChannelEditor.elementList(raw, "4.6.0"));
+        // Already escaped XML stays the same.
+        assertEquals(escaped, ChannelEditor.elementList(escaped.replace("<list>", "<elements>").replace("</list>", "</elements>"), "4.6.0"));
+    }
+
+    @Test
+    public void cdataEntitiesAndOtherElementsAreLeftAlone() {
+        String cdata = "<script><![CDATA[if (a && b < c) {}]]></script>";
+        assertEquals(cdata, ChannelEditor.escapeCode(cdata));
+        // A literal "&nbsp;" in a JavaScript string is not an XML entity, so it is escaped too.
+        assertEquals("<mapping>'a&amp;nbsp;b' + '&lt;'</mapping>", ChannelEditor.escapeCode("<mapping>'a&nbsp;b' + '&lt;'</mapping>"));
+        assertEquals("<deployScript>return a &amp;&amp; b;</deployScript><name>A & B</name><defaultValue/>",
+                ChannelEditor.escapeCode("<deployScript>return a && b;</deployScript><name>A & B</name><defaultValue/>"));
+        assertEquals("<script/><scriptPath>x</scriptPath>", ChannelEditor.escapeCode("<script/><scriptPath>x</scriptPath>"));
+    }
 }

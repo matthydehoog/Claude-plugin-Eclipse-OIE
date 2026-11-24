@@ -117,6 +117,13 @@
     <!-- OIE's script editor, for the Explain with AI Assistant menu item; the same version in 4.6 and 4.7. -->
     <dependency>
       <groupId>oie</groupId>
+      <artifactId>rhino</artifactId>
+      <version>1.7.13</version>
+      <scope>system</scope>
+      <systemPath>${oie.home}/server-lib/rhino-1.7.13.jar</systemPath>
+    </dependency>
+    <dependency>
+      <groupId>oie</groupId>
       <artifactId>rsyntaxtextarea</artifactId>
       <version>2.5.6</version>
       <scope>system</scope>
