@@ -51,6 +51,7 @@ import com.mirth.connect.server.controllers.ConfigurationController;
 import com.mirth.connect.server.controllers.ControllerFactory;
 import com.mirth.connect.server.controllers.EngineController;
 import com.mirth.connect.server.controllers.EventController;
+import com.mirth.connect.server.controllers.ScriptController;
 
 /**
  * The parts of {@link AssistantService} that protect data and control actions, with a scripted
@@ -92,6 +93,9 @@ public class AssistantServiceTest {
         when(factory.createChannelController()).thenReturn(channels);
         when(factory.createEngineController()).thenReturn(engine);
         when(factory.createConfigurationController()).thenReturn(configuration);
+        ScriptController scripts = mock(ScriptController.class);
+        when(scripts.getGlobalScripts()).thenReturn(new java.util.HashMap<>());
+        when(factory.createScriptController()).thenReturn(scripts);
         previousFactory = swapFactory(factory);
     }
 
@@ -398,6 +402,40 @@ public class AssistantServiceTest {
                 .isUserAuthorized(any(), operations.capture(), anyMap(), anyString(), anyBoolean());
         assertTrue(operations.getAllValues().stream()
                 .anyMatch(op -> op instanceof ExtensionOperation && CONFIRM.equals(op.getName())));
+    }
+
+    // ------------------------------------------------------------------ compile check of proposed scripts
+
+    private static final String[] BAD_SCRIPT = { "oie_update_global_script", "{\"scriptType\":\"deploy\",\"script\":\"var mrn = msg?.PID;\\nreturn;\"}" };
+    private static final String[] GOOD_SCRIPT = { "oie_update_global_script", "{\"scriptType\":\"deploy\",\"script\":\"logger.info('deployed');\\nreturn;\"}" };
+
+    @Test
+    public void aScriptThatDoesNotCompileGoesBackToTheModelOnce() throws Exception {
+        AssistantService service = service(Settings.REVIEW_OFF, BAD_SCRIPT, BAD_SCRIPT);
+        ChatJob job = service.startChat(USER, ADDRESS, null, "Change the deploy script", null);
+        await(() -> job.pending() != null, "the approval");
+
+        // First proposal: not shown, the model hears the error and the line.
+        assertTrue(toolResults.get(0), toolResults.get(0).startsWith("Not shown to the user: the proposed JavaScript does not compile"));
+        assertTrue(toolResults.get(0), toolResults.get(0).contains("global deploy script, line 1: "));
+        assertTrue(eventTexts(job, "info").get(0).contains("does not compile"));
+        // The same proposal again: shown, with the warning on top.
+        String detail = job.pending().prepared.detail;
+        assertTrue(detail, detail.startsWith("WARNING: the script does not compile in OIE's JavaScript engine (Rhino)."));
+        assertTrue(detail, detail.contains("var mrn = msg?.PID;"));
+        service.decide(job, job.pending().id, false, new ServerEventContext(USER), ADDRESS);
+        await(() -> finished(job), "the chat");
+    }
+
+    @Test
+    public void aScriptThatCompilesIsShownWithoutWarning() throws Exception {
+        AssistantService service = service(Settings.REVIEW_OFF, GOOD_SCRIPT);
+        ChatJob job = service.startChat(USER, ADDRESS, null, "Change the deploy script", null);
+        await(() -> job.pending() != null, "the approval");
+
+        assertTrue(job.pending().prepared.detail.startsWith("Global deploy script"));
+        service.decide(job, job.pending().id, false, new ServerEventContext(USER), ADDRESS);
+        await(() -> finished(job), "the chat");
     }
 
     @Test

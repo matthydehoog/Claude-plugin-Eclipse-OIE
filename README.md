@@ -89,7 +89,10 @@ A script, filter, transformer or description change saves the channel with a new
 if the channel changed in the meantime, nothing is saved. The approval dialog shows the current and
 new rules or steps, and the script OIE generates for each new one. A new channel is created disabled
 and undeployed, with credentials left empty for you to fill in. Every executed action is written to the audit log as
-event `AI Assistant: …`, in the name of the user who approved it.
+event `AI Assistant: …`, in the name of the user who approved it. Before the dialog opens, every
+proposed script is compiled with OIE's own Rhino and language version (nothing is run). A script that
+does not compile goes back to the assistant once to be corrected; if it still fails, the dialog shows a
+warning with the compile error.
 
 ## Privacy
 

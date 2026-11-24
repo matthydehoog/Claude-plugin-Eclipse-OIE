@@ -105,6 +105,8 @@ public class AssistantService {
     private volatile Masker masker;
     private volatile OieTools tools;
     private volatile ModelLoop loop;
+    /** Compiles proposed scripts with OIE's Rhino before the user sees them. */
+    private final ScriptCheck scriptCheck = new ScriptCheck();
 
     /** Anthropic asks to poll the cost report at most about once a minute. */
     private static final long SPEND_CACHE_MS = TimeUnit.SECONDS.toMillis(60);
@@ -660,6 +662,17 @@ public class AssistantService {
             return sent;
         }
         OieTools.PreparedAction prepared = t.prepare(name, input);
+        List<String> compileErrors = prepared.scripts.isEmpty() ? List.of() : scriptCheck.check(prepared.scripts);
+        if (!compileErrors.isEmpty()) {
+            String errors = String.join("\n", compileErrors);
+            // Once per proposal the model gets the error and a chance to correct it, before the user sees it.
+            if (job.firstScriptRejection(name + " " + String.join("|", prepared.scripts.keySet()))) {
+                job.emit("info", "The proposed script does not compile in OIE's JavaScript engine; the assistant is correcting it.");
+                logger.info("AI Assistant: proposed " + name + " does not compile; sent back to the model: " + errors.replace('\n', ' '));
+                return masker.mask(scriptRejection(scriptCheck.languageVersion(), errors));
+            }
+            prepared = prepared.withDetail(scriptWarning(errors) + prepared.detail);
+        }
         // The confirmation dialog shows the detail, so it goes through the masker like everything else.
         OieTools.PreparedAction shown = new OieTools.PreparedAction(prepared.title, masker.mask(prepared.detail), prepared.runner);
         ChatJob.PendingAction pending = job.await(name, shown, false);
@@ -670,6 +683,21 @@ public class AssistantService {
             job.emit("info", "No decision within " + ACTION_TIMEOUT_MINUTES + " minutes; the action was not run.");
             return "The user did not decide in time; the action was not run.";
         }
+    }
+
+    /** What the model hears when its proposal does not compile: the errors and how to fix them. */
+    static String scriptRejection(String languageVersion, String errors) {
+        return "Not shown to the user: the proposed JavaScript does not compile in OIE's JavaScript engine (Mozilla Rhino, language version "
+                + languageVersion + "), so it would fail when the channel is deployed or a message comes in.\n\n" + errors
+                + "\n\nRewrite the script with syntax this Rhino accepts. It lacks, among others, classes, async/await, optional chaining (?.), "
+                + "nullish coalescing (??), default parameters and spread (...); when in doubt, use plain ES5. "
+                + "Then propose the complete corrected action again.";
+    }
+
+    /** The warning at the top of the approval dialog when a corrected proposal still does not compile. */
+    static String scriptWarning(String errors) {
+        return "WARNING: the script does not compile in OIE's JavaScript engine (Rhino). The AI Assistant could not correct it; if you approve, "
+                + "the error appears when the channel is deployed or a message comes in.\n" + errors + "\n\n";
     }
 
     /**

@@ -23,6 +23,14 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  */
 public class ChatJob {
 
+    /** Proposals whose scripts did not compile and were sent back to the model once. */
+    private final java.util.Set<String> scriptRejections = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /** True the first time a proposal with this key fails the compile check in this job. */
+    boolean firstScriptRejection(String key) {
+        return scriptRejections.add(key);
+    }
+
     public enum State {
         RUNNING, WAITING, DONE, ERROR, CANCELLED
     }
