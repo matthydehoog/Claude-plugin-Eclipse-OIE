@@ -115,6 +115,7 @@ public class OieTools {
             Map.entry("oie_get_code_template", "getCodeTemplates"),
             Map.entry("oie_global_scripts", "getGlobalScripts"),
             Map.entry("oie_configuration_map", "getConfigurationMap"),
+            Map.entry("oie_find_usages", "getChannel"),
             Map.entry("oie_deploy_channel", "deployChannels"),
             Map.entry("oie_undeploy_channel", "undeployChannels"),
             Map.entry("oie_start_channel", "startChannels"),
@@ -324,6 +325,75 @@ public class OieTools {
         read("oie_global_scripts", "The global Deploy, Undeploy, Preprocessor and Postprocessor scripts, which run for every channel (in addition to each channel's own scripts).", props(), in -> globalScripts());
 
         read("oie_configuration_map", "Keys of the Configuration Map. Values are never returned because they often contain passwords or paths.", props(), in -> String.join("\n", new TreeMap<>(configurationController.getConfigurationMap()).keySet()));
+
+        read("oie_find_usages", "Finds where something is used, in one call over all channels (channel scripts, filter rules, transformer steps, response transformers, connector settings), "
+                + "code templates and global scripts. Returns only locations (channel, connector, element, line or setting) and the form of each use, never code or values. "
+                + "Use it before changing or removing something, to answer 'what breaks if I change X?', and to see which channels send to a channel. "
+                + "kind: config = a Configuration Map key ($cfg, configurationMap.get, ${key} in settings); map = a variable in globalMap, globalChannelMap, channelMap, connectorMap, responseMap or sourceMap "
+                + "(get/put and $g, $gc, $c, $co, $r, $s, $()); function = a code template function (definition and calls); channel = a channel by ID or name (Channel Writer, router.routeMessage, routeMessageByChannelId).", props(
+                "kind", enumStr("What to look for", Usages.KINDS),
+                "name", str("The key, variable or function name (case-sensitive), or the channel's ID or name")), this::findUsages, "kind", "name");
+    }
+
+    private String findUsages(JsonNode in) throws Exception {
+        String kind = text(in, "kind");
+        String name = text(in, "name").trim();
+        List<Channel> channels = channelController.getChannels(null);
+        String channelId = null;
+        if (Usages.CHANNEL.equals(kind)) {
+            for (Channel c : channels) {
+                if (c.getId().equals(name) || c.getName().equalsIgnoreCase(name)) {
+                    channelId = c.getId();
+                    name = c.getName();
+                    break;
+                }
+            }
+        }
+        Usages usages = new Usages(kind, name, channelId);
+        ObjectXMLSerializer serializer = ObjectXMLSerializer.getInstance();
+        List<Usages.Source> sources = new ArrayList<>();
+        for (Channel c : channels) {
+            String group = "Channel '" + c.getName() + "' (" + c.getId() + ")";
+            sources.add(new Usages.Source(group, "deploy script", c.getDeployScript(), false, true));
+            sources.add(new Usages.Source(group, "undeploy script", c.getUndeployScript(), false, true));
+            sources.add(new Usages.Source(group, "preprocessor", c.getPreprocessingScript(), false, true));
+            sources.add(new Usages.Source(group, "postprocessor", c.getPostprocessingScript(), false, true));
+            for (Connector con : connectors(c)) {
+                String where = (con.getMetaDataId() == 0 ? "source" : "destination " + con.getMetaDataId()) + " '" + con.getName() + "'";
+                if (con.getProperties() != null) {
+                    sources.add(new Usages.Source(group, where + " (" + con.getTransportName() + ")", Masker.unescapeXml(serializer.serialize(con.getProperties())), true, false));
+                }
+                addUsageSources(sources, group, where + ", filter rule ", con.getFilter() == null ? null : con.getFilter().getElements());
+                addUsageSources(sources, group, where + ", transformer step ", con.getTransformer() == null ? null : con.getTransformer().getElements());
+                addUsageSources(sources, group, where + ", response transformer step ", con.getResponseTransformer() == null ? null : con.getResponseTransformer().getElements());
+            }
+        }
+        for (CodeTemplateLibrary lib : codeTemplateController.getLibraries(null, true)) {
+            if (lib.getCodeTemplates() == null) {
+                continue;
+            }
+            for (com.mirth.connect.model.codetemplates.CodeTemplate t : lib.getCodeTemplates()) {
+                sources.add(new Usages.Source("Code template library '" + lib.getName() + "'", "code template '" + t.getName() + "'", t.getCode(), false, true));
+            }
+        }
+        Map<String, String> globals = scriptController.getGlobalScripts();
+        for (String type : GLOBAL_SCRIPT_TYPES) {
+            sources.add(new Usages.Source("Global scripts", "global " + type + " script", globals == null ? null : globals.get(globalScriptKey(type)), false, true));
+        }
+        String result = usages.find(sources);
+        return Usages.CHANNEL.equals(kind) && channelId == null ? "There is no channel with ID or name '" + name + "'; searched for the name as text.\n\n" + result : result;
+    }
+
+    /** One source per element: its script, as OIE generates it; line numbers only for JavaScript elements. */
+    private static void addUsageSources(List<Usages.Source> sources, String group, String prefix, List<? extends FilterTransformerElement> elements) {
+        if (elements == null) {
+            return;
+        }
+        for (int i = 0; i < elements.size(); i++) {
+            FilterTransformerElement element = elements.get(i);
+            boolean javaScript = element.getClass().getSimpleName().startsWith("JavaScript");
+            sources.add(new Usages.Source(group, prefix + i + " '" + element.getName() + "'" + (javaScript ? "" : " [" + element.getType() + "]"), generatedScript(element), false, javaScript));
+        }
     }
 
     /** ScriptController's keys for the global scripts, by the scriptType names Claude uses. */
