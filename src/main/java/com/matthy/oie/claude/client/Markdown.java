@@ -42,6 +42,17 @@ final class Markdown {
     }
 
     static String toHtml(String markdown) {
+        return toHtml(markdown, null);
+    }
+
+    /** Link that copies code block N of the transcript (see {@link #toHtml(String, List)}). */
+    static final String COPY_LINK = "copy:";
+
+    /**
+     * @param codeBlocks when not null, each code block's text is added to it and the block gets a
+     *                   Copy link (href {@link #COPY_LINK} + its index in the list)
+     */
+    static String toHtml(String markdown, List<String> codeBlocks) {
         String[] lines = markdown.replace("\r\n", "\n").replace('\r', '\n').split("\n", -1);
         StringBuilder out = new StringBuilder();
         List<String> paragraph = new ArrayList<>();
@@ -59,7 +70,12 @@ final class Markdown {
                     i++;
                 }
                 i++; // closing fence
-                out.append("<pre>").append(escape(code.toString().replaceAll("\\n$", ""))).append("</pre>");
+                String text = code.toString().replaceAll("\\n$", "");
+                if (codeBlocks != null) {
+                    codeBlocks.add(text);
+                    out.append("<div class=\"copy\"><a href=\"").append(COPY_LINK).append(codeBlocks.size() - 1).append("\">Copy</a></div>");
+                }
+                out.append("<pre>").append(escape(text)).append("</pre>");
                 continue;
             }
             if (trimmed.isEmpty()) {

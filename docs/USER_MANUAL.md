@@ -160,6 +160,7 @@ The context shows at the top of the chat window. *No context* means the assistan
 - **Conversations…** lists your earlier conversations; choose one and click *Continue* to pick it up where you left off.
 - **Export…** saves the open conversation as a Markdown file.
 - **Save answer…** saves only the assistant's last answer as a separate Markdown file, named after its first heading. Use it for a channel's documentation.
+- **Copy** above a code block in an answer copies that block to the clipboard exactly as written, without the Markdown fences, for example a fixed transformer step to paste into the editor. The status line says how many lines were copied. The link appears once the answer is complete.
 
 The window stays open next to the Administrator, so you can keep working while the assistant answers. Unsaved changes in the channel editor are not visible to the assistant: save first.
 
@@ -182,7 +183,7 @@ The web administrator gets the same assistant once the **Web Support** extension
 | **Command palette** (Ctrl+K) | *AI Assistant*, *Check queues and storage* and *Ask AI Assistant about Global Scripts* |
 | **Settings**, tab **AI Assistant** | Same settings and usage as in Swing; save with the page's own *Save* |
 
-A conversation stays open while you move between the AI Assistant page and other views. The AI Assistant page has the same **Conversations…**, **Export** and **Save answer** buttons as the Swing window; they download the Markdown file.
+A conversation stays open while you move between the AI Assistant page and other views. The AI Assistant page has the same **Conversations…**, **Export** and **Save answer** buttons as the Swing window; they download the Markdown file. Every code block in a finished answer has a **Copy** button in its top-right corner, which copies the block exactly and briefly shows *Copied*.
 
 The Global Scripts view in the web administrator has no *Ask AI Assistant* action. Use the **Global Scripts** button on the AI Assistant page instead.
 

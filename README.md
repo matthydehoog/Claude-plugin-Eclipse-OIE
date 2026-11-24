@@ -40,6 +40,7 @@ Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exerci
 The chat window stays open next to the Administrator. Ctrl+Enter sends; *New conversation* starts
 over; *Stop* aborts a running question. *Export…* saves the conversation as a Markdown file, *Save answer…* only
 the assistant's last answer (for example a channel's documentation), and *Conversations…* continues one of your earlier conversations.
+*Copy* on a code block in an answer copies it exactly, without the Markdown fences (Swing and web).
 
 ### Web administrator
 

@@ -69,6 +69,8 @@ class ChatDialog extends JDialog {
 
     /** HTML fragments of the transcript, in order. */
     private final List<String> entries = new ArrayList<>();
+    /** Code blocks of the finished answers in the transcript, by the index in their Copy link. */
+    private final List<String> codeBlocks = new ArrayList<>();
     /** Claude's answer while it is being written, shown after the entries. */
     private String partial = "";
     /** Claude's last complete answer, as Markdown, for Save answer. */
@@ -103,12 +105,18 @@ class ChatDialog extends JDialog {
         css.addRule("th { background-color: #e8e8e8; text-align: left; }");
         css.addRule(".user { background-color: #e9f1fb; padding: 6px; margin-top: 10px; }");
         css.addRule(".claude { padding: 2px 6px; }");
+        css.addRule(".copy { text-align: right; font-size: 9pt; margin-top: 4px; }");
         css.addRule(".tool { color: #707070; font-size: 9pt; margin-left: 6px; }");
         css.addRule(".action { color: #1b6e20; margin: 4px 6px; }");
         css.addRule(".error { color: #b00020; margin: 4px 6px; }");
         css.addRule(".info { color: #8a5a00; margin: 4px 6px; }");
         transcript.setEditorKit(kit);
         transcript.setContentType("text/html");
+        transcript.addHyperlinkListener(e -> {
+            if (e.getEventType() == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED && e.getDescription() != null && e.getDescription().startsWith(Markdown.COPY_LINK)) {
+                copyCode(e.getDescription().substring(Markdown.COPY_LINK.length()));
+            }
+        });
 
         JPanel top = new JPanel(new BorderLayout(6, 0));
         top.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
@@ -194,8 +202,21 @@ class ChatDialog extends JDialog {
         clearContextButton.setEnabled(newContext != null);
     }
 
+    /** Copies a code block of the transcript exactly, without the Markdown fences. */
+    private void copyCode(String index) {
+        try {
+            String code = codeBlocks.get(Integer.parseInt(index));
+            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(code), null);
+            int lines = code.isEmpty() ? 0 : code.split("\n", -1).length;
+            statusLabel.setText("Copied " + lines + (lines == 1 ? " line" : " lines") + " to the clipboard.");
+        } catch (RuntimeException e) {
+            statusLabel.setText("Could not copy the code block.");
+        }
+    }
+
     private void showWelcome() {
         entries.clear();
+        codeBlocks.clear();
         entries.add("<div class=\"info\">Ask a question about your OIE server, for example <i>Which channels have errors?</i> or <i>Why does this message fail?</i><br>"
                 + "Message content is masked before it is sent to the AI model. Actions such as deploying only run after you approve them.</div>");
         render();
@@ -310,6 +331,7 @@ class ChatDialog extends JDialog {
     private void showConversation(JsonNode resumed) {
         conversationId = resumed.path("conversationId").asText();
         entries.clear();
+        codeBlocks.clear();
         setLastAnswer(null);
         for (JsonNode e : resumed.path("log")) {
             String text = e.path("text").asText();
@@ -318,7 +340,7 @@ class ChatDialog extends JDialog {
                     entries.add("<div class=\"user\"><b>You:</b> " + Markdown.escape(text).replace("\n", "<br>") + "</div>");
                     break;
                 case "text":
-                    entries.add("<div class=\"claude\">" + Markdown.toHtml(text) + "</div>");
+                    entries.add("<div class=\"claude\">" + Markdown.toHtml(text, codeBlocks) + "</div>");
                     setLastAnswer(text);
                     break;
                 case "tool":
@@ -406,7 +428,7 @@ class ChatDialog extends JDialog {
             String text = e.path("text").asText();
             switch (e.path("type").asText()) {
                 case "text":
-                    add("<div class=\"claude\">" + Markdown.toHtml(text) + "</div>");
+                    add("<div class=\"claude\">" + Markdown.toHtml(text, codeBlocks) + "</div>");
                     setLastAnswer(text);
                     break;
                 case "tool":
