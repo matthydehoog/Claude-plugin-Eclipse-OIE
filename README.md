@@ -54,6 +54,9 @@ the assistant's last answer (for example a channel's documentation), and *Conver
 The extension also ships a UI for the OIE web administrator (`oie-webadmin`). It needs the
 **Web Support** (`websupport`) extension on the engine, which serves the plugin's `webadmin/` folder.
 
+<img width="256" height="160" alt="image" src="https://github.com/user-attachments/assets/4cb66688-4c6f-4b06-9a63-c85ed1057d37" />
+
+
 | Place | What |
 |---|---|
 | Left rail, **Plugins > AI Assistant** | the chat as a full page |
