@@ -40,7 +40,7 @@ public class PermissionsTest {
                 assertTrue(op.name() + " has permission " + op.permission(), permissions.contains(op.permission()));
             }
         }
-        assertEquals(13, operations);
+        assertEquals(14, operations);
     }
 
     @Test

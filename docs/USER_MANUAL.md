@@ -151,6 +151,8 @@ Start from the place your question is about: *Ask AI Assistant* there sends the 
 
 The context shows at the top of the chat window. *No context* means the assistant looks at the whole server.
 
+**Suggested questions.** With a context, two to four buttons appear under the context line (after *Ask:*), for example *Explain what this channel does.*, *Check this channel for errors and weak spots.* and *Document this channel.* for a channel, or *Why did this message fail?* and *Which destinations received this message?* for a message. Clicking one sends it as your question. The suggestions are fixed per kind of context (channel, message, code template, global scripts, dashboard selection), so they appear at once and cost nothing. With a fixed *Response language* they are in that language; with *Automatic* they are in English. They disappear once the conversation has a question and come back with *New conversation*.
+
 **In the chat window:**
 
 - Type your question and press **Ctrl+Enter** (or click *Send*).

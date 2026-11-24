@@ -75,6 +75,8 @@ const CSS = `
 .claude-contextbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--text-dim); font-size: 12px; }
 .claude-contextbar .claude-context { flex: 1 1 240px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .claude-contextbar .btn { flex: none; white-space: nowrap; }
+.claude-suggestions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--text-dim); font-size: 12px; }
+.claude-suggestions .btn { flex: none; white-space: nowrap; }
 .claude-transcript { flex: 1; min-height: 160px; overflow: auto; background: var(--bg1); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
 .claude-transcript > div { margin: 6px 0; }
 .claude-user { background: var(--bg3); border-radius: var(--radius); padding: 6px 10px; white-space: pre-wrap; margin-top: 14px !important; }
@@ -311,6 +313,9 @@ const chat = {
     conversationId: null,
     context: null,
     suggestion: null,
+    // Suggested questions for the context (from the server, in the response language); shown until the first question.
+    suggestions: [],
+    suggestionsFor: undefined,
     entries: [],
     // Claude's answer while it is being written; replaced by the complete "text" event.
     partial: "",
@@ -347,11 +352,31 @@ const chat = {
             this.suggestion = suggestion;
             this.replaceSuggestion = !!replace;
         }
+        this.loadSuggestions();
         this.notify();
     },
     clearContext() {
         this.context = null;
+        this.loadSuggestions();
         this.notify();
+    },
+    /** Fetches the suggested questions when the context changed; fixed texts, no model call. */
+    loadSuggestions() {
+        const context = this.context;
+        if (context === this.suggestionsFor) return;
+        this.suggestionsFor = context;
+        this.suggestions = [];
+        if (!context) return;
+        call("POST", "/suggestions", { context }).then((res) => {
+            if (this.context === context) {
+                this.suggestions = (res && res.suggestions) || [];
+                this.notify();
+            }
+        }).catch(() => {});
+    },
+    /** Suggestions show only before the first question of the conversation. */
+    shownSuggestions() {
+        return this.context && !this.entries.some((entry) => entry.kind === "user") ? this.suggestions : [];
     },
 
     async send(text) {
@@ -723,6 +748,17 @@ function ChatPanel() {
             e("button", { className: "btn", title: "Save this conversation as a Markdown file", disabled: !c.conversationId, onClick: () => c.exportConversation() }, "Export"),
             e("button", { className: "btn", title: "Save only the AI Assistant's last answer as a Markdown file, for example a channel's documentation", disabled: c.busy || !c.lastAnswer(), onClick: () => c.saveAnswer() }, "Save answer"),
             e("button", { className: "btn", onClick: () => c.newConversation() }, "New conversation")),
+        c.shownSuggestions().length
+            ? e("div", { className: "claude-suggestions" },
+                e("span", null, "Ask:"),
+                c.shownSuggestions().map((question) => e("button", {
+                    key: question,
+                    className: "btn",
+                    title: "Send this question",
+                    disabled: c.busy,
+                    onClick: () => c.send(question)
+                }, question)))
+            : null,
         e("div", { className: "claude-transcript", ref: transcriptRef },
             welcome,
             c.entries.map((entry, i) => e(Entry, { key: i, entry })),
