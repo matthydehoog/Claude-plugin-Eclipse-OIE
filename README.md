@@ -11,6 +11,10 @@ after you approve them.
 **New here?** Read the [User Manual](docs/USER_MANUAL.md) for installation, setup, daily use and
 troubleshooting.
 
+**Wiki:** the [project wiki](https://github.com/matthydehoog/Claude-plugin-Eclipse-OIE/wiki) has the same
+information in short pages per topic: setup, where to find the assistant, features, approvals, privacy,
+permissions, costs and troubleshooting.
+
 **Training:** the online course
 [AI Assistant for Eclipse OIE](https://eclipse-oie.moodiy.cloud/course/view.php?id=3) at the
 Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exercises on a test channel.
