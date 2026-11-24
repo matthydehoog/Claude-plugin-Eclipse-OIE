@@ -123,6 +123,12 @@ public interface ClaudeServletInterface extends BaseServletInterface {
     @MirthOperation(name = "claudeResumeConversation", display = "Continue AI Assistant conversation", permission = PERMISSION_USE, auditable = false)
     String resumeConversation(@Param("conversationId") @Parameter(description = "Conversation ID.", required = true) @PathParam("conversationId") String conversationId) throws ClientException;
 
+    @POST
+    @Path("/suggestions")
+    @Operation(summary = "Suggested questions for a chat opened with context, in the fixed response language. Body: {context}. Returns {suggestions: [...]}, empty without context.")
+    @MirthOperation(name = "claudeSuggestions", display = "Get AI Assistant suggested questions", permission = PERMISSION_USE, auditable = false)
+    String suggestions(@Param("body") @Parameter(description = "Request as JSON.", required = true) String body) throws ClientException;
+
     @GET
     @Path("/settings")
     @Operation(summary = "Returns the plugin settings. The API key is never returned, only whether one is set.")

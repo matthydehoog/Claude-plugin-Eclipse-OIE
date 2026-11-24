@@ -75,6 +75,10 @@ const CSS = `
 .claude-contextbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--text-dim); font-size: 12px; }
 .claude-contextbar .claude-context { flex: 1 1 240px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .claude-contextbar .btn { flex: none; white-space: nowrap; }
+.claude-suggestions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--text-dim); font-size: 12px; }
+.claude-suggestions .btn { flex: none; white-space: nowrap; }
+.claude-dashboard-tab { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.claude-dashboard-tab .claude-row-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
 .claude-transcript { flex: 1; min-height: 160px; overflow: auto; background: var(--bg1); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
 .claude-transcript > div { margin: 6px 0; }
 .claude-user { background: var(--bg3); border-radius: var(--radius); padding: 6px 10px; white-space: pre-wrap; margin-top: 14px !important; }
@@ -311,6 +315,9 @@ const chat = {
     conversationId: null,
     context: null,
     suggestion: null,
+    // Suggested questions for the context (from the server, in the response language); shown until the first question.
+    suggestions: [],
+    suggestionsFor: undefined,
     entries: [],
     // Claude's answer while it is being written; replaced by the complete "text" event.
     partial: "",
@@ -347,11 +354,31 @@ const chat = {
             this.suggestion = suggestion;
             this.replaceSuggestion = !!replace;
         }
+        this.loadSuggestions();
         this.notify();
     },
     clearContext() {
         this.context = null;
+        this.loadSuggestions();
         this.notify();
+    },
+    /** Fetches the suggested questions when the context changed; fixed texts, no model call. */
+    loadSuggestions() {
+        const context = this.context;
+        if (context === this.suggestionsFor) return;
+        this.suggestionsFor = context;
+        this.suggestions = [];
+        if (!context) return;
+        call("POST", "/suggestions", { context }).then((res) => {
+            if (this.context === context) {
+                this.suggestions = (res && res.suggestions) || [];
+                this.notify();
+            }
+        }).catch(() => {});
+    },
+    /** Suggestions show only before the first question of the conversation. */
+    shownSuggestions() {
+        return this.context && !this.entries.some((entry) => entry.kind === "user") ? this.suggestions : [];
     },
 
     async send(text) {
@@ -723,6 +750,17 @@ function ChatPanel() {
             e("button", { className: "btn", title: "Save this conversation as a Markdown file", disabled: !c.conversationId, onClick: () => c.exportConversation() }, "Export"),
             e("button", { className: "btn", title: "Save only the AI Assistant's last answer as a Markdown file, for example a channel's documentation", disabled: c.busy || !c.lastAnswer(), onClick: () => c.saveAnswer() }, "Save answer"),
             e("button", { className: "btn", onClick: () => c.newConversation() }, "New conversation")),
+        c.shownSuggestions().length
+            ? e("div", { className: "claude-suggestions" },
+                e("span", null, "Ask:"),
+                c.shownSuggestions().map((question) => e("button", {
+                    key: question,
+                    className: "btn",
+                    title: "Send this question",
+                    disabled: c.busy,
+                    onClick: () => c.send(question)
+                }, question)))
+            : null,
         e("div", { className: "claude-transcript", ref: transcriptRef },
             welcome,
             c.entries.map((entry, i) => e(Entry, { key: i, entry })),
@@ -1113,7 +1151,7 @@ function explainTarget(editor) {
 }
 
 /** The chat in a dialog over the editor: leaving the editor would ask to save or discard unsaved edits. */
-async function openOverEditor(context, question) {
+async function openInDialog(context, question) {
     chat.open(context, question, true);
     try {
         const ui = await import("@oie/web-ui");
@@ -1125,6 +1163,39 @@ async function openOverEditor(context, question) {
         // No dialog support in this web admin: show the chat page instead.
         P.router.navigate("/claude");
     }
+}
+
+/**
+ * The Dashboard's selection as chat context, in the same form as ClaudeClientPlugin.claudeDashboard
+ * ("Selected in the dashboard: ..."), or null when nothing is selected. A selected connector
+ * arrives as { channelId, metaDataId } without a name.
+ */
+function dashboardContext(selection) {
+    if (!selection.length) return null;
+    const parts = selection.map((s) => s.metaDataId != null && !s.name
+        ? `connector ${s.metaDataId} of channel ${s.channelId}`
+        : `'${s.name}' (${s.channelId}${s.state ? ", " + s.state : ""})`);
+    return "Selected in the dashboard: " + parts.join(", ");
+}
+
+/**
+ * "AI Assistant" tab in the Dashboard's bottom strip. The web admin has no plugin hook for the
+ * Dashboard's task pane or context menu, so the Swing tasks Ask AI Assistant and Check queues and
+ * storage live here; the chat opens in a dialog over the Dashboard.
+ */
+function DashboardAssistantTab(props) {
+    const selection = Array.isArray(props.selection) ? props.selection : [];
+    const context = dashboardContext(selection);
+    const ask = () => openInDialog(context, context
+        ? `Analyze the status and errors of ${selection.length === 1 ? "this channel" : "these channels"}.`
+        : "Which channels have errors, and what is the cause?");
+    return e("div", { className: "claude-dashboard-tab" },
+        e("div", { className: "claude-hint" }, context
+            ? context
+            : "No channel selected: the AI Assistant looks at the whole server. Select channels or a connector above to ask about them."),
+        e("div", { className: "claude-row-buttons" },
+            e("button", { className: "btn", title: "Let the AI Assistant analyze the selected channel(s)", onClick: ask }, "Ask AI Assistant"),
+            e("button", { className: "btn", title: "Let the AI Assistant look for stuck queues and channels whose stored messages keep growing", onClick: () => openInDialog(null, QUEUES_SUGGESTION) }, "Check queues and storage")));
 }
 
 function ExplainDialogView() {
@@ -1144,7 +1215,7 @@ function explainCode(editor) {
         // A selection that ends at the start of a line does not include that line.
         lastLine = range.endColumn === 1 && range.endLineNumber > range.startLineNumber ? range.endLineNumber - 1 : range.endLineNumber;
     }
-    openOverEditor(target.context, explainCodeRequest(target.location, code, selection, firstLine, lastLine));
+    openInDialog(target.context, explainCodeRequest(target.location, code, selection, firstLine, lastLine));
 }
 
 /** Marks per editor whether "Explain with AI Assistant" applies: JavaScript in a place explainTarget knows. */
@@ -1217,6 +1288,11 @@ export function register(platform) {
     // Channel tabs have no task gate in the shell, so the tab is only registered when allowed.
     if (mayUse("claudeChannelEdit")) {
         platform.registerChannelTab({ id: "claude-assistant", label: "AI Assistant", order: 90, component: ChannelTab });
+    }
+
+    if (typeof platform.registerDashboardTab === "function") {
+        // Checked by the web admin as checkTask("dashboard", "claudeDashboard"), as Swing publishes it on the Dashboard.
+        platform.registerDashboardTab({ id: "claude-assistant", label: "AI Assistant", order: 90, task: "claudeDashboard", component: DashboardAssistantTab });
     }
 
     platform.registerChannelAction({

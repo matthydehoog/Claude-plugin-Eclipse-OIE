@@ -86,6 +86,13 @@ public class ClaudeServlet extends MirthServlet implements ClaudeServletInterfac
     }
 
     @Override
+    public String suggestions(String body) {
+        ObjectNode out = MAPPER.createObjectNode();
+        Suggestions.forContext(parse(body).path("context").asText(null), service().settings().responseLanguage).forEach(out.putArray("suggestions")::add);
+        return out.toString();
+    }
+
+    @Override
     public String listConversations() {
         return service().listConversations(getCurrentUserId());
     }

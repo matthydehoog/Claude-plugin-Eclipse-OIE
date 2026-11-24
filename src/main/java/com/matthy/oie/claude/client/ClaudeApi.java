@@ -74,6 +74,12 @@ final class ClaudeApi {
         return MAPPER.readTree(servlet().resumeConversation(conversationId));
     }
 
+    static JsonNode suggestions(String context) throws Exception {
+        ObjectNode body = MAPPER.createObjectNode();
+        body.put("context", context);
+        return MAPPER.readTree(servlet().suggestions(body.toString()));
+    }
+
     static JsonNode settings() throws Exception {
         return MAPPER.readTree(servlet().getSettings());
     }

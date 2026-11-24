@@ -67,6 +67,10 @@ class ChatDialog extends JDialog {
     private final JEditorPane transcript = new JEditorPane();
     private final JTextArea input = new JTextArea(4, 60);
     private final JLabel contextLabel = new JLabel();
+    /** Suggested questions for the context, until the first question of the conversation. */
+    private final JPanel suggestionsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+    /** Whether the current conversation has a question; suggestions only show before the first. */
+    private boolean asked;
     private final JLabel statusLabel = new JLabel(" ");
     private final JButton sendButton = new JButton("Send");
     private final JButton stopButton = new JButton("Stop");
@@ -139,6 +143,8 @@ class ChatDialog extends JDialog {
         topButtons.add(saveAnswerButton);
         topButtons.add(newButton);
         top.add(topButtons, BorderLayout.EAST);
+        suggestionsPanel.setVisible(false);
+        top.add(suggestionsPanel, BorderLayout.SOUTH);
 
         input.setLineWrap(true);
         input.setWrapStyleWord(true);
@@ -210,6 +216,45 @@ class ChatDialog extends JDialog {
         context = newContext;
         contextLabel.setText(newContext == null ? "No context: the AI Assistant looks at the whole server." : "<html><b>Context:</b> " + Markdown.escape(newContext) + "</html>");
         clearContextButton.setEnabled(newContext != null);
+        updateSuggestions();
+    }
+
+    /** Fixed suggested questions for the context (from the server, in the response language), before the first question. */
+    private void updateSuggestions() {
+        String forContext = context;
+        if (forContext == null || asked) {
+            showSuggestions(List.of());
+            return;
+        }
+        background(() -> ClaudeApi.suggestions(forContext), result -> {
+            if (forContext.equals(context) && !asked) {
+                List<String> questions = new ArrayList<>();
+                result.path("suggestions").forEach(q -> questions.add(q.asText()));
+                showSuggestions(questions);
+            }
+        }, error -> showSuggestions(List.of()));
+    }
+
+    private void showSuggestions(List<String> questions) {
+        suggestionsPanel.removeAll();
+        if (!questions.isEmpty()) {
+            suggestionsPanel.add(new JLabel("Ask:"));
+        }
+        for (String question : questions) {
+            JButton button = new JButton(question);
+            button.setToolTipText("Send this question");
+            button.setMargin(new java.awt.Insets(1, 6, 1, 6));
+            button.addActionListener(e -> {
+                if (sendButton.isEnabled()) {
+                    input.setText(question);
+                    send();
+                }
+            });
+            suggestionsPanel.add(button);
+        }
+        suggestionsPanel.setVisible(!questions.isEmpty());
+        suggestionsPanel.revalidate();
+        suggestionsPanel.repaint();
     }
 
     /** Copies a code block of the transcript exactly, without the Markdown fences. */
@@ -240,6 +285,8 @@ class ChatDialog extends JDialog {
         partial = "";
         setLastAnswer(null);
         showWelcome();
+        asked = false;
+        updateSuggestions();
     }
 
     /** Saves the conversation as Markdown, as the server has it: what Claude received (masked) and answered. */
@@ -368,6 +415,8 @@ class ChatDialog extends JDialog {
         }
         entries.add("<div class=\"info\">Continued conversation. Ask your next question.</div>");
         render();
+        asked = true;
+        showSuggestions(List.of());
     }
 
     private void send() {
@@ -377,6 +426,8 @@ class ChatDialog extends JDialog {
             return;
         }
         String sentContext = context;
+        asked = true;
+        showSuggestions(List.of());
         add("<div class=\"user\"><b>You:</b> " + Markdown.escape(text).replace("\n", "<br>") + "</div>");
         input.setText("");
         setBusy(true);

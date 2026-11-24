@@ -151,6 +151,8 @@ Start from the place your question is about: *Ask AI Assistant* there sends the 
 
 The context shows at the top of the chat window. *No context* means the assistant looks at the whole server.
 
+**Suggested questions.** With a context, two to four buttons appear under the context line (after *Ask:*), for example *Explain what this channel does.*, *Check this channel for errors and weak spots.* and *Document this channel.* for a channel, or *Why did this message fail?* and *Which destinations received this message?* for a message. Clicking one sends it as your question. The suggestions are fixed per kind of context (channel, message, code template, global scripts, dashboard selection), so they appear at once and cost nothing. With a fixed *Response language* they are in that language; with *Automatic* they are in English. They disappear once the conversation has a question and come back with *New conversation*.
+
 **In the chat window:**
 
 - Type your question and press **Ctrl+Enter** (or click *Send*).
@@ -173,6 +175,7 @@ The web administrator gets the same assistant once the **Web Support** extension
 | Left rail, **Plugins > AI Assistant** | The chat as a full page |
 | **Channel editor**, tab **AI Assistant** | The chat with the open channel as context |
 | **Channels** view, right-click | *Ask AI Assistant* about the selected channel, *Document channel* or *Write description* |
+| **Dashboard**, tab **AI Assistant** (in the strip with *Server Log*) | *Ask AI Assistant* about the channels or connector selected above, or *Check queues and storage*; the chat opens in a dialog over the Dashboard |
 | **Message browser**, right-click | *Ask AI Assistant* about the selected message, or *Explain error* (web admin API 4.7+) |
 | **Code Templates**, right-click | *Ask AI Assistant* about the selected template |
 | **Script editors**, right-click in the code | *Explain with AI Assistant*: the selected code, or the whole script (see *Explaining code*) |
@@ -185,7 +188,7 @@ The web administrator gets the same assistant once the **Web Support** extension
 
 A conversation stays open while you move between the AI Assistant page and other views. The AI Assistant page has the same **Conversations…**, **Export** and **Save answer** buttons as the Swing window; they download the Markdown file. Every code block in a finished answer has a **Copy** button in its top-right corner, which copies the block exactly and briefly shows *Copied*.
 
-The Global Scripts view in the web administrator has no *Ask AI Assistant* action. Use the **Global Scripts** button on the AI Assistant page instead.
+The Global Scripts view in the web administrator has no *Ask AI Assistant* action. Use the **Global Scripts** button on the AI Assistant page instead. The web Dashboard's task pane and right-click menu cannot be extended by plugins, so its *Ask AI Assistant* and *Check queues and storage* are on the **AI Assistant** tab below the channel table.
 
 **Command palette:** open the Dashboard once before searching for "AI Assistant" with Ctrl+K. Searching earlier crashes the palette ([oie-web-client#65](https://github.com/gibson9583/oie-web-client/issues/65)).
 
