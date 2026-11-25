@@ -156,6 +156,7 @@ public interface ClaudeServletInterface extends BaseServletInterface {
     @PUT
     @Path("/settings")
     @Operation(summary = "Updates the plugin settings. An absent or empty apiKey keeps the current key.")
+    // The body holds the API keys: keep it out of the event log (the call itself is still audited).
     @MirthOperation(name = "claudeSetSettings", display = "Set AI Assistant settings", permission = PERMISSION_SETTINGS)
-    String setSettings(@Param("body") @Parameter(description = "Settings as JSON.", required = true) String body) throws ClientException;
+    String setSettings(@Param(value = "body", excludeFromAudit = true) @Parameter(description = "Settings as JSON.", required = true) String body) throws ClientException;
 }
