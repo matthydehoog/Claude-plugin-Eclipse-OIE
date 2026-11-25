@@ -1,7 +1,7 @@
 <pluginMetaData path="claude-assistant">
 	<name>AI Assistant</name>
 	<author>X Connections</author>
-	<pluginVersion>2.0.2</pluginVersion>
+	<pluginVersion>2.1.0</pluginVersion>
 	<mirthVersion>4.6.0,4.7.0</mirthVersion>
 	<url>https://x-connections.info</url>
 	<description>Chat with an AI model (Claude, or an OpenAI-compatible model such as OpenAI, Ollama or vLLM) inside the Administrator about channels, messages, errors and scripts. Message content is masked before it leaves the server, and actions such as deploying or changing scripts only run after the user approves them. Unofficial plugin, not affiliated with or endorsed by Anthropic; Claude is a trademark of Anthropic, PBC. Each organization is responsible for its own use, including patient data sent to the model provider.</description>
