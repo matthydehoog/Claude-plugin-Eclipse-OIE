@@ -30,6 +30,71 @@ Academy for Eclipse OIE covers the same topics, with quizzes and hands-on exerci
 > sends, and the changes its users approve in OIE. The plugin is provided as is, without warranty
 > (see the [Mozilla Public License 2.0](LICENSE)).
 
+## Use cases
+
+The screenshots below come from the web administrator on a test server with two demo channels and
+made-up patients. The answers are real answers from Claude (`claude-opus-5`); a screenshot
+shows part of a longer answer. The same tasks are in the Swing Administrator.
+
+### Why did this message fail?
+
+Three ADT messages are in ERROR. Select one in the message browser and choose **Explain error**.
+
+![Message browser with the Explain error task](docs/images/message-browser-explain-error.png)
+
+The assistant reads the message, its errors and the channel's scripts, and answers under fixed
+headings: *Root cause*, *Where*, *Which data* and *Fix*. Here it finds that the lab system's HTTP
+endpoint refuses connections, that the destination has no queue so the messages are lost, and that
+the URL should come from the Configuration Map key that the transformer reads but never uses.
+
+![Explain error: root cause, where, which data, fix](docs/images/explain-error.png)
+
+### See what leaves the server
+
+Before message content goes to the AI model, **Review before sending** shows exactly what will be
+sent, after masking. The PID segment of the message above goes out as
+`PID|1||***||***||***|M|||***||***`: patient ID, name, birth date, address and phone number masked.
+Edit the text, send it, or choose *Don't send*.
+
+![Review before sending with a masked PID segment](docs/images/review-before-sending.png)
+
+### Check all channels for weak spots
+
+On the Dashboard, tab **AI Assistant**, click **Check all channels**. The assistant checks every
+channel and sorts the findings by importance: messages lost without a queue, passwords typed into
+connector settings, the Data Pruner switched off, Development storage, and logging that runs for
+every message.
+
+![Check all channels: findings by priority](docs/images/check-channels.png)
+
+### Change a script, after your approval
+
+Ask *Remove the logger.info line from the Prepare step in ADT to Lab orders*. The assistant proposes
+the change; nothing happens until you click **Run**. The approval dialog shows the change as a diff,
+and the script has already been compiled with OIE's own Rhino. The channel is saved with a new
+revision but not deployed, and the action is written to the audit log in your name.
+
+![Approval dialog with a diff of the transformer step](docs/images/approve-change.png)
+
+### Where is this used?
+
+Before you change a code template function, ask *Where is the formatHL7Date function used?* **Find
+usages** searches all channels, code templates and global scripts in one go and lists every call
+with its channel, step and line.
+
+![Find usages of a code template function](docs/images/find-usages.png)
+
+### Document a channel
+
+In the Channels view, select a channel and choose **Document channel**. The assistant writes its
+documentation as Markdown: purpose, source, filter, destinations, field mappings, scripts and code
+templates, Configuration Map keys and open points. Passwords and other secrets are left out.
+*Save answer* saves it as a `.md` file.
+
+![The AI Assistant tasks in the Channels view](docs/images/channel-tasks.png)
+
+![Channel documentation written by the assistant](docs/images/document-channel.png)
+
 ## Where to find the AI Assistant in the Administrator
 
 | Place | Task | Context sent along |
