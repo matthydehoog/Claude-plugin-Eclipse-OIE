@@ -881,7 +881,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
 
     const show = React.useCallback((s) => {
         setStatus(s);
-        setForm({ apiKey: "", provider: providerChoice(s.provider, s.baseUrl), baseUrl: s.baseUrl || "", adminApiKey: "", clearAdminApiKey: false, model: s.model || "", effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic", reviewBeforeSending: s.reviewBeforeSending || "data", keepConversationsDays: s.keepConversationsDays || 0 });
+        setForm({ apiKey: "", provider: providerChoice(s.provider, s.baseUrl), baseUrl: s.baseUrl || "", apiMode: s.apiMode || "chat-completions", adminApiKey: "", clearAdminApiKey: false, model: s.model || "", effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic", reviewBeforeSending: s.reviewBeforeSending || "data", keepConversationsDays: s.keepConversationsDays || 0 });
         clean();
         setTest({ state: "idle" });
         loadModels(false);
@@ -1032,6 +1032,10 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
             "Mistral's API (La Plateforme). Enter a key from console.mistral.ai and choose a model that supports tool calling, for example mistral-large-latest or mistral-medium-latest.") : null,
         openAi && !mistral ? row("API base URL:", e("input", { type: "text", value: form.baseUrl, onChange: set("baseUrl"), placeholder: "https://api.openai.com/v1" }),
             "For example https://api.openai.com/v1, http://ollama-host:11434/v1 (Ollama) or http://vllm-host:8000/v1 (vLLM). The OIE server must reach it, and the model must support tool calling. The API key may stay empty for a local server.") : null,
+        openAi ? row("API mode:", e("select", { value: form.apiMode, onChange: set("apiMode") },
+            e("option", { value: "chat-completions" }, "Chat Completions"),
+            e("option", { value: "responses" }, "Responses")),
+            "Select the API supported by your server and model. Save before testing.") : null,
         row("API key:", e("input", { type: "password", value: form.apiKey, onChange: set("apiKey"), autoComplete: "off" }),
             status.apiKeySet ? "Set: " + status.apiKeyHint : "No API key set yet."),
         row("Model:", e("span", { className: "claude-inline" },

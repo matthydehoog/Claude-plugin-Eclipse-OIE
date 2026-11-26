@@ -108,6 +108,43 @@ public class SettingsTest {
     }
 
     @Test
+    public void chatCompletionsIsTheDefaultForExistingSettings() {
+        java.util.Properties properties = Settings.defaults();
+        properties.remove("apiMode");
+        properties.setProperty("provider", "openai-compatible");
+        properties.setProperty("model", "gpt-6.2-sol");
+
+        assertEquals("chat-completions", Settings.fromProperties(properties, null).apiMode);
+        assertEquals("chat-completions", Settings.defaults().getProperty("apiMode"));
+    }
+
+    @Test
+    public void apiModeIsSavedReturnedAndKeptOnPartialUpdates() throws Exception {
+        Settings initial = Settings.fromProperties(Settings.defaults(), null);
+        Settings responses = initial.merge(MAPPER.readTree("{\"provider\":\"openai-compatible\",\"apiMode\":\"responses\"}"));
+        Settings stored = Settings.fromProperties(responses.toProperties(null), null);
+        com.fasterxml.jackson.databind.node.ObjectNode json = MAPPER.createObjectNode();
+
+        stored.writeTo(json);
+
+        assertEquals("responses", responses.apiMode);
+        assertEquals("responses", stored.apiMode);
+        assertEquals("responses", json.path("apiMode").asText());
+        assertEquals("responses", stored.merge(MAPPER.readTree("{\"model\":\"custom-model\"}")).apiMode);
+        assertEquals("responses", stored.merge(MAPPER.readTree("{\"provider\":\"anthropic\"}")).apiMode);
+        assertEquals("chat-completions", stored.merge(MAPPER.readTree("{\"apiMode\":\"chat-completions\"}")).apiMode);
+    }
+
+    @Test
+    public void apiModeIsLimitedToTheSupportedValues() {
+        Settings initial = Settings.fromProperties(Settings.defaults(), null);
+        assertEquals("responses", initial.merge(MAPPER.createObjectNode().put("apiMode", " RESPONSES ")).apiMode);
+        for (String value : new String[] { "", "unknown", "responses-unsupported", String.join("", java.util.Collections.nCopies(100, "responses")) }) {
+            assertEquals("chat-completions", initial.merge(MAPPER.createObjectNode().put("apiMode", value)).apiMode);
+        }
+    }
+
+    @Test
     public void anOpenAiModelIsNotToldItIsClaude() {
         Settings openAi = new Settings("", "", "gpt-4.1", "high", 25, "", null, null, 0, "openai-compatible", "https://api.openai.com/v1");
         String prompt = AssistantService.systemPrompt(openAi);

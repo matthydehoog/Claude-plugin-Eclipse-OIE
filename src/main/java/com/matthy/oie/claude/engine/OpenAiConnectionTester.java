@@ -21,7 +21,7 @@ import com.matthy.oie.claude.server.ConnectionTester;
 
 /**
  * Test connection for OpenAI-compatible providers (OpenAI, Mistral, Ollama, vLLM): GET {baseUrl}/models,
- * then one Chat Completions request with one function, sent the way {@link OpenAiCompatibleLoop} sends.
+ * then one model request with one function, using the same API as {@link OpenAiCompatibleLoop}.
  */
 public final class OpenAiConnectionTester implements ConnectionTester {
 
@@ -30,9 +30,21 @@ public final class OpenAiConnectionTester implements ConnectionTester {
 
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final String baseUrl;
+    private final boolean responsesApi;
 
     public OpenAiConnectionTester(String baseUrl) {
+        this(baseUrl, false);
+    }
+
+    /**
+     * Erstellt den Verbindungstest fuer den gespeicherten API-Modus.
+     *
+     * @param baseUrl Basisadresse des Modellservers
+     * @param responsesApi true fuer Responses, false fuer Chat Completions
+     */
+    public OpenAiConnectionTester(String baseUrl, boolean responsesApi) {
         this.baseUrl = baseUrl == null ? "" : baseUrl.trim();
+        this.responsesApi = responsesApi;
     }
 
     @Override
@@ -72,10 +84,11 @@ public final class OpenAiConnectionTester implements ConnectionTester {
             return out.toString();
         }
 
-        ObjectNode body = JSON.createObjectNode().put("model", model).put("stream", false);
-        body.putArray("messages").addObject().put("role", "user").put("content", ConnectionTest.PROMPT);
-        ObjectNode function = body.putArray("tools").addObject().put("type", "function").putObject("function")
-                .put("name", ConnectionTest.TOOL_NAME).put("description", ConnectionTest.TOOL_DESCRIPTION);
+        ObjectNode body = OpenAiCompatibleLoop.requestBody(model, responsesApi);
+        body.putArray(responsesApi ? "input" : "messages").addObject().put("role", "user").put("content", ConnectionTest.PROMPT);
+        ObjectNode definition = body.putArray("tools").addObject().put("type", "function");
+        ObjectNode function = responsesApi ? definition.put("strict", false) : definition.putObject("function");
+        function.put("name", ConnectionTest.TOOL_NAME).put("description", ConnectionTest.TOOL_DESCRIPTION);
         ObjectNode parameters = function.putObject("parameters").put("type", "object");
         parameters.set("properties", JSON.valueToTree(ConnectionTest.TOOL_PROPERTIES));
         parameters.putArray("required").add("status");
@@ -83,13 +96,13 @@ public final class OpenAiConnectionTester implements ConnectionTester {
         ObjectNode tool = out.putObject("tool");
         try {
             // A local server may first have to load the model, so allow more time than for the list.
-            HttpRequest request = authorized(HttpRequest.newBuilder(URI.create(OpenAiCompatibleLoop.endpoint(baseUrl, "/chat/completions"))), key)
+            HttpRequest request = authorized(HttpRequest.newBuilder(URI.create(OpenAiCompatibleLoop.endpoint(baseUrl, responsesApi ? "/responses" : "/chat/completions"))), key)
                     .timeout(Duration.ofMinutes(2)).header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(body))).build();
             HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
             tool.put("status", response.statusCode());
             if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                JsonNode message = JSON.readTree(response.body()).path("choices").path(0).path("message");
+                JsonNode message = OpenAiCompatibleLoop.assistantMessage(JSON.readTree(response.body()), responsesApi);
                 tool.put("toolCalled", toolCalled(message));
                 tool.put("text", shorten(message.path("content").asText("")));
             } else {

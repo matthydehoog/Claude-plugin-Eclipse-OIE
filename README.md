@@ -198,12 +198,18 @@ was reviewed. The content itself is never logged.
 
 ### Other models: OpenAI-compatible providers
 
-Instead of Claude, the assistant can use a model behind an OpenAI-compatible Chat Completions API:
+Instead of Claude, the assistant can use a model behind an OpenAI-compatible Chat Completions or Responses API:
 OpenAI itself, or a local server such as Ollama or vLLM. Set **Provider** to *OpenAI-compatible*,
 enter the **API base URL** (for example `https://api.openai.com/v1`, `http://ollama-host:11434/v1`
 or `http://vllm-host:8000/v1`) and, if the server needs one, the **API key**. Save, then pick a
 model with *Refresh list*. The model must support tool calling, and the OIE server must reach the
 URL.
+
+Choose **API mode** to match your server and model: *Chat Completions* (the default)
+or *Responses*. For GPT-6.2 Sol, select *Responses*. Save before using *Test connection*;
+the chat and connection test use the same saved mode. Existing settings without an API mode
+continue to use Chat Completions. Changing the mode starts a new model context for existing
+conversations. Responses requests use `store: false`.
 
 For Mistral, choose *Mistral* as the **Provider**: it uses Mistral's API at
 `https://api.mistral.ai/v1`, so only an API key from console.mistral.ai is needed. Choose a model

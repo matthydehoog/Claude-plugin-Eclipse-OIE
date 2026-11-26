@@ -38,9 +38,12 @@ public class Settings {
     private static final String KEY_KEEP_DAYS = "keepConversationsDays";
     private static final String KEY_PROVIDER = "provider";
     private static final String KEY_BASE_URL = "baseUrl";
+    private static final String KEY_API_MODE = "apiMode";
+    static final String API_MODE_CHAT_COMPLETIONS = "chat-completions";
+    static final String API_MODE_RESPONSES = "responses";
     /** The model is Claude, through the Anthropic SDK (the default). */
     static final String PROVIDER_ANTHROPIC = "anthropic";
-    /** The model is served by an OpenAI-compatible Chat Completions API (OpenAI, Ollama, vLLM). */
+    /** The model is served by an OpenAI-compatible Chat Completions or Responses API. */
     static final String PROVIDER_OPENAI = "openai-compatible";
     /** Longest time saved conversations are kept. */
     static final int MAX_KEEP_DAYS = 365;
@@ -62,6 +65,8 @@ public class Settings {
     final String provider;
     /** API base URL of the OpenAI-compatible provider, e.g. https://api.openai.com/v1; not used for Anthropic. */
     final String baseUrl;
+    /** Gespeicherter API-Modus; fehlende oder unbekannte Werte behalten Chat Completions bei. */
+    final String apiMode;
 
     Settings(String apiKey, String adminApiKey, String model, String effort, int maxToolCalls, String maskPatterns, String responseLanguage, String reviewBeforeSending) {
         this(apiKey, adminApiKey, model, effort, maxToolCalls, maskPatterns, responseLanguage, reviewBeforeSending, 0);
@@ -72,6 +77,27 @@ public class Settings {
     }
 
     Settings(String apiKey, String adminApiKey, String model, String effort, int maxToolCalls, String maskPatterns, String responseLanguage, String reviewBeforeSending, int keepConversationsDays, String provider, String baseUrl) {
+        this(apiKey, adminApiKey, model, effort, maxToolCalls, maskPatterns, responseLanguage, reviewBeforeSending, keepConversationsDays, provider, baseUrl, API_MODE_CHAT_COMPLETIONS);
+    }
+
+    /**
+     * Uebernimmt die Plugin-Einstellungen und begrenzt den API-Modus auf die zwei unterstuetzten Werte.
+     *
+     * @param apiKey optionaler Modell-API-Schluessel
+     * @param adminApiKey optionaler Anthropic-Admin-Schluessel
+     * @param model Modell-ID
+     * @param effort Anthropic-Reasoning-Stufe
+     * @param maxToolCalls maximale Tool-Aufrufe je Frage
+     * @param maskPatterns zusaetzliche Maskierungsregeln
+     * @param responseLanguage Antwortsprache
+     * @param reviewBeforeSending Freigabeumfang fuer ausgehende Daten
+     * @param keepConversationsDays Aufbewahrungstage
+     * @param provider Anbieterkennung
+     * @param baseUrl Basisadresse fuer OpenAI-kompatible Anbieter
+     * @param apiMode responses oder chat-completions; fehlende und unbekannte Werte nutzen Chat Completions
+     */
+    Settings(String apiKey, String adminApiKey, String model, String effort, int maxToolCalls, String maskPatterns, String responseLanguage, String reviewBeforeSending, int keepConversationsDays, String provider, String baseUrl, String apiMode) {
+        this.apiMode = API_MODE_RESPONSES.equalsIgnoreCase(apiMode == null ? "" : apiMode.trim()) ? API_MODE_RESPONSES : API_MODE_CHAT_COMPLETIONS;
         this.provider = PROVIDER_OPENAI.equalsIgnoreCase(provider == null ? "" : provider.trim()) ? PROVIDER_OPENAI : PROVIDER_ANTHROPIC;
         this.baseUrl = baseUrl == null ? "" : baseUrl.trim().replaceAll("/+$", "");
         this.apiKey = apiKey == null ? "" : apiKey.trim();
@@ -112,11 +138,12 @@ public class Settings {
         p.setProperty(KEY_KEEP_DAYS, "0");
         p.setProperty(KEY_PROVIDER, PROVIDER_ANTHROPIC);
         p.setProperty(KEY_BASE_URL, "");
+        p.setProperty(KEY_API_MODE, API_MODE_CHAT_COMPLETIONS);
         return p;
     }
 
     static Settings fromProperties(Properties p, Encryptor encryptor) {
-        return new Settings(decrypt(p.getProperty(KEY_API_KEY, ""), encryptor), decrypt(p.getProperty(KEY_ADMIN_API_KEY, ""), encryptor), p.getProperty(KEY_MODEL), p.getProperty(KEY_EFFORT), parseInt(p.getProperty(KEY_MAX_TOOL_CALLS)), p.getProperty(KEY_MASK_PATTERNS), p.getProperty(KEY_RESPONSE_LANGUAGE), p.getProperty(KEY_REVIEW), parseInt(p.getProperty(KEY_KEEP_DAYS)), p.getProperty(KEY_PROVIDER), p.getProperty(KEY_BASE_URL));
+        return new Settings(decrypt(p.getProperty(KEY_API_KEY, ""), encryptor), decrypt(p.getProperty(KEY_ADMIN_API_KEY, ""), encryptor), p.getProperty(KEY_MODEL), p.getProperty(KEY_EFFORT), parseInt(p.getProperty(KEY_MAX_TOOL_CALLS)), p.getProperty(KEY_MASK_PATTERNS), p.getProperty(KEY_RESPONSE_LANGUAGE), p.getProperty(KEY_REVIEW), parseInt(p.getProperty(KEY_KEEP_DAYS)), p.getProperty(KEY_PROVIDER), p.getProperty(KEY_BASE_URL), p.getProperty(KEY_API_MODE));
     }
 
     Properties toProperties(Encryptor encryptor) {
@@ -132,6 +159,7 @@ public class Settings {
         p.setProperty(KEY_KEEP_DAYS, String.valueOf(keepConversationsDays));
         p.setProperty(KEY_PROVIDER, provider);
         p.setProperty(KEY_BASE_URL, baseUrl);
+        p.setProperty(KEY_API_MODE, apiMode);
         return p;
     }
 
@@ -143,7 +171,7 @@ public class Settings {
         String newKey = update.path(KEY_API_KEY).asText("");
         String newAdminKey = update.path(KEY_ADMIN_API_KEY).asText("");
         String admin = update.path("clearAdminApiKey").asBoolean(false) ? "" : newAdminKey.isBlank() ? adminApiKey : newAdminKey;
-        return new Settings(newKey.isBlank() ? apiKey : newKey, admin, update.path(KEY_MODEL).asText(model), update.path(KEY_EFFORT).asText(effort), update.path(KEY_MAX_TOOL_CALLS).asInt(maxToolCalls), update.path(KEY_MASK_PATTERNS).asText(maskPatterns), update.path(KEY_RESPONSE_LANGUAGE).asText(responseLanguage), update.path(KEY_REVIEW).asText(reviewBeforeSending), update.path(KEY_KEEP_DAYS).asInt(keepConversationsDays), update.path(KEY_PROVIDER).asText(provider), update.path(KEY_BASE_URL).asText(baseUrl));
+        return new Settings(newKey.isBlank() ? apiKey : newKey, admin, update.path(KEY_MODEL).asText(model), update.path(KEY_EFFORT).asText(effort), update.path(KEY_MAX_TOOL_CALLS).asInt(maxToolCalls), update.path(KEY_MASK_PATTERNS).asText(maskPatterns), update.path(KEY_RESPONSE_LANGUAGE).asText(responseLanguage), update.path(KEY_REVIEW).asText(reviewBeforeSending), update.path(KEY_KEEP_DAYS).asInt(keepConversationsDays), update.path(KEY_PROVIDER).asText(provider), update.path(KEY_BASE_URL).asText(baseUrl), update.path(KEY_API_MODE).asText(apiMode));
     }
 
     void writeTo(ObjectNode node) {
@@ -160,6 +188,7 @@ public class Settings {
         node.put(KEY_KEEP_DAYS, keepConversationsDays);
         node.put(KEY_PROVIDER, provider);
         node.put(KEY_BASE_URL, baseUrl);
+        node.put(KEY_API_MODE, apiMode);
     }
 
     private static String hint(String key) {

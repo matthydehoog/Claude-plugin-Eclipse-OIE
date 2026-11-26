@@ -121,6 +121,13 @@ To get an API key, sign in at [console.anthropic.com](https://console.anthropic.
 
 **Other models (OpenAI-compatible).** Set *Provider* to *OpenAI-compatible* to use OpenAI, or a local Ollama or vLLM server, instead of Claude. Enter the *API base URL* and, if needed, the API key, click *Save*, then *Refresh list* and choose a model. The list then comes from that server (newest first where it reports dates) and can include models that cannot answer questions, such as embedding, image or audio models: choose a chat model that supports tool calling. Masking, review before sending, approvals and permissions work as with Claude, but the masked data goes to that provider, so check that this is allowed. Effort and spend this month only apply to Anthropic, answers appear at once instead of streaming, and a conversation saved with one provider continues with the other without its earlier context.
 
+**API mode.** For an OpenAI-compatible provider, choose *Chat Completions* or *Responses*
+under *Settings > AI Assistant*. Chat Completions remains the default for existing settings.
+For GPT-6.2 Sol, choose Responses. Click *Save*, then *Test connection*: both the chat and
+the test use the saved mode. Choose a mode supported by your server and model; it is not
+inferred from the model name. Changing the mode starts a new model context for existing
+conversations. Responses requests are sent with server-side response storage disabled.
+
 **Mistral.** Set *Provider* to *Mistral* to use Mistral's API. The base URL is filled in (`https://api.mistral.ai/v1`), so enter an API key from console.mistral.ai, click *Save*, then *Refresh list* and choose a model that supports tool calling, such as `mistral-large-latest` or `mistral-medium-latest`. Everything above about OpenAI-compatible providers applies to Mistral too; the settings are saved as an OpenAI-compatible provider with Mistral's base URL.
 
 **Test connection.** *Test connection*, below the model, checks the saved settings in a few seconds, so a wrong key, base URL or model shows up before the first question instead of with it. Save your changes first: the test always uses the saved settings. It sends only a fixed test prompt, no OIE data, so nothing is masked or reviewed. The result has three lines, each with ✔ (passed), ✘ (failed), ! (could not be confirmed) or – (not checked, because an earlier check failed):

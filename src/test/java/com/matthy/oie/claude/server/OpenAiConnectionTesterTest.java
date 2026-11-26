@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.matthy.oie.claude.engine.OpenAiConnectionTester;
 import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
 public class OpenAiConnectionTesterTest {
@@ -35,6 +36,7 @@ public class OpenAiConnectionTesterTest {
 
     private HttpServer server;
     private final List<JsonNode> requests = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> paths = Collections.synchronizedList(new ArrayList<>());
     private int modelsStatus = 200;
     private int chatStatus = 200;
     private String chatBody = "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"report_test_result\",\"arguments\":\"{\\\"status\\\":\\\"ok\\\"}\"}}]}}]}";
@@ -43,12 +45,15 @@ public class OpenAiConnectionTesterTest {
     public void start() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/v1/models", exchange -> reply(exchange, modelsStatus, modelsStatus == 200 ? "{\"data\":[{\"id\":\"llama3.1\"}]}" : "{\"error\":\"unauthorized\"}"));
-        server.createContext("/v1/chat/completions", exchange -> {
+        HttpHandler completion = exchange -> {
             try (InputStream in = exchange.getRequestBody()) {
                 requests.add(MAPPER.readTree(in));
             }
+            paths.add(exchange.getRequestURI().getPath());
             reply(exchange, chatStatus, chatBody);
-        });
+        };
+        server.createContext("/v1/chat/completions", completion);
+        server.createContext("/v1/responses", completion);
         server.start();
     }
 
@@ -65,7 +70,11 @@ public class OpenAiConnectionTesterTest {
     }
 
     private JsonNode test(String model) throws Exception {
-        String probe = new OpenAiConnectionTester("http://127.0.0.1:" + server.getAddress().getPort() + "/v1").probe("", model);
+        return test(model, false);
+    }
+
+    private JsonNode test(String model, boolean responsesApi) throws Exception {
+        String probe = new OpenAiConnectionTester("http://127.0.0.1:" + server.getAddress().getPort() + "/v1", responsesApi).probe("", model);
         return ConnectionTest.report(MAPPER.readTree(probe), model, true);
     }
 
@@ -76,10 +85,55 @@ public class OpenAiConnectionTesterTest {
         assertEquals(1, requests.size());
         JsonNode request = requests.get(0);
         assertEquals("llama3.1", request.path("model").asText());
+        assertEquals("/v1/chat/completions", paths.get(0));
+        assertFalse(request.has("store"));
         assertEquals(1, request.path("messages").size());
         assertEquals(ConnectionTest.PROMPT, request.path("messages").path(0).path("content").asText());
         assertEquals(1, request.path("tools").size());
         assertEquals("report_test_result", request.path("tools").path(0).path("function").path("name").asText());
+    }
+
+    @Test
+    public void testsGpt62SolWithResponsesAndOneFunction() throws Exception {
+        chatBody = "{\"status\":\"completed\",\"output\":[{\"type\":\"function_call\",\"call_id\":\"call_1\","
+                + "\"name\":\"report_test_result\",\"arguments\":\"{\\\"status\\\":\\\"ok\\\"}\"}]}";
+
+        JsonNode report = test("gpt-6.2-sol", true);
+
+        assertTrue(report.toString(), report.path("ok").asBoolean());
+        assertEquals(List.of("/v1/responses"), paths);
+        JsonNode request = requests.get(0);
+        assertTrue(request.has("store"));
+        assertFalse(request.path("store").asBoolean());
+        assertFalse(request.has("messages"));
+        assertFalse(request.has("reasoning_effort"));
+        assertEquals(1, request.path("input").size());
+        assertEquals(ConnectionTest.PROMPT, request.path("input").path(0).path("content").asText());
+        JsonNode function = request.path("tools").path(0);
+        assertEquals("report_test_result", function.path("name").asText());
+        assertEquals("function", function.path("type").asText());
+        assertFalse(function.has("function"));
+        assertTrue(function.has("strict"));
+        assertFalse(function.path("strict").asBoolean());
+    }
+
+    @Test
+    public void selectedChatCompletionsModeOverridesTheModelName() throws Exception {
+        JsonNode report = test("gpt-6.2-sol");
+
+        assertTrue(report.toString(), report.path("ok").asBoolean());
+        assertEquals("/v1/chat/completions", paths.get(0));
+    }
+
+    @Test
+    public void responsesTextWithoutTheTestFunctionFails() throws Exception {
+        chatBody = "{\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"role\":\"assistant\","
+                + "\"content\":[{\"type\":\"output_text\",\"text\":\"ok\"}]}]}";
+
+        JsonNode report = test("gpt-6.2-sol", true);
+
+        assertFalse(report.path("ok").asBoolean());
+        assertEquals("failed", report.path("checks").path(2).path("status").asText());
     }
 
     @Test
