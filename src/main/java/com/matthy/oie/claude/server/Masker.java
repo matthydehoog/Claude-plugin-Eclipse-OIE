@@ -102,6 +102,20 @@ public class Masker {
     /** Credentials in serialized configuration, e.g. a database reader's or SFTP connector's password. */
     private static final Pattern CREDENTIAL_XML = Pattern.compile("(?i)(<([\\w.]*(?:password|passphrase|secret|token|apikey)[\\w.]*)>)[^<]+(</\\2>)");
 
+    /**
+     * The maps of a serialized message (channel, connector, source and response map) and its custom
+     * metadata. Scripts often copy patient data into them, for example PID-3 as channelMap 'mrn', and an
+     * entry is just two elements, so no other rule sees it (issue #82). Every value is
+     * masked; the keys stay readable, so the model still knows which variables a channel sets.
+     */
+    private static final Pattern MAP_BLOCK = Pattern.compile("(<(channelMapContent|connectorMapContent|sourceMapContent|responseMapContent|metaDataMap)\\b[^>]*>)([\\s\\S]*?)(</\\2>)");
+    /** One map entry: the key element, then the value (whatever follows the key up to the entry's end). */
+    private static final Pattern MAP_ENTRY = Pattern.compile("(<entry>\\s*(?:<([\\w.$-]+)\\b[^>]*>[^<]*</\\2>|<[\\w.$-]+\\b[^>]*/>))([\\s\\S]*?)(</entry>)");
+    /** A text node inside a map value, with the element it belongs to. */
+    private static final Pattern MAP_VALUE_TEXT = Pattern.compile("(<([\\w.$-]+)\\b[^>]*>)([^<]+)(?=<)");
+    /** Value text that holds no patient data and helps debugging: booleans, and a response's status. */
+    private static final Pattern MAP_SAFE_TEXT = Pattern.compile("\\s*|true|false");
+
     private final List<Pattern> extraPatterns;
 
     /** @param extraPatterns regular expressions separated by ";;", masked in addition to the built-in rules */
@@ -125,6 +139,7 @@ public class Masker {
             return text;
         }
         String out = replace(ESCAPED_TEXT, text, m -> ">" + escapeXml(mask(unescapeXml(m.group(1)))) + "<");
+        out = maskMaps(out);
         out = CREDENTIAL_XML.matcher(out).replaceAll("$1" + Matcher.quoteReplacement(MASK) + "$3");
         out = EdifactMasker.mask(out);
         out = maskHl7Er7(out);
@@ -141,6 +156,24 @@ public class Masker {
             out = p.matcher(out).replaceAll(Matcher.quoteReplacement(MASK));
         }
         return out;
+    }
+
+    /** Masks every value in the maps and custom metadata of serialized messages; keys stay readable. */
+    static String maskMaps(String text) {
+        if (text.indexOf("<entry>") < 0) {
+            return text;
+        }
+        return replace(MAP_BLOCK, text, block -> block.group(1)
+                + replace(MAP_ENTRY, block.group(3), entry -> entry.group(1) + maskMapValue(entry.group(3)) + entry.group(4))
+                + block.group(4));
+    }
+
+    private static String maskMapValue(String value) {
+        return replace(MAP_VALUE_TEXT, value, m -> {
+            String text = m.group(3);
+            boolean keep = MAP_SAFE_TEXT.matcher(text).matches() || "status".equals(m.group(2));
+            return keep ? m.group() : m.group(1) + MASK;
+        });
     }
 
     private static String maskHl7Er7(String text) {
