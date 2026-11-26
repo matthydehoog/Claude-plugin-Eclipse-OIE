@@ -102,6 +102,11 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     private final JComboBox<String> providerBox = new JComboBox<>(new String[] { "Anthropic (Claude)", "OpenAI-compatible (OpenAI, Ollama, vLLM)", "Mistral" });
     private final javax.swing.JTextField baseUrlField = new javax.swing.JTextField(40);
     private final JLabel baseUrlLabel = new JLabel("API base URL:");
+    private static final String[] API_MODES = { "chat-completions", "responses" };
+    private final JComboBox<String> apiModeBox = new JComboBox<>(new String[] { "Chat Completions", "Responses" });
+    private final JLabel apiModeLabel = new JLabel("API mode:");
+    private final JLabel apiModeNoteLabel = new JLabel("");
+    private final JLabel apiModeNote = new JLabel("<html>Select the API supported by your server and model. Save before testing.</html>");
     private static final String OPENAI_NOTE = "<html>For example <code>https://api.openai.com/v1</code>, <code>http://ollama-host:11434/v1</code> (Ollama) or "
             + "<code>http://vllm-host:8000/v1</code> (vLLM). The OIE server must reach it, and the model must support tool calling. "
             + "The API key may stay empty for a local server. Spend this month is only available with Anthropic.</html>";
@@ -170,6 +175,10 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         form.add(baseUrlField, "wrap, growx");
         form.add(baseUrlNoteLabel);
         form.add(baseUrlNote, "wrap, w 600!");
+        form.add(apiModeLabel);
+        form.add(apiModeBox, "wrap");
+        form.add(apiModeNoteLabel);
+        form.add(apiModeNote, "wrap");
         form.add(new JLabel("API key:"));
         form.add(apiKeyField, "wrap, growx");
         form.add(new JLabel(""));
@@ -254,6 +263,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         adminKeyField.getDocument().addDocumentListener(changed);
         maskPatterns.getDocument().addDocumentListener(changed);
         modelBox.addActionListener(e -> markChanged());
+        apiModeBox.addActionListener(e -> markChanged());
         effortBox.addActionListener(e -> markChanged());
         languageBox.addActionListener(e -> markChanged());
         maxToolCalls.addChangeListener(e -> markChanged());
@@ -290,6 +300,10 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         baseUrlField.setVisible(openAi);
         baseUrlNoteLabel.setVisible(openAi);
         baseUrlNote.setVisible(openAi);
+        apiModeLabel.setVisible(openAi);
+        apiModeBox.setVisible(openAi);
+        apiModeNoteLabel.setVisible(openAi);
+        apiModeNote.setVisible(openAi);
         boolean mistral = providerBox.getSelectedIndex() == MISTRAL;
         baseUrlField.setEditable(!mistral);
         baseUrlNote.setText(mistral ? MISTRAL_NOTE : OPENAI_NOTE);
@@ -340,6 +354,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         body.put("apiKey", new String(apiKeyField.getPassword()).trim());
         body.put("provider", storedProvider(providerBox.getSelectedIndex()));
         body.put("baseUrl", providerBox.getSelectedIndex() == MISTRAL ? MISTRAL_BASE_URL : baseUrlField.getText().trim());
+        body.put("apiMode", API_MODES[Math.max(0, apiModeBox.getSelectedIndex())]);
         body.put("adminApiKey", new String(adminKeyField.getPassword()).trim());
         body.put("clearAdminApiKey", clearAdminKey.isSelected());
         body.put("model", String.valueOf(modelBox.getSelectedItem()).trim());
@@ -379,6 +394,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
             testResult.setText(" ");
             providerBox.setSelectedIndex(providerChoice(s.path("provider").asText(""), s.path("baseUrl").asText("")));
             baseUrlField.setText(s.path("baseUrl").asText(""));
+            apiModeBox.setSelectedIndex(Math.max(0, java.util.Arrays.asList(API_MODES).indexOf(s.path("apiMode").asText("chat-completions"))));
             showProviderFields();
             apiKeyStatus.setText(s.path("apiKeySet").asBoolean() ? "Set: " + s.path("apiKeyHint").asText() : "No API key set yet.");
             adminKeyField.setText("");

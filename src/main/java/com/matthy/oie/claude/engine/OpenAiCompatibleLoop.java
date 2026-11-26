@@ -24,8 +24,9 @@ import com.matthy.oie.claude.server.ModelLoop;
 
 /**
  * The model/tool loop for OpenAI-compatible Chat Completions APIs (OpenAI, Ollama, vLLM and
- * others): POST {baseUrl}/chat/completions with the OIE tools as functions. Masking, review and
- * approval happen on the host side in the {@link ModelLoop.ToolCaller}, as for Claude.
+ * others), with either Chat Completions or Responses as selected in the settings.
+ * Masking, review and approval happen on the host side in the {@link ModelLoop.ToolCaller},
+ * as for Claude.
  *
  * Originally contributed by Miguel Duarte (SoulOnFire) in PR #34.
  */
@@ -34,6 +35,7 @@ public final class OpenAiCompatibleLoop implements ModelLoop {
     private static final JsonMapper JSON = JsonMapper.builder().build();
     /** Marks a saved conversation as this loop's, so Claude's and this loop's histories are never mixed. */
     private static final String HISTORY_KEY = "openAiMessages";
+    private static final String RESPONSES_HISTORY_KEY = "openAiResponseItems";
     private static final int MAX_ERROR_BODY = 500;
 
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
@@ -43,17 +45,38 @@ public final class OpenAiCompatibleLoop implements ModelLoop {
     private final int maxToolCalls;
     private final String systemPrompt;
     private final ArrayNode tools;
+    private final boolean responsesApi;
+    private final String historyKey;
     private final ToolCaller caller;
 
     /** @param toolSpecs maps with name, description, properties (JSON schema per property) and required */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public OpenAiCompatibleLoop(String apiKey, String baseUrl, String model, int maxToolCalls, String systemPrompt, List toolSpecs, ToolCaller caller) {
+        this(apiKey, baseUrl, model, false, maxToolCalls, systemPrompt, toolSpecs, caller);
+    }
+
+    /**
+     * Erstellt die Modellschleife mit dem ausdruecklich konfigurierten API-Modus.
+     *
+     * @param apiKey optionaler API-Schluessel
+     * @param baseUrl Basisadresse des Modellservers
+     * @param model Modell-ID ohne Einfluss auf die Endpunktwahl
+     * @param responsesApi true fuer Responses, false fuer Chat Completions
+     * @param maxToolCalls maximale Tool-Aufrufe je Frage
+     * @param systemPrompt Systemanweisung fuer das Modell
+     * @param toolSpecs vorhandene OIE-Tool-Schemas
+     * @param caller bestehender Aufrufpfad mit Pruefung und Freigabe der Tools
+     */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    public OpenAiCompatibleLoop(String apiKey, String baseUrl, String model, boolean responsesApi, int maxToolCalls, String systemPrompt, List toolSpecs, ToolCaller caller) {
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.baseUrl = baseUrl == null ? "" : baseUrl.trim().replaceAll("/+$", "");
         this.model = model;
         this.maxToolCalls = maxToolCalls;
         this.systemPrompt = systemPrompt;
-        this.tools = toolsJson((List<Map<String, Object>>) toolSpecs);
+        this.responsesApi = responsesApi;
+        this.historyKey = responsesApi ? RESPONSES_HISTORY_KEY : HISTORY_KEY;
+        this.tools = toolsJson((List<Map<String, Object>>) toolSpecs, responsesApi);
         this.caller = caller;
     }
 
@@ -63,6 +86,22 @@ public final class OpenAiCompatibleLoop implements ModelLoop {
         return (base.matches(".*/v\\d+$") ? base : base + "/v1") + path;
     }
 
+    /**
+     * Erstellt die gemeinsamen Request-Felder fuer Chat und Verbindungstest.
+     * Responses werden ohne serverseitige Speicherung angefordert; Reasoning bleibt aktiv.
+     *
+     * @param model zu verwendende Modell-ID
+     * @param responsesApi konfigurierter API-Modus
+     * @return neue JSON-Nutzlast mit Modell, Streaming- und gegebenenfalls Speicheroption
+     */
+    static ObjectNode requestBody(String model, boolean responsesApi) {
+        ObjectNode body = JSON.createObjectNode().put("model", model).put("stream", false);
+        if (responsesApi) {
+            body.put("store", false);
+        }
+        return body;
+    }
+
     @Override
     public void close() {
         // The JDK HttpClient needs no explicit close (Java 11).
@@ -70,21 +109,25 @@ public final class OpenAiCompatibleLoop implements ModelLoop {
 
     @Override
     public String saveHistory(Object history) throws Exception {
-        if (!(history instanceof ArrayNode)) {
+        if (!(history instanceof ObjectNode)) {
+            return null;
+        }
+        JsonNode items = ((ObjectNode) history).path(historyKey);
+        if (!items.isArray()) {
             return null;
         }
         ObjectNode out = JSON.createObjectNode();
-        synchronized (history) {
-            out.set(HISTORY_KEY, ((ArrayNode) history).deepCopy());
+        synchronized (items) {
+            out.set(historyKey, items.deepCopy());
         }
         return JSON.writeValueAsString(out);
     }
 
-    /** A conversation saved while Claude was the provider has no {@value #HISTORY_KEY}: it then continues without that context. */
+    /** Laedt nur die Historie des gewaehlten API-Modus; andere Formate beginnen ohne Modellkontext. */
     @Override
     public Object loadHistory(String json) throws Exception {
-        JsonNode saved = JSON.readTree(json).path(HISTORY_KEY);
-        return saved.isArray() ? saved : null;
+        JsonNode saved = JSON.readTree(json);
+        return saved.isObject() && saved.path(historyKey).isArray() ? saved : null;
     }
 
     @Override
@@ -130,7 +173,7 @@ public final class OpenAiCompatibleLoop implements ModelLoop {
 
             if (!calls.isArray() || calls.size() == 0) {
                 synchronized (history) {
-                    history.add(answer);
+                    appendAnswer(history, answer, message);
                 }
                 if ("length".equals(message.path("finish_reason").asText(""))) {
                     job.emit("info", "The answer was cut off because it got too long. Ask for a continuation if needed.");
@@ -154,10 +197,14 @@ public final class OpenAiCompatibleLoop implements ModelLoop {
                         result = "Error: " + (e.getMessage() == null ? e.toString() : e.getMessage());
                     }
                 }
-                results.addObject().put("role", "tool").put("tool_call_id", call.path("id").asText()).put("content", result == null ? "" : result);
+                if (responsesApi) {
+                    results.addObject().put("type", "function_call_output").put("call_id", call.path("id").asText()).put("output", result == null ? "" : result);
+                } else {
+                    results.addObject().put("role", "tool").put("tool_call_id", call.path("id").asText()).put("content", result == null ? "" : result);
+                }
             }
             synchronized (history) {
-                history.add(answer);
+                appendAnswer(history, answer, message);
                 history.addAll(results);
             }
             if (limitReached) {
@@ -172,10 +219,34 @@ public final class OpenAiCompatibleLoop implements ModelLoop {
         }
     }
 
-    /** One Chat Completions request; returns choices[0] with its message fields and finish_reason. */
+    /**
+     * Fuegt die Antwort im Format des Endpunkts zur vom Aufrufer gesperrten Historie hinzu.
+     * Responses-Items einschliesslich verschluesseltem Reasoning werden unveraendert erhalten.
+     *
+     * @param history bereits synchronisierte Gespraechshistorie
+     * @param answer normalisierte Chat-Completions-Nachricht als Rueckfall
+     * @param message Modellantwort mit optionalen vollstaendigen Responses-Ausgabeitems
+     */
+    private static void appendAnswer(ArrayNode history, ObjectNode answer, JsonNode message) {
+        JsonNode output = message.path("response_output");
+        if (output.isArray()) {
+            history.addAll((ArrayNode) output);
+        } else {
+            history.add(answer);
+        }
+    }
+
+    /**
+     * Sendet die aktuelle Historie an den zum Modell passenden Endpunkt.
+     *
+     * @param history bisherige Nachrichten oder Responses-Items
+     * @param withoutTools true fuer die abschliessende Antwort nach dem Tool-Limit
+     * @return normalisierte Antwort mit Text, Tool-Aufrufen und Abschlussgrund
+     * @throws Exception bei Transport-, HTTP- oder Antwortformatfehlern
+     */
     private JsonNode complete(ArrayNode history, boolean withoutTools) throws Exception {
-        ObjectNode body = JSON.createObjectNode().put("model", model).put("stream", false);
-        ArrayNode messages = body.putArray("messages");
+        ObjectNode body = requestBody(model, responsesApi);
+        ArrayNode messages = body.putArray(responsesApi ? "input" : "messages");
         messages.addObject().put("role", "system").put("content", systemPrompt);
         synchronized (history) {
             messages.addAll(history.deepCopy());
@@ -183,7 +254,7 @@ public final class OpenAiCompatibleLoop implements ModelLoop {
         if (tools.size() > 0 && !withoutTools) {
             body.set("tools", tools);
         }
-        HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(endpoint(baseUrl, "/chat/completions")))
+        HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(endpoint(baseUrl, responsesApi ? "/responses" : "/chat/completions")))
                 .timeout(Duration.ofMinutes(10))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(body)));
@@ -194,25 +265,85 @@ public final class OpenAiCompatibleLoop implements ModelLoop {
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             throw new ApiException(response.statusCode(), response.body());
         }
-        JsonNode choice = JSON.readTree(response.body()).path("choices").path(0);
-        if (!choice.path("message").isObject()) {
-            throw new IllegalStateException("The model server returned no answer: " + shorten(response.body()));
+        return assistantMessage(JSON.readTree(response.body()), responsesApi);
+    }
+
+    /**
+     * Normalisiert Antworten beider Endpunkte fuer Tool-Schleife und Verbindungstest.
+     * Responses-Ausgabeitems bleiben fuer die naechste Anfrage vollstaendig erhalten.
+     * Fehlgeschlagene Antworten und unvollstaendige Tool-Aufrufe werden nicht ausgefuehrt.
+     *
+     * @param response geparste Antwort des Modellservers
+     * @param responsesApi true fuer das Responses-Format, sonst Chat Completions
+     * @return Nachricht mit Text, Tool-Aufrufen und Abschlussgrund
+     * @throws IllegalStateException bei fehlenden oder nicht verwendbaren Antwortdaten
+     */
+    static ObjectNode assistantMessage(JsonNode response, boolean responsesApi) {
+        if (!responsesApi) {
+            JsonNode choice = response.path("choices").path(0);
+            if (!choice.path("message").isObject()) {
+                throw new IllegalStateException("The model server returned no answer: " + shorten(response.toString()));
+            }
+            ObjectNode message = ((ObjectNode) choice.path("message")).deepCopy();
+            message.put("finish_reason", choice.path("finish_reason").asText(""));
+            return message;
         }
-        ObjectNode message = ((ObjectNode) choice.path("message")).deepCopy();
-        message.put("finish_reason", choice.path("finish_reason").asText(""));
+
+        String status = response.path("status").asText();
+        if (!"completed".equals(status) && !"incomplete".equals(status)) {
+            throw new IllegalStateException("The model server returned response status '" + status + "': "
+                    + shorten(response.path("error").path("message").asText("No completed response.")));
+        }
+        JsonNode output = response.path("output");
+        if (!output.isArray()) {
+            throw new IllegalStateException("The model server returned no answer: " + shorten(response.toString()));
+        }
+        ObjectNode message = JSON.createObjectNode();
+        message.set("response_output", output);
+        ArrayNode calls = message.putArray("tool_calls");
+        StringBuilder text = new StringBuilder();
+        for (JsonNode item : output) {
+            if ("function_call".equals(item.path("type").asText())) {
+                ObjectNode call = calls.addObject().put("id", item.path("call_id").asText()).put("type", "function");
+                call.putObject("function").put("name", item.path("name").asText()).put("arguments", item.path("arguments").asText());
+            } else if ("message".equals(item.path("type").asText())) {
+                for (JsonNode part : item.path("content")) {
+                    if ("output_text".equals(part.path("type").asText())) {
+                        text.append(part.path("text").asText());
+                    } else if ("refusal".equals(part.path("type").asText())) {
+                        text.append(part.path("refusal").asText());
+                    }
+                }
+            }
+        }
+        if ("incomplete".equals(status) && (calls.size() > 0
+                || !"max_output_tokens".equals(response.path("incomplete_details").path("reason").asText()))) {
+            throw new IllegalStateException("The model response was incomplete; no tool calls were executed.");
+        }
+        message.put("content", text.toString());
+        message.put("finish_reason", "incomplete".equals(status) ? "length" : "stop");
         return message;
     }
 
-    private static ArrayNode history(Conversation conversation) {
+    /**
+     * Liefert die zum API-Modus passende Historie und beginnt nach einem Moduswechsel neu.
+     *
+     * @param conversation Gespraech mit opaker, gegebenenfalls anders formatierter Historie
+     * @return Nachrichtenarray fuer den aktuellen Modus; fremde Formate werden ersetzt
+     */
+    private ArrayNode history(Conversation conversation) {
         synchronized (conversation) {
-            if (!(conversation.history() instanceof ArrayNode)) {
-                conversation.setHistory(JSON.createArrayNode());
+            Object current = conversation.history();
+            if (!(current instanceof ObjectNode) || !((ObjectNode) current).path(historyKey).isArray()) {
+                ObjectNode history = JSON.createObjectNode();
+                history.putArray(historyKey);
+                conversation.setHistory(history);
             }
-            return (ArrayNode) conversation.history();
+            return (ArrayNode) ((ObjectNode) conversation.history()).get(historyKey);
         }
     }
 
-    private static ArrayNode toolsJson(List<Map<String, Object>> specs) {
+    private static ArrayNode toolsJson(List<Map<String, Object>> specs, boolean responsesApi) {
         ArrayNode out = JSON.createArrayNode();
         if (specs == null) {
             return out;
@@ -224,7 +355,12 @@ public final class OpenAiCompatibleLoop implements ModelLoop {
             if (spec.get("required") != null) {
                 parameters.set("required", JSON.valueToTree(spec.get("required")));
             }
-            out.addObject().put("type", "function").set("function", function);
+            if (responsesApi) {
+                function.put("type", "function").put("strict", false);
+                out.add(function);
+            } else {
+                out.addObject().put("type", "function").set("function", function);
+            }
         }
         return out;
     }

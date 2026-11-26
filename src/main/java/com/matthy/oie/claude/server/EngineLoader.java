@@ -53,8 +53,8 @@ final class EngineLoader {
     ModelLoop create(Settings settings, String systemPrompt, List<Map<String, Object>> tools, ModelLoop.ToolCaller caller) throws Exception {
         if (settings.openAiCompatible()) {
             return (ModelLoop) Class.forName(OPENAI_ENGINE_CLASS, true, loader)
-                    .getConstructor(String.class, String.class, String.class, int.class, String.class, List.class, ModelLoop.ToolCaller.class)
-                    .newInstance(settings.apiKey, settings.baseUrl, settings.model, settings.maxToolCalls, systemPrompt, tools, caller);
+                    .getConstructor(String.class, String.class, String.class, boolean.class, int.class, String.class, List.class, ModelLoop.ToolCaller.class)
+                    .newInstance(settings.apiKey, settings.baseUrl, settings.model, Settings.API_MODE_RESPONSES.equals(settings.apiMode), settings.maxToolCalls, systemPrompt, tools, caller);
         }
         Class<?> engine = Class.forName(ENGINE_CLASS, true, loader);
         return (ModelLoop) engine.getConstructor(String.class, String.class, String.class, int.class, String.class, List.class, ModelLoop.ToolCaller.class)
@@ -77,7 +77,7 @@ final class EngineLoader {
     /** Test connection for the provider of these settings. */
     ConnectionTester createConnectionTester(Settings settings) throws Exception {
         if (settings.openAiCompatible()) {
-            return (ConnectionTester) Class.forName(OPENAI_TESTER_CLASS, true, loader).getConstructor(String.class).newInstance(settings.baseUrl);
+            return (ConnectionTester) Class.forName(OPENAI_TESTER_CLASS, true, loader).getConstructor(String.class, boolean.class).newInstance(settings.baseUrl, Settings.API_MODE_RESPONSES.equals(settings.apiMode));
         }
         return (ConnectionTester) Class.forName(TESTER_CLASS, true, loader).getConstructor().newInstance();
     }

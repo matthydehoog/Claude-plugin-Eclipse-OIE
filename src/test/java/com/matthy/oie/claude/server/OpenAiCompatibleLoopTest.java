@@ -30,6 +30,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.matthy.oie.claude.engine.OpenAiCompatibleLoop;
 import com.matthy.oie.claude.engine.OpenAiModelReader;
 import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
 /** The OpenAI-compatible loop and model reader against a small fake Chat Completions server. */
@@ -39,6 +40,7 @@ public class OpenAiCompatibleLoopTest {
 
     private HttpServer server;
     private final List<JsonNode> requests = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> paths = Collections.synchronizedList(new ArrayList<>());
     private final List<String> authorization = Collections.synchronizedList(new ArrayList<>());
     private final List<String> responses = Collections.synchronizedList(new ArrayList<>());
     private int status = 200;
@@ -46,13 +48,16 @@ public class OpenAiCompatibleLoopTest {
     @Before
     public void start() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/v1/chat/completions", exchange -> {
+        HttpHandler completion = exchange -> {
             try (InputStream in = exchange.getRequestBody()) {
                 requests.add(MAPPER.readTree(in));
             }
+            paths.add(exchange.getRequestURI().getPath());
             authorization.add(exchange.getRequestHeaders().getFirst("Authorization"));
             reply(exchange, status, responses.isEmpty() ? "{}" : responses.remove(0));
-        });
+        };
+        server.createContext("/v1/chat/completions", completion);
+        server.createContext("/v1/responses", completion);
         server.createContext("/v1/models", exchange -> {
             authorization.add(exchange.getRequestHeaders().getFirst("Authorization"));
             reply(exchange, status, "{\"object\":\"list\",\"data\":[{\"id\":\"gpt-old\",\"created\":1600000000},{\"id\":\"gpt-new\",\"created\":1700000000},{\"id\":\"local\"}]}");
@@ -118,6 +123,9 @@ public class OpenAiCompatibleLoopTest {
 
         JsonNode first = requests.get(0);
         assertEquals("gpt-test", first.path("model").asText());
+        assertEquals("/v1/chat/completions", paths.get(0));
+        assertFalse(first.has("store"));
+        assertFalse(first.has("reasoning_effort"));
         assertEquals("system", first.path("messages").get(0).path("role").asText());
         assertEquals("oie_list_channels", first.path("tools").get(0).path("function").path("name").asText());
         assertEquals("object", first.path("tools").get(0).path("function").path("parameters").path("type").asText());
@@ -133,6 +141,178 @@ public class OpenAiCompatibleLoopTest {
         assertEquals("tool", result.path("role").asText());
         assertEquals("call_1", result.path("tool_call_id").asText());
         assertEquals("ADT in, ADT out", result.path("content").asText());
+    }
+
+    @Test
+    public void responsesApiCallsAToolAndReplaysEveryOutputItem() throws Exception {
+        String output = "[{\"id\":\"rs_1\",\"type\":\"reasoning\",\"summary\":[],\"encrypted_content\":\"synthetic-reasoning\"},"
+                + "{\"id\":\"fc_1\",\"type\":\"function_call\",\"status\":\"completed\",\"call_id\":\"call_1\","
+                + "\"name\":\"oie_list_channels\",\"arguments\":\"{\\\"filter\\\":\\\"ADT\\\"}\"}]";
+        responses.add("{\"status\":\"completed\",\"output\":" + output + "}");
+        responses.add("{\"status\":\"completed\",\"output\":[{\"id\":\"msg_1\",\"type\":\"message\",\"role\":\"assistant\","
+                + "\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"Two ADT channels.\",\"annotations\":[]}]}]}");
+        List<String> toolInputs = new ArrayList<>();
+        OpenAiCompatibleLoop loop = new OpenAiCompatibleLoop("sk-test", baseUrl(), "custom-reasoning-model", true, 25, "You help with OIE.", tools(),
+                (job, name, input) -> {
+                    toolInputs.add(name + " " + input);
+                    return "ADT in, ADT out";
+                });
+        ChatJob job = new ChatJob(new Conversation(1), "127.0.0.1");
+
+        loop.run(job, "Which ADT channels are there?");
+
+        assertEquals(ChatJob.State.DONE, job.state());
+        assertEquals(List.of("Two ADT channels."), events(job, "text"));
+        assertEquals(List.of("oie_list_channels {\"filter\":\"ADT\"}"), toolInputs);
+        assertEquals(List.of("/v1/responses", "/v1/responses"), paths);
+        assertEquals("Bearer sk-test", authorization.get(0));
+        JsonNode first = requests.get(0);
+        assertEquals("custom-reasoning-model", first.path("model").asText());
+        assertTrue(first.has("store"));
+        assertFalse(first.path("store").asBoolean());
+        assertFalse(first.has("messages"));
+        assertFalse(first.has("reasoning_effort"));
+        assertEquals("system", first.path("input").path(0).path("role").asText());
+        JsonNode function = first.path("tools").path(0);
+        assertEquals("function", function.path("type").asText());
+        assertEquals("oie_list_channels", function.path("name").asText());
+        assertFalse(function.has("function"));
+        assertTrue(function.has("strict"));
+        assertFalse(function.path("strict").asBoolean());
+
+        JsonNode input = requests.get(1).path("input");
+        assertEquals(5, input.size());
+        assertEquals(MAPPER.readTree(output).get(0), input.get(2));
+        assertEquals(MAPPER.readTree(output).get(1), input.get(3));
+        assertEquals("function_call_output", input.get(4).path("type").asText());
+        assertEquals("call_1", input.get(4).path("call_id").asText());
+        assertEquals("ADT in, ADT out", input.get(4).path("output").asText());
+    }
+
+    @Test
+    public void responsesHistorySurvivesReloadWithoutMixingChatCompletions() throws Exception {
+        responses.add("{\"status\":\"completed\",\"output\":[{\"id\":\"rs_1\",\"type\":\"reasoning\",\"summary\":[],"
+                + "\"encrypted_content\":\"synthetic-reasoning\"},{\"id\":\"msg_1\",\"type\":\"message\",\"role\":\"assistant\","
+                + "\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"First answer.\",\"annotations\":[]}]}]}");
+        responses.add("{\"status\":\"completed\",\"output\":[{\"id\":\"msg_2\",\"type\":\"message\",\"role\":\"assistant\","
+                + "\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"Second answer.\",\"annotations\":[]}]}]}");
+        OpenAiCompatibleLoop loop = new OpenAiCompatibleLoop("", baseUrl(), "gpt-6.2-sol", true, 25, "System.", tools(), (job, name, input) -> "");
+        Conversation conversation = new Conversation(1);
+        loop.run(new ChatJob(conversation, "127.0.0.1"), "First question");
+        String saved = loop.saveHistory(conversation.history());
+        OpenAiCompatibleLoop reloaded = new OpenAiCompatibleLoop("", baseUrl(), "gpt-6.2-sol", true, 25, "System.", tools(), (job, name, input) -> "");
+        Conversation resumed = new Conversation(1);
+        resumed.setHistory(reloaded.loadHistory(saved));
+        ChatJob followUp = new ChatJob(resumed, "127.0.0.1");
+
+        reloaded.run(followUp, "Second question");
+
+        assertEquals(ChatJob.State.DONE, followUp.state());
+        JsonNode input = requests.get(1).path("input");
+        assertEquals(5, input.size());
+        assertEquals("synthetic-reasoning", input.get(2).path("encrypted_content").asText());
+        assertEquals("First answer.", input.get(3).path("content").path(0).path("text").asText());
+        assertEquals("Second question", input.get(4).path("content").asText());
+        assertNull(reloaded.loadHistory("{\"openAiMessages\":[{\"role\":\"user\",\"content\":\"Chat history\"}]}"));
+        OpenAiCompatibleLoop chat = new OpenAiCompatibleLoop("", baseUrl(), "local", 25, "System.", tools(), (job, name, arguments) -> "");
+        assertNull(chat.loadHistory(saved));
+    }
+
+    @Test
+    public void responsesApiOmitsToolsAfterTheToolLimit() throws Exception {
+        responses.add("{\"status\":\"completed\",\"output\":[{\"type\":\"function_call\",\"call_id\":\"call_1\","
+                + "\"name\":\"oie_list_channels\",\"arguments\":\"{}\"}]}");
+        responses.add("{\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"role\":\"assistant\","
+                + "\"content\":[{\"type\":\"output_text\",\"text\":\"Done.\"}]}]}");
+        List<String> called = new ArrayList<>();
+        OpenAiCompatibleLoop loop = new OpenAiCompatibleLoop("", baseUrl(), "gpt-6.2-sol", true, 1, "System.", tools(),
+                (job, name, input) -> {
+                    called.add(name);
+                    return "One channel.";
+                });
+        ChatJob job = new ChatJob(new Conversation(1), "127.0.0.1");
+
+        loop.run(job, "List channels");
+
+        assertEquals(ChatJob.State.DONE, job.state());
+        assertEquals(List.of("oie_list_channels"), called);
+        assertEquals(2, requests.size());
+        assertFalse(requests.get(1).has("tools"));
+        assertEquals("function_call_output", requests.get(1).path("input").path(3).path("type").asText());
+    }
+
+    @Test
+    public void changingApiModeStartsANewModelContextInBothDirections() throws Exception {
+        responses.add("{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"Chat answer.\"}}]}");
+        responses.add("{\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"role\":\"assistant\","
+                + "\"content\":[{\"type\":\"output_text\",\"text\":\"Responses answer.\"}]}]}");
+        responses.add("{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"New chat answer.\"}}]}");
+        OpenAiCompatibleLoop chat = new OpenAiCompatibleLoop("", baseUrl(), "gpt-6.2-sol", 25, "System.", tools(), (job, name, input) -> "");
+        OpenAiCompatibleLoop responsesLoop = new OpenAiCompatibleLoop("", baseUrl(), "custom-model", true, 25, "System.", tools(), (job, name, input) -> "");
+        Conversation conversation = new Conversation(1);
+        ChatJob first = new ChatJob(conversation, "127.0.0.1");
+        ChatJob second = new ChatJob(conversation, "127.0.0.1");
+        ChatJob third = new ChatJob(conversation, "127.0.0.1");
+
+        chat.run(first, "First question");
+        responsesLoop.run(second, "Second question");
+        chat.run(third, "Third question");
+
+        assertEquals(ChatJob.State.DONE, first.state());
+        assertEquals(ChatJob.State.DONE, second.state());
+        assertEquals(ChatJob.State.DONE, third.state());
+        assertEquals(List.of("/v1/chat/completions", "/v1/responses", "/v1/chat/completions"), paths);
+        assertEquals(2, requests.get(1).path("input").size());
+        assertEquals("Second question", requests.get(1).path("input").path(1).path("content").asText());
+        assertEquals(2, requests.get(2).path("messages").size());
+        assertEquals("Third question", requests.get(2).path("messages").path(1).path("content").asText());
+    }
+
+    @Test
+    public void responsesApiReportsTruncatedText() throws Exception {
+        responses.add("{\"status\":\"incomplete\",\"incomplete_details\":{\"reason\":\"max_output_tokens\"},"
+                + "\"output\":[{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"Partial answer.\"}]}]}");
+        OpenAiCompatibleLoop loop = new OpenAiCompatibleLoop("", baseUrl(), "gpt-6.2-sol", true, 25, "System.", tools(), (job, name, input) -> "");
+        ChatJob job = new ChatJob(new Conversation(1), "127.0.0.1");
+
+        loop.run(job, "Hello");
+
+        assertEquals(ChatJob.State.DONE, job.state());
+        assertEquals(List.of("Partial answer."), events(job, "text"));
+        assertTrue(events(job, "info").get(0).contains("cut off"));
+    }
+
+    @Test
+    public void responsesApiNeverExecutesIncompleteToolCalls() throws Exception {
+        responses.add("{\"status\":\"incomplete\",\"incomplete_details\":{\"reason\":\"max_output_tokens\"},"
+                + "\"output\":[{\"type\":\"function_call\",\"call_id\":\"call_1\",\"name\":\"oie_list_channels\",\"arguments\":\"{\"}]}");
+        List<String> called = new ArrayList<>();
+        OpenAiCompatibleLoop loop = new OpenAiCompatibleLoop("", baseUrl(), "gpt-6.2-sol", true, 25, "System.", tools(),
+                (job, name, input) -> {
+                    called.add(name);
+                    return "";
+                });
+        ChatJob job = new ChatJob(new Conversation(1), "127.0.0.1");
+
+        loop.run(job, "List channels");
+
+        assertEquals(ChatJob.State.ERROR, job.state());
+        assertTrue(called.isEmpty());
+        assertEquals(1, requests.size());
+        assertTrue(events(job, "error").get(0).contains("incomplete"));
+    }
+
+    @Test
+    public void responsesApiReportsFailedResponsesEvenWithHttp200() throws Exception {
+        responses.add("{\"status\":\"failed\",\"error\":{\"message\":\"Synthetic model failure\"},\"output\":[]}");
+        OpenAiCompatibleLoop loop = new OpenAiCompatibleLoop("", baseUrl(), "gpt-6.2-sol", true, 25, "System.", tools(), (job, name, input) -> "");
+        ChatJob job = new ChatJob(new Conversation(1), "127.0.0.1");
+
+        loop.run(job, "Hello");
+
+        assertEquals(ChatJob.State.ERROR, job.state());
+        assertTrue(events(job, "error").get(0).contains("Synthetic model failure"));
+        assertEquals(1, requests.size());
     }
 
     @Test
@@ -198,10 +378,10 @@ public class OpenAiCompatibleLoopTest {
     @Test
     public void savedHistoryIsKeptApartFromClaudes() throws Exception {
         OpenAiCompatibleLoop loop = new OpenAiCompatibleLoop("", baseUrl(), "local", 25, "System.", tools(), (job, name, input) -> "");
-        Object history = MAPPER.readTree("[{\"role\":\"user\",\"content\":\"Hi\"}]");
+        Object history = MAPPER.readTree("{\"openAiMessages\":[{\"role\":\"user\",\"content\":\"Hi\"}]}");
         String saved = loop.saveHistory(history);
 
-        assertEquals("Hi", ((JsonNode) loop.loadHistory(saved)).get(0).path("content").asText());
+        assertEquals("Hi", ((JsonNode) loop.loadHistory(saved)).path("openAiMessages").get(0).path("content").asText());
         // A conversation saved with Claude ({"messages": [...]}) continues without that context.
         assertNull(loop.loadHistory("{\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}]}"));
     }
