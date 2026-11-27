@@ -57,7 +57,10 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
             "Italiano (Italian)", "Português (Portuguese)", "Polski (Polish)", "Svenska (Swedish)", "Dansk (Danish)", "Norsk (Norwegian)", "Suomi (Finnish)" };
     /** Stored values of "Review before sending" and their labels. */
     private static final String[] REVIEWS = { "data", "all", "off" };
-    private static final String[] REVIEW_LABELS = { "Message content, logs and events (recommended)", "Everything, including my question", "Off (send without review)" };
+    /** Stored values of "Data on this server" and their labels; production is the default. */
+    static final String[] DATA_TYPES = { "production", "mixed", "test" };
+    static final String[] DATA_TYPE_LABELS = { "Production data only (always masked)", "Mixed data (masking can be turned off per conversation)", "Test data only (masking can be turned off)" };
+    private static final String[] REVIEW_LABELS ={ "Message content, logs and events (recommended)", "Everything, including my question", "Off (send without review)" };
     /** The credit balance has no API, so the tab links to the provider's billing page instead. */
     static final String ANTHROPIC_BILLING_URL = "https://platform.claude.com/settings/billing";
     static final String OPENAI_BILLING_URL = "https://platform.openai.com/settings/organization/billing/overview";
@@ -121,7 +124,11 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
     private final JComboBox<String> languageBox = new JComboBox<>(LANGUAGE_LABELS);
     private final JSpinner maxToolCalls = new JSpinner(new SpinnerNumberModel(25, 1, 100, 1));
     private final JComboBox<String> reviewBox = new JComboBox<>(REVIEW_LABELS);
-    private final JSpinner keepDays = new JSpinner(new SpinnerNumberModel(0, 0, 365, 1));
+    private final JComboBox<String> dataTypeBox = new JComboBox<>(DATA_TYPE_LABELS);
+    /** Shown while "Test data only" is chosen. */
+    private final JLabel testDataWarning = new JLabel("<html><b>Warning:</b> with Test data only, users can send message content, logs and events to the AI model unmasked. "
+            + "Only choose this when this OIE server holds no real patient data.</html>");
+    private final JSpinner keepDays =new JSpinner(new SpinnerNumberModel(0, 0, 365, 1));
     private final JTextArea maskPatterns = new JTextArea(4, 50);
 
     private final JPasswordField adminKeyField = new JPasswordField(40);
@@ -196,6 +203,16 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         form.add(keepDays, "wrap, w 80!");
         form.add(new JLabel(""));
         form.add(new JLabel("<html>Days a conversation is kept on the server after its last use, so it can be continued after a restart of OIE (Conversations…). Only what was sent to the AI model is kept, so masked. 0 = not saved: conversations are gone 4 hours after their last use or on a restart, and saved ones are removed.</html>"), "wrap, w 600!");
+        form.add(new JLabel("Data on this server:"));
+        form.add(dataTypeBox, "wrap, w 360!");
+        form.add(new JLabel(""));
+        form.add(new JLabel("<html>Test data only: users can turn masking off in the chat window and their choice is kept. "
+                + "Mixed data: users can turn masking off, but every new conversation starts masked again. "
+                + "Production data only: everything is always masked. Choose test data only when this server holds no real patient data.</html>"), "wrap, w 600!");
+        testDataWarning.setForeground(new java.awt.Color(0xb00020));
+        testDataWarning.setVisible(false);
+        form.add(new JLabel(""), "hidemode 3");
+        form.add(testDataWarning, "wrap, w 600!, hidemode 3");
         form.add(new JLabel("Extra mask patterns:"), "top");
         form.add(new JScrollPane(maskPatterns), "wrap, growx, h 80!");
         form.add(new JLabel(""));
@@ -258,6 +275,10 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         languageBox.addActionListener(e -> markChanged());
         maxToolCalls.addChangeListener(e -> markChanged());
         reviewBox.addActionListener(e -> markChanged());
+        dataTypeBox.addActionListener(e -> {
+            markChanged();
+            updateTestDataWarning();
+        });
         keepDays.addChangeListener(e -> markChanged());
         clearAdminKey.addActionListener(e -> markChanged());
         refreshSpend.addActionListener(e -> loadSpend(true));
@@ -309,6 +330,13 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         }
     }
 
+    /** Shows the warning while "Test data only" is chosen (also right after loading the settings). */
+    private void updateTestDataWarning() {
+        testDataWarning.setVisible("test".equals(DATA_TYPES[Math.max(0, dataTypeBox.getSelectedIndex())]));
+        revalidate();
+        repaint();
+    }
+
     @Override
     public void doRefresh() {
         if (PlatformUI.MIRTH_FRAME.alertRefresh()) {
@@ -348,6 +376,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
         body.put("maxToolCalls", (Integer) maxToolCalls.getValue());
         body.put("reviewBeforeSending", REVIEWS[Math.max(0, reviewBox.getSelectedIndex())]);
         body.put("keepConversationsDays", (Integer) keepDays.getValue());
+        body.put("dataType", DATA_TYPES[Math.max(0, dataTypeBox.getSelectedIndex())]);
         body.put("maskPatterns", maskPatterns.getText().trim());
 
         final String workingId = getFrame().startWorking("Saving " + getTabName() + " settings...");
@@ -392,6 +421,7 @@ public class ClaudeSettingsPanel extends AbstractSettingsPanel {
             maxToolCalls.setValue(s.path("maxToolCalls").asInt(25));
             reviewBox.setSelectedIndex(Math.max(0, java.util.Arrays.asList(REVIEWS).indexOf(s.path("reviewBeforeSending").asText("data"))));
             keepDays.setValue(Math.max(0, Math.min(365, s.path("keepConversationsDays").asInt(0))));
+        dataTypeBox.setSelectedIndex(Math.max(0, java.util.Arrays.asList(DATA_TYPES).indexOf(s.path("dataType").asText("production"))));
             maskPatterns.setText(s.path("maskPatterns").asText(""));
             setSaveEnabled(false);
         } finally {

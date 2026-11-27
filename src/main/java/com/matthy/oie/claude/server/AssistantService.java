@@ -372,6 +372,16 @@ public class AssistantService {
     // ------------------------------------------------------------------ API used by the servlet
 
     public ChatJob startChat(int userId, String address, String conversationId, String message, String context) {
+        return startChat(userId, address, conversationId, message, context, true);
+    }
+
+    /**
+     * Starts a question. maskRequested false turns masking off for this question, which the server only
+     * honours when Settings > AI Assistant says the server holds test data only or mixed data; with
+     * production data everything is masked whatever the client asks.
+     */
+    public ChatJob startChat(int userId, String address, String conversationId, String message, String context, boolean maskRequested) {
+        boolean masked = maskRequested || !settings.maskingOptional();
         ModelLoop l = loop;
         if (l == null) {
             if (engineError != null) {
@@ -397,12 +407,17 @@ public class AssistantService {
             if (conversation.activeJob != null && !isFinished(conversation.activeJob)) {
                 throw new IllegalStateException("The AI Assistant is still working on your previous question.");
             }
-            job = new ChatJob(conversation, address);
+            job = new ChatJob(conversation, address, masked);
             conversation.activeJob = job;
             conversation.lastUsed = System.currentTimeMillis();
         }
         jobs.put(job.id, job);
-        String builtText = buildUserText(message, context);
+        if (!masked) {
+            job.emit("info", "Masking is off for this question: data is sent to the AI model unmasked (server set to "
+                    + (Settings.DATA_TEST.equals(settings.dataType) ? "test data only" : "mixed data") + ").");
+            logger.info("AI Assistant: user " + userId + " sent a question with masking off (conversation " + conversation.id + ", data type " + settings.dataType + ").");
+        }
+        String builtText = buildUserText(message, context, masked);
         boolean reviewQuestion = Settings.REVIEW_ALL.equals(settings.reviewBeforeSending);
         job.setFuture(executor.submit(() -> {
             try {
@@ -616,7 +631,7 @@ public class AssistantService {
         }
         String result = null;
         if (approved) {
-            String edited = text == null ? pending.prepared.detail : masker.mask(text);
+            String edited = text == null ? pending.prepared.detail : mask(job.masked, text);
             boolean changed = !edited.equals(pending.prepared.detail);
             result = edited;
             job.emit("info", "Sent to the AI model after review" + (changed ? " (edited)" : "") + ": " + pending.prepared.title);
@@ -635,7 +650,7 @@ public class AssistantService {
             input = MAPPER.createObjectNode();
         }
         OieTools t = tools;
-        job.emit("tool", name + " " + summarize(input));
+        job.emit("tool", name + " " + summarize(input, job.masked));
         if (!authorized(job.conversation.userId, job.address, name)) {
             job.emit("info", "Skipped " + name + ": you do not have the OIE permission for it (" + OieTools.OPERATIONS.get(name) + ").");
             return missingPermission(name);
@@ -648,7 +663,7 @@ public class AssistantService {
                     + "\", so no action can be run for them. Do not propose actions; explain what the user, or an administrator, could do instead.";
         }
         if (!t.isAction(name)) {
-            String result = t.run(name, input);
+            String result = t.run(name, input, job.masked);
             String review = settings.reviewBeforeSending;
             boolean data = DATA_TOOLS.containsKey(name);
             String sent = result;
@@ -672,13 +687,13 @@ public class AssistantService {
             if (job.firstScriptRejection(name + " " + String.join("|", prepared.scripts.keySet()))) {
                 job.emit("info", "The proposed script does not compile in OIE's JavaScript engine; the assistant is correcting it.");
                 logger.info("AI Assistant: proposed " + name + " does not compile; sent back to the model: " + errors.replace('\n', ' '));
-                return masker.mask(scriptRejection(scriptCheck.languageVersion(), errors));
+                return mask(job.masked, scriptRejection(scriptCheck.languageVersion(), errors));
             }
             prepared = prepared.withWarning(scriptWarning(errors));
         }
         // The confirmation dialog shows the detail, so it goes through the masker like everything else.
-        OieTools.PreparedAction shown = new OieTools.PreparedAction(prepared.title, masker.mask(prepared.detail), prepared.runner)
-                .withChanges(prepared.changes == null ? null : masker.mask(prepared.changes));
+        OieTools.PreparedAction shown = new OieTools.PreparedAction(prepared.title, mask(job.masked, prepared.detail), prepared.runner)
+                .withChanges(prepared.changes == null ? null : mask(job.masked, prepared.changes));
         ChatJob.PendingAction pending = job.await(name, shown, false);
         try {
             return pending.decision.get(ACTION_TIMEOUT_MINUTES, TimeUnit.MINUTES);
@@ -804,6 +819,7 @@ public class AssistantService {
                 }
             }
             attributes.put("review", review);
+            attributes.put("masked", job.masked ? "yes" : "no (masking turned off by the user)");
             attributes.put("characters", String.valueOf(sent.length()));
             attributes.put("conversation", job.conversation.id);
             event.setAttributes(attributes);
@@ -815,22 +831,31 @@ public class AssistantService {
 
     // ------------------------------------------------------------------ helpers
 
-    private String buildUserText(String message, String context) {
+    private String buildUserText(String message, String context, boolean masked) {
         StringBuilder sb = new StringBuilder();
         sb.append("[Server time: ").append(ZonedDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z"))).append("]\n");
+        if (!masked) {
+            // Told per question (not in the system prompt), so the prompt cache stays valid.
+            sb.append("[Masking is off for this question: the user turned it off, so tool results are not masked and no value appears as *** unless it is *** in OIE itself.]\n");
+        }
         if (context != null && !context.isBlank()) {
             sb.append("[Context from the Administrator: ").append(context.trim()).append("]\n");
         }
         sb.append('\n').append(message);
-        return masker.mask(sb.toString());
+        return mask(masked, sb.toString());
     }
 
-    private String summarize(JsonNode input) {
+    /** Masks text for a question, unless masking is off for it. */
+    private String mask(boolean masked, String text) {
+        return masked ? masker.mask(text) : text;
+    }
+
+    private String summarize(JsonNode input, boolean masked) {
         String json = input.toString();
         if (json.equals("{}")) {
             return "";
         }
-        json = masker.mask(json);
+        json = mask(masked, json);
         return json.length() > 300 ? json.substring(0, 300) + "…}" : json;
     }
 

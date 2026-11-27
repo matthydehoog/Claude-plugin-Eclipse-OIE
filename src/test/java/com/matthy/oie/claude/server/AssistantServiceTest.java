@@ -117,7 +117,11 @@ public class AssistantServiceTest {
 
     /** A service whose model loop calls the given tools, one after another, then answers. */
     private AssistantService service(String review, String[]... calls) {
-        Settings settings = new Settings("sk-test", "", null, null, 0, "", null, review, 0);
+        return service(review, Settings.DATA_PRODUCTION, calls);
+    }
+
+    private AssistantService service(String review, String dataType, String[]... calls) {
+        Settings settings = new Settings("sk-test", "", null, null, 0, "", null, review, 0, null, null, dataType);
         AssistantService service = new AssistantService(settings, (s, prompt, tools, caller) -> new ModelLoop() {
             @Override
             public void run(ChatJob job, String userText) {
@@ -334,6 +338,56 @@ public class AssistantServiceTest {
 
         assertEquals(ChatJob.State.CANCELLED, job.state());
         assertTrue("the model loop never ran", toolResults.isEmpty());
+    }
+
+    // ------------------------------------------------------------------ masking off (test / mixed data)
+
+    private void anEventWithAPatient() throws Exception {
+        ServerEvent event = new ServerEvent("server-1", "Message failed");
+        event.setLevel(ServerEvent.Level.ERROR);
+        event.setOutcome(ServerEvent.Outcome.FAILURE);
+        event.setAttributes(Map.of("note", "MSH|^~\\&|LAB|HOSP\rPID|1||654321^^^HOSP^MR||Roe^Rick"));
+        when(events.getEvents(any(), anyInt(), anyInt())).thenReturn(List.of(event));
+    }
+
+    @Test
+    public void withProductionDataMaskingCannotBeTurnedOff() throws Exception {
+        anEventWithAPatient();
+        AssistantService service = service(Settings.REVIEW_OFF, Settings.DATA_PRODUCTION, EVENTS);
+        ChatJob job = service.startChat(USER, ADDRESS, null, "What happened?", null, false);
+        await(() -> finished(job), "the chat");
+
+        assertTrue(job.masked);
+        assertFalse(toolResults.get(0).contains("Roe^Rick"));
+        assertEquals("yes", dispatchedEvents().get(0).getAttributes().get("masked"));
+    }
+
+    @Test
+    public void withTestDataTheUserCanTurnMaskingOff() throws Exception {
+        anEventWithAPatient();
+        AssistantService service = service(Settings.REVIEW_OFF, Settings.DATA_TEST, EVENTS);
+        ChatJob job = service.startChat(USER, ADDRESS, null, "What happened?", null, false);
+        await(() -> finished(job), "the chat");
+
+        assertFalse(job.masked);
+        assertTrue(toolResults.get(0).contains("Roe^Rick"));
+        assertTrue(eventTexts(job, "info").get(0).startsWith("Masking is off for this question"));
+        assertTrue(dispatchedEvents().get(0).getAttributes().get("masked").startsWith("no"));
+    }
+
+    @Test
+    public void withMixedDataMaskingIsOnUnlessTheUserTurnsItOff() throws Exception {
+        anEventWithAPatient();
+        AssistantService service = service(Settings.REVIEW_OFF, Settings.DATA_MIXED, EVENTS, EVENTS);
+        ChatJob masked = service.startChat(USER, ADDRESS, null, "What happened?", null);
+        await(() -> finished(masked), "the masked chat");
+        assertTrue(masked.masked);
+        assertFalse(toolResults.get(0).contains("Roe^Rick"));
+
+        ChatJob unmasked = service.startChat(USER, ADDRESS, masked.conversation.id, "And now?", null, false);
+        await(() -> finished(unmasked), "the unmasked chat");
+        assertFalse(unmasked.masked);
+        assertTrue(toolResults.get(toolResults.size() - 1).contains("Roe^Rick"));
     }
 
     // ------------------------------------------------------------------ audit

@@ -209,6 +209,12 @@ oie-mcp-server:
   `true`/`false` and a response's status stay readable)
 - your own patterns under *Settings > AI Assistant*
 
+Masking is always on by default. On a server with test data, *Settings > AI Assistant > Data on this
+server* can be set to *Test data only* (users may turn masking off with the *Mask data* checkbox in the
+chat window; their choice is kept) or *Mixed data* (users may turn it off, but every new conversation
+starts masked). With *Production data only* (the default) masking cannot be turned off. Questions sent
+unmasked are marked in the chat and in the audit event.
+
 **Review before sending.** Before message content, log lines or events go to the AI model, a dialog shows
 exactly what would be sent, after masking. You can edit the text, send it (*Send to the AI model*) or
 withhold it (*Don't send*, or close the dialog); edited text is masked again. *Settings > AI

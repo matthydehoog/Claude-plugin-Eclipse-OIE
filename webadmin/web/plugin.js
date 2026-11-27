@@ -65,6 +65,9 @@ const LANGUAGES = [
     ["Polish", "Polski (Polish)"], ["Swedish", "Svenska (Swedish)"], ["Danish", "Dansk (Danish)"], ["Norwegian", "Norsk (Norwegian)"], ["Finnish", "Suomi (Finnish)"]
 ];
 // Stored value of "Review before sending" and its label.
+// "Data on this server": production is the default; only test and mixed data let users turn masking off.
+const DATA_TYPES = [["production", "Production data only (always masked)"], ["mixed", "Mixed data (masking can be turned off per conversation)"], ["test", "Test data only (masking can be turned off)"]];
+const TEST_DATA_WARNING = "Warning: with Test data only, users can send message content, logs and events to the AI model unmasked. Only choose this when this OIE server holds no real patient data.";
 const REVIEWS = [["data", "Message content, logs and events (recommended)"], ["all", "Everything, including my question"], ["off", "Off (send without review)"]];
 // Stroke-only 24x24 path, same format as the built-in icons: an eight-point burst.
 const ICON_PATH = "M12 3v5M12 16v5M3 12h5M16 12h5M5.6 5.6l3.5 3.5M14.9 14.9l3.5 3.5M5.6 18.4l3.5-3.5M14.9 9.1l3.5-3.5";
@@ -106,6 +109,9 @@ const CSS = `
 .claude-input textarea { flex: 1; min-height: 64px; resize: vertical; font: inherit; color: var(--text); background: var(--bg1); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 6px 8px; }
 .claude-input .claude-buttons { display: flex; flex-direction: column; gap: 6px; }
 .claude-status { color: var(--text-faint); font-size: 12px; min-height: 16px; }
+.claude-mask { font-size: 12px; white-space: nowrap; cursor: pointer; }
+.claude-mask-off { color: var(--danger, #b00020); font-weight: 600; }
+.claude-data-warning { color: var(--danger, #b00020); font-weight: 600; margin: 4px 0 8px; }
 .claude-detail { font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap; max-height: 55vh; overflow: auto; background: var(--bg1); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; margin: 8px 0 0; }
 .claude-diff .add { display: block; background: rgba(46, 160, 67, 0.18); }
 .claude-diff .del { display: block; background: rgba(248, 81, 73, 0.18); }
@@ -329,6 +335,11 @@ const chat = {
     lastSeq: 0,
     busy: false,
     status: "",
+    /** Mask data checkbox: offered only when the server holds test or mixed data. */
+    mask: true,
+    maskingOptional: false,
+    maskingChoiceKept: false,
+    keptMask: true,
     shownActionId: null,
     timer: null,
     polling: false,
@@ -350,6 +361,30 @@ const chat = {
         this.notify();
     },
 
+    /**
+     * Reads "Data on this server" and sets the Mask data checkbox. A new conversation starts masked,
+     * except with test data only, where the user's last choice is kept.
+     */
+    refreshMasking(newConversation) {
+        call("GET", "/settings").then((s) => {
+            this.maskingOptional = !!(s && s.maskingOptional);
+            this.maskingChoiceKept = !!(s && s.maskingChoiceKept);
+            if (newConversation || !this.maskingOptional) {
+                this.mask = !this.maskingOptional || !this.maskingChoiceKept || this.keptMask;
+            }
+            this.notify();
+        }).catch(() => {
+            this.maskingOptional = false;
+            this.mask = true;
+            this.notify();
+        });
+    },
+    setMask(mask) {
+        this.mask = !this.maskingOptional || mask;
+        if (this.maskingChoiceKept) this.keptMask = this.mask;
+        this.notify();
+    },
+
     /** Sets the context (and a suggested question) from an action in the Administrator. */
     /** replace: the suggestion replaces whatever is in the question box (Explain with AI Assistant). */
     open(context, suggestion, replace) {
@@ -359,6 +394,8 @@ const chat = {
             this.replaceSuggestion = !!replace;
         }
         this.loadSuggestions();
+        // The administrator may have changed "Data on this server" since the chat was last used.
+        this.refreshMasking(false);
         this.notify();
     },
     clearContext() {
@@ -391,7 +428,7 @@ const chat = {
         this.busy = true;
         this.setStatus("Sending…");
         try {
-            const res = await call("POST", "/chat", { conversationId: this.conversationId, message: text, context: this.context });
+            const res = await call("POST", "/chat", { conversationId: this.conversationId, message: text, context: this.context, mask: !this.maskingOptional || this.mask });
             this.conversationId = res.conversationId;
             this.jobId = res.jobId;
             this.lastSeq = 0;
@@ -469,6 +506,7 @@ const chat = {
         this.conversationId = null;
         this.entries = [];
         this.partial = "";
+        this.refreshMasking(true);
         this.notify();
     },
 
@@ -557,6 +595,8 @@ const chat = {
 
     showConversation(resumed) {
         this.conversationId = resumed.conversationId;
+        // A continued conversation starts masked like a new one (mixed data), or with the kept choice (test data only).
+        this.refreshMasking(true);
         this.entries = (resumed.log || []).map((entry) => ({ kind: entry.type === "question" ? "user" : entry.type, text: entry.text }));
         this.entries.push({ kind: "info", text: "Continued conversation. Ask your next question." });
         this.notify();
@@ -691,6 +731,9 @@ function ChatPanel() {
 
     // A suggestion from an action fills the input, unless the user already typed something of
     // their own (an untouched earlier suggestion is replaced).
+    // Whether the Mask data checkbox is offered depends on "Data on this server" in the settings.
+    React.useEffect(() => { c.refreshMasking(false); }, []);
+
     React.useEffect(() => {
         if (c.suggestion) {
             if (c.replaceSuggestion || !input.trim() || input === lastSuggestion.current) {
@@ -725,6 +768,11 @@ function ChatPanel() {
         e("div", { className: "claude-contextbar" },
             e("span", { className: "claude-context", title: c.context || "" },
                 c.context ? [e("b", { key: "l" }, "Context: "), c.context] : "No context: the AI Assistant looks at the whole server."),
+            // At the top, so it is clear before asking whether the question goes out masked.
+            c.maskingOptional ? e("label", {
+                className: "claude-mask" + (c.mask ? "" : " claude-mask-off"),
+                title: "Uncheck to send this conversation's data to the AI model unmasked. Only offered when Settings > AI Assistant says this server holds test or mixed data."
+            }, e("input", { type: "checkbox", checked: c.mask, onChange: (ev) => c.setMask(ev.target.checked) }), c.mask ? " Mask data" : " Mask data (off: sent unmasked)") : null,
             e("button", {
                 className: "btn",
                 title: "Ask about the global deploy, undeploy, preprocessor and postprocessor scripts",
@@ -881,7 +929,7 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
 
     const show = React.useCallback((s) => {
         setStatus(s);
-        setForm({ apiKey: "", provider: providerChoice(s.provider, s.baseUrl), baseUrl: s.baseUrl || "", adminApiKey: "", clearAdminApiKey: false, model: s.model || "", effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic", reviewBeforeSending: s.reviewBeforeSending || "data", keepConversationsDays: s.keepConversationsDays || 0 });
+        setForm({ apiKey: "", provider: providerChoice(s.provider, s.baseUrl), baseUrl: s.baseUrl || "", adminApiKey: "", clearAdminApiKey: false, model: s.model || "", effort: s.effort || "high", maxToolCalls: s.maxToolCalls || 25, maskPatterns: s.maskPatterns || "", responseLanguage: s.responseLanguage || "Automatic", reviewBeforeSending: s.reviewBeforeSending || "data", keepConversationsDays: s.keepConversationsDays || 0, dataType: s.dataType || "production" });
         clean();
         setTest({ state: "idle" });
         loadModels(false);
@@ -1052,6 +1100,9 @@ function SettingsPanel({ setTasks, setSave, markDirty, markClean }) {
             "Shows exactly what will be sent to the AI model, after masking, so each user can edit it or withhold it first."),
         row("Keep conversations (days):", e("input", { type: "number", min: 0, max: 365, value: form.keepConversationsDays, onChange: set("keepConversationsDays"), style: { width: 80 } }),
             "Days a conversation is kept on the server after its last use, so it can be continued after a restart of OIE (Conversations…). Only what was sent to the AI model is kept, so masked. 0 = not saved: conversations are gone 4 hours after their last use or on a restart, and saved ones are removed."),
+        row("Data on this server:", e("select", { value: form.dataType, onChange: set("dataType") }, DATA_TYPES.map(([value, label]) => e("option", { key: value, value }, label))),
+            "Test data only: users can turn masking off in the chat window and their choice is kept. Mixed data: users can turn masking off, but every new conversation starts masked again. Production data only: everything is always masked. Choose test data only when this server holds no real patient data."),
+        form.dataType === "test" ? e("div", { className: "claude-data-warning", role: "alert" }, TEST_DATA_WARNING) : null,
         row("Extra mask patterns:", e("textarea", { rows: 4, value: form.maskPatterns, onChange: set("maskPatterns") }),
             "Regular expressions, separated by ;; . They are masked in addition to the built-in rules (HL7 PID, NTE and text over 30 characters, GDT 3000-3107, BSN). The API keys are stored encrypted on the server and never sent back to the Administrator. Leave a key field empty to keep the current key."),
         // The Admin API key and spend only apply to Anthropic; the billing button follows the provider.

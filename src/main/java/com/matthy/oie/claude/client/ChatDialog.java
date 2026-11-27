@@ -30,6 +30,7 @@ import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JEditorPane;
@@ -90,6 +91,14 @@ class ChatDialog extends JDialog {
     /** Claude's last complete answer, as Markdown, for Save answer. */
     private String lastAnswer;
 
+    /** Shown only when the server allows masking to be turned off (test or mixed data). */
+    private final JCheckBox maskBox = new JCheckBox("Mask data", true);
+    /** From the server settings: whether masking may be turned off, and whether that choice is kept for new conversations. */
+    private boolean maskingOptional;
+    private boolean maskingChoiceKept;
+    /** With test data only, the user's choice is kept for new conversations while the Administrator is open. */
+    private static boolean keptMaskChoice = true;
+
     private String conversationId;
     private String context;
     private String jobId;
@@ -137,6 +146,11 @@ class ChatDialog extends JDialog {
         contextLabel.setForeground(new Color(0x505050));
         top.add(contextLabel, BorderLayout.CENTER);
         JPanel topButtons = new JPanel();
+        // At the top, so it is clear before asking whether the question goes out masked.
+        maskBox.setVisible(false);
+        maskBox.setToolTipText("Uncheck to send this conversation's data to the AI model unmasked. Only offered when Settings > AI Assistant says this server holds test or mixed data.");
+        maskBox.addActionListener(e -> maskChanged());
+        topButtons.add(maskBox);
         topButtons.add(clearContextButton);
         topButtons.add(conversationsButton);
         topButtons.add(exportButton);
@@ -185,6 +199,7 @@ class ChatDialog extends JDialog {
         setContext(null);
         setBusy(false);
         setLastAnswer(null);
+        refreshMasking(true);
     }
 
     /** Opens the window with a context from the Administrator and a suggested question. */
@@ -207,6 +222,8 @@ class ChatDialog extends JDialog {
                 input.selectAll();
             }
         }
+        // The administrator may have changed "Data on this server" since the window was last open.
+        refreshMasking(false);
         setVisible(true);
         toFront();
         input.requestFocusInWindow();
@@ -287,6 +304,38 @@ class ChatDialog extends JDialog {
         showWelcome();
         asked = false;
         updateSuggestions();
+        refreshMasking(true);
+    }
+
+    /**
+     * Reads the server's "Data on this server" setting and shows or hides the Mask data checkbox. A new
+     * conversation starts masked, except with test data only, where the user's last choice is kept.
+     */
+    void refreshMasking(boolean newConversation) {
+        background(ClaudeApi::settings, s -> {
+            maskingOptional = s.path("maskingOptional").asBoolean(false);
+            maskingChoiceKept = s.path("maskingChoiceKept").asBoolean(false);
+            if (newConversation || !maskingOptional) {
+                maskBox.setSelected(!maskingOptional || !maskingChoiceKept || keptMaskChoice);
+            }
+            maskBox.setVisible(maskingOptional);
+            maskChanged();
+        }, error -> {
+            maskingOptional = false;
+            maskBox.setSelected(true);
+            maskBox.setVisible(false);
+        });
+    }
+
+    private void maskChanged() {
+        if (!maskingOptional) {
+            maskBox.setSelected(true);
+        }
+        if (maskingChoiceKept) {
+            keptMaskChoice = maskBox.isSelected();
+        }
+        maskBox.setForeground(maskBox.isSelected() ? UIManager.getColor("CheckBox.foreground") : new Color(0xb00020));
+        maskBox.setText(maskBox.isSelected() ? "Mask data" : "Mask data (off: sent unmasked)");
     }
 
     /** Saves the conversation as Markdown, as the server has it: what Claude received (masked) and answered. */
@@ -387,6 +436,8 @@ class ChatDialog extends JDialog {
 
     private void showConversation(JsonNode resumed) {
         conversationId = resumed.path("conversationId").asText();
+        // A continued conversation starts masked like a new one (with mixed data), or with the kept choice (test data only).
+        refreshMasking(true);
         entries.clear();
         codeBlocks.clear();
         setLastAnswer(null);
@@ -432,7 +483,8 @@ class ChatDialog extends JDialog {
         input.setText("");
         setBusy(true);
         statusLabel.setText("Sending…");
-        background(() -> ClaudeApi.chat(conversationId, text, sentContext), result -> {
+        boolean mask = !maskingOptional || maskBox.isSelected();
+        background(() -> ClaudeApi.chat(conversationId, text, sentContext, mask), result -> {
             conversationId = result.path("conversationId").asText();
             jobId = result.path("jobId").asText();
             lastSeq = 0;

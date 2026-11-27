@@ -107,6 +107,7 @@ The key is stored encrypted on the server and never sent back to the Administrat
 | Max tool calls | 25 | Lookups the assistant may do for one question |
 | Response language | Automatic | Automatic answers in the language of the question; a fixed language always answers in that language |
 | Review before sending | Message content, logs and events | Which outgoing data you see, can edit and must approve first (see *Review before sending*) |
+| Data on this server | Production data only | Test data only, Mixed data or Production data only: whether users may turn masking off (see *Turning masking off for test data*) |
 | Mask patterns | none | Extra regular expressions to mask, on top of the built-in rules |
 | Keep conversations | 0 days | Days a conversation is saved on the server after its last use, so it can be continued after a restart (see *Conversations: export and continue*); 0 = not saved |
 | Admin API key | none | Optional, only for the spend figures (see *Usage and costs*) |
@@ -350,7 +351,7 @@ Every time message data, log lines or events are sent to Anthropic, *Events* als
 
 ## Privacy and masking
 
-Everything sent to Anthropic passes through a masker first. That includes your questions, context, message content, logs, errors and channel configuration. Masking cannot be switched off.
+Everything sent to Anthropic passes through a masker first. That includes your questions, context, message content, logs, errors and channel configuration. Masking is always on, unless an administrator marks the server as holding test data (see *Turning masking off for test data* below).
 
 Masked by default:
 
@@ -381,6 +382,41 @@ unchanged: OBX|3|NM|12345-6^Glucose^LN||5.4|mmol/L|||||F
 
 Add a mask pattern for any identifier the defaults miss, such as a hospital patient number format.
 
+### Turning masking off for test data
+
+On a test server, masking can hide exactly the values you are debugging. *Settings > AI Assistant > Data on this server* decides whether users may turn it off:
+
+| Data on this server | Mask data checkbox at the top of the chat window |
+|---|---|
+| Production data only (default) | Not shown: everything is always masked |
+| Mixed data | Shown. You can turn masking off, but every new or continued conversation starts masked again |
+| Test data only | Shown. You can turn masking off, and your choice is kept for new conversations while the Administrator is open |
+
+With the checkbox off, the question and the data the assistant looks up are sent unmasked; the chat shows *Masking is off for this question* and the audit event "data sent to …" records `masked: no`. Credentials in channel configuration stay hidden either way. The server checks the setting for every question, so with *Production data only* nothing is ever sent unmasked, whatever a client asks. Settings shows a warning while *Test data only* is selected: choose it only when the server holds no real patient data, and remember that saved conversations and exports then contain the unmasked data.
+
+### Does masking affect the answers?
+
+Yes, but for most integration questions only a little: masking was designed to keep what the assistant needs to debug.
+
+**What stays visible.** The structure of a message (segments, fields, delimiters, encoding, whether a field is filled or empty: the assistant sees *that* PID-3 is filled, not its value); codes and short values (message type and event, statuses, OBX codes, units, results, anything up to 30 characters); and the channel itself (scripts, filters, transformers, connectors, errors and stack traces; only credentials and map values are hidden). Questions such as *Why does this message fail?*, *Which channels have errors?* or *Explain this transformer* get the same answer with or without masking.
+
+**Where masking costs quality:**
+
+- **Errors in a masked value.** When the problem is a malformed birth date, a wrong identifier format, a name component in the wrong place or a strange character in an address, the assistant only sees `***`. It can say *where* the problem probably is, not *what* is wrong.
+- **Long text.** Report text, notes, NTE comments and base64 documents (over 30 characters) are hidden, so the assistant cannot check, for example, a truncated PDF in OBX-5 or an encoding problem in free text.
+- **Map values.** The assistant sees that `channelMap.mrn` exists, not its value, so *why does this variable have the wrong value?* becomes guesswork.
+- **Comparing messages.** *Is this the same patient as in message 1234?* or following one identifier through several channels does not work: every masked value looks the same.
+- **Over-masking.** The BSN eleven-test and your own mask patterns can also hit numbers that are not personal, such as an order number that happens to pass the eleven-test.
+- **Scripts written from examples.** When the assistant uses a masked value as an example, `***` can end up in a script. The approval dialog warns you when a proposal contains `***`.
+
+**In practice:**
+
+- **Production data:** keep masking on. Most questions work well; for a problem in one field, describe the value yourself in your question (for example *PID-7 contains 19800231*), as far as that is allowed in your organization.
+- **Test data:** turning masking off (see *Turning masking off for test data*) gives the best answers for problems with values, formats and mappings.
+- **Mixed data:** turn masking off only in the conversation that needs it; a new conversation starts masked again.
+
+The assistant is told which fields are masked, so it does not guess hidden values; it usually says when it cannot check something because of masking.
+
 ### Review before sending
 
 Before message content, log lines or events go to the AI model, a dialog shows exactly what would be sent, after masking. Nothing leaves the server until you decide.
@@ -405,11 +441,11 @@ Conversations are visible only to the user who started them. By default they liv
 
 ### Conversations: export and continue
 
-**Export** saves a conversation as a Markdown file: every question, the tools the assistant used, its answers and the actions you approved. The file contains what the AI model received, so patient data appears masked as `***`. Use it to keep an analysis or share it with a colleague.
+**Export** saves a conversation as a Markdown file: every question, the tools the assistant used, its answers and the actions you approved. The file contains what the AI model received, so patient data appears masked as `***`, except in questions sent with masking off. Use it to keep an analysis or share it with a colleague.
 
 **Continue later.** *Conversations…* lists your own conversations, most recent first. Without saving that is only the ones still in memory. With *Settings > AI Assistant > Keep conversations* set to a number of days, each conversation is also saved on the server after every question, and can be continued after a restart of OIE:
 
-- Saved are the questions, answers, tool calls and action results, and the history the model needs to continue, all exactly as sent to the AI model, so masked. Unmasked data is never saved.
+- Saved are the questions, answers, tool calls and action results, and the history the model needs to continue, all exactly as sent to the AI model, so masked. The exception: questions sent with *Mask data* off on a test or mixed-data server are saved as sent, unmasked.
 - The files are in the OIE application data folder, under `claude-assistant/conversations/<user ID>/`, one file per conversation. Each user only sees and continues their own.
 - A conversation not used for longer than the setting is removed automatically (checked every 10 minutes). Setting it back to 0 stops saving and removes all saved conversations.
 - Uninstalling the plugin removes all saved conversations right away, and its settings (including the API keys) at the next server restart. Its events in the Event log stay, as an audit trail; the Data Pruner removes them like other events.
@@ -422,7 +458,7 @@ The extension adds three permissions, which you assign to roles in the RBAC exte
 | --- | --- |
 | Use AI Assistant | Chatting (read-only tools) |
 | Run AI Assistant actions | Approving proposed actions |
-| Manage AI Assistant settings | Changing API keys, model and mask patterns; *Test connection*; viewing spend |
+| Manage AI Assistant settings | Changing API keys, model, mask patterns and *Data on this server*; *Test connection*; viewing spend |
 
 A user without *Run AI Assistant actions* can chat but cannot run actions.
 

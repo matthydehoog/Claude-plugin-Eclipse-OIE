@@ -240,11 +240,20 @@ public class OieTools {
 
     /** Runs a read tool. The result is masked and clipped, ready to send to Claude. */
     public String run(String name, JsonNode input) throws Exception {
+        return run(name, input, true);
+    }
+
+    /**
+     * Runs a read tool, masked or (only for a question on a test-data server with masking turned off)
+     * unmasked. Credentials are hidden by the tools themselves either way. The result is clipped.
+     */
+    public String run(String name, JsonNode input, boolean masked) throws Exception {
         ReadTool tool = readTools.get(name);
         if (tool == null) {
             throw new IllegalArgumentException("Unknown tool: " + name);
         }
-        return clip(masker.mask(tool.run(input)));
+        String result = tool.run(input);
+        return clip(masked ? masker.mask(result) : result);
     }
 
     public PreparedAction prepare(String name, JsonNode input) throws Exception {

@@ -23,7 +23,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * Saved conversations: one JSON file per conversation, in a folder per user. A file holds the
- * readable log and the model history, both exactly as sent to the AI model, so masked.
+ * readable log and the model history, both exactly as sent to the AI model, so masked (except questions the user sent with masking off).
  */
 class ConversationStore {
 
@@ -145,7 +145,7 @@ class ConversationStore {
         sb.append("- **Started:** ").append(java.time.Instant.ofEpochMilli(created).atZone(java.time.ZoneId.systemDefault())
                 .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))).append('\n');
         sb.append("- **Subject:** ").append(title).append("\n\n");
-        sb.append("> Everything below is what the AI model received and answered. Patient data was masked before sending and appears as `***`.\n");
+        sb.append("> Everything below is what the AI model received and answered. Patient data was masked before sending and appears as `***`, except in questions marked \"Masking is off\" (only possible on servers set to test or mixed data).\n");
         int question = 0;
         boolean inTools = false;
         for (Conversation.Entry e : log) {
