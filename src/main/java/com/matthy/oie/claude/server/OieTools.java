@@ -311,7 +311,7 @@ public class OieTools {
                 "limit", integer("Maximum number of messages, 1-50 (default 20)"),
                 "offset", integer("Number of messages to skip (default 0)")), this::searchMessages, "channel");
 
-        read("oie_get_message", "One message with all connector messages: raw, transformed, encoded, sent, response, maps and errors (patient data masked).", props(
+        read("oie_get_message", "One message with all connector messages: raw, transformed, encoded, sent, response, maps and errors (patient data masked; map and custom metadata values are always masked as ***, only their keys are readable).", props(
                 "channel", str("Channel ID (UUID) or channel name"),
                 "messageId", integer("Message ID"),
                 "metaDataIds", arr(integer("Connector"), "Limit to these connectors (0 = source)")), this::getMessage, "channel", "messageId");

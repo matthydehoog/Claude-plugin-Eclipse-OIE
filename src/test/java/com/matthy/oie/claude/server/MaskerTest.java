@@ -7,6 +7,7 @@
 package com.matthy.oie.claude.server;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -169,5 +170,103 @@ public class MaskerTest {
     public void appliesExtraPatterns() {
         Masker custom = new Masker("MRN-\\d+;;geheim");
         assertEquals("*** en ***", custom.mask("MRN-4711 en geheim"));
+    }
+
+    /** As ObjectXMLSerializer (OIE 4.7.0) writes the maps of a connector message (issue #82). */
+    private static final String MESSAGE_MAPS = String.join("\n",
+            "<sourceMapContent>",
+            "  <encrypted>false</encrypted>",
+            "  <content class=\"linked-hash-map\">",
+            "    <entry>",
+            "      <string>originalFilename</string>",
+            "      <string>rivera_elena.hl7</string>",
+            "    </entry>",
+            "  </content>",
+            "</sourceMapContent>",
+            "<connectorMapContent>",
+            "  <encrypted>false</encrypted>",
+            "  <content class=\"map\"/>",
+            "</connectorMapContent>",
+            "<channelMapContent>",
+            "  <encrypted>false</encrypted>",
+            "  <content class=\"linked-hash-map\">",
+            "    <entry>",
+            "      <string>mrn</string>",
+            "      <string>100234</string>",
+            "    </entry>",
+            "    <entry>",
+            "      <string>patientName</string>",
+            "      <string>ELENA RIVERA</string>",
+            "    </entry>",
+            "    <entry>",
+            "      <string>isUrgent</string>",
+            "      <boolean>true</boolean>",
+            "    </entry>",
+            "    <entry>",
+            "      <string>count</string>",
+            "      <int>3</int>",
+            "    </entry>",
+            "    <entry>",
+            "      <string>details</string>",
+            "      <linked-hash-map>",
+            "        <entry>",
+            "          <string>dob</string>",
+            "          <string>19800412</string>",
+            "        </entry>",
+            "      </linked-hash-map>",
+            "    </entry>",
+            "  </content>",
+            "</channelMapContent>",
+            "<responseMapContent>",
+            "  <encrypted>false</encrypted>",
+            "  <content class=\"linked-hash-map\">",
+            "    <entry>",
+            "      <string>d2</string>",
+            "      <response>",
+            "        <status>SENT</status>",
+            "        <message>MSA|AA|MSG1 RIVERA</message>",
+            "        <error></error>",
+            "        <statusMessage>HTTP 200 OK</statusMessage>",
+            "      </response>",
+            "    </entry>",
+            "  </content>",
+            "</responseMapContent>",
+            "<metaDataMap class=\"linked-hash-map\">",
+            "  <entry>",
+            "    <string>PATIENT</string>",
+            "    <string>RIVERA</string>",
+            "  </entry>",
+            "</metaDataMap>");
+
+    @Test
+    public void masksMapAndMetadataValuesButKeepsKeys() {
+        String out = masker.mask(MESSAGE_MAPS);
+        for (String value : new String[] { "100234", "ELENA RIVERA", "19800412", "rivera_elena.hl7", "RIVERA", "MSG1", "HTTP 200 OK", ">3<" }) {
+            assertFalse(value + " leaked:\n" + out, out.contains(value));
+        }
+        for (String key : new String[] { "<string>mrn</string>", "<string>patientName</string>", "<string>isUrgent</string>", "<string>count</string>",
+                "<string>details</string>", "<string>originalFilename</string>", "<string>d2</string>", "<string>PATIENT</string>" }) {
+            assertTrue(key + " missing:\n" + out, out.contains(key));
+        }
+        assertTrue(out, out.contains("<string>mrn</string>\n      <string>***</string>"));
+        assertTrue(out, out.contains("<int>***</int>"));
+    }
+
+    @Test
+    public void keepsBooleansStatusAndStructureInMaps() {
+        String out = masker.mask(MESSAGE_MAPS);
+        assertTrue(out, out.contains("<boolean>true</boolean>"));
+        assertTrue(out, out.contains("<status>SENT</status>"));
+        assertTrue(out, out.contains("<error></error>"));
+        assertTrue(out, out.contains("<encrypted>false</encrypted>"));
+        assertTrue(out, out.contains("<content class=\"map\"/>"));
+        assertEquals(MESSAGE_MAPS.split("\n").length, out.split("\n").length);
+    }
+
+    @Test
+    public void leavesEntriesOutsideMessageMapsAlone() {
+        // XStream writes other maps the same way, e.g. a channel's exportData or the Configuration Map keys
+        String xml = "<properties><entry><string>host</string><string>lab01</string></entry></properties>";
+        assertEquals(xml, masker.mask(xml));
     }
 }

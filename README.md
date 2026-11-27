@@ -205,6 +205,8 @@ oie-mcp-server:
   results (BEP) stay readable; trade messages (ORDERS, INVOIC) are not masked
 - 9-digit numbers that pass the eleven-test (Dutch BSN)
 - credentials in channel configuration: elements named like password, passphrase, secret, token or apiKey
+- the values in a message's channel, connector, source and response maps and its custom metadata (keys,
+  `true`/`false` and a response's status stay readable)
 - your own patterns under *Settings > AI Assistant*
 
 **Review before sending.** Before message content, log lines or events go to the AI model, a dialog shows
