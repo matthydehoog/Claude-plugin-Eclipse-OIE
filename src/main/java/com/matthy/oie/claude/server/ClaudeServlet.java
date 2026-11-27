@@ -39,7 +39,7 @@ public class ClaudeServlet extends MirthServlet implements ClaudeServletInterfac
             throw new MirthApiException(Response.status(Response.Status.FORBIDDEN).entity("The AI Assistant is not available to users with channel restrictions.").build());
         }
         try {
-            ChatJob job = service().startChat(getCurrentUserId(), request.getRemoteAddr(), in.path("conversationId").asText(null), message, in.path("context").asText(null));
+            ChatJob job = service().startChat(getCurrentUserId(), request.getRemoteAddr(), in.path("conversationId").asText(null), message, in.path("context").asText(null), in.path("mask").asBoolean(true));
             ObjectNode out = MAPPER.createObjectNode();
             out.put("conversationId", job.conversation.id);
             out.put("jobId", job.id);

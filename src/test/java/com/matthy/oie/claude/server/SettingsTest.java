@@ -51,6 +51,32 @@ public class SettingsTest {
     }
 
     @Test
+    public void dataTypeDefaultsToProductionAndDecidesWhetherMaskingCanBeTurnedOff() throws Exception {
+        Settings production = review("data");
+        assertEquals(Settings.DATA_PRODUCTION, production.dataType);
+        assertFalse(production.maskingOptional());
+        assertEquals(Settings.DATA_PRODUCTION, Settings.fromProperties(Settings.defaults(), null).dataType);
+        assertEquals(Settings.DATA_PRODUCTION, production.merge(MAPPER.readTree("{\"dataType\":\"nonsense\"}")).dataType);
+
+        Settings test = production.merge(MAPPER.readTree("{\"dataType\":\" TEST \"}"));
+        assertEquals(Settings.DATA_TEST, test.dataType);
+        assertTrue(test.maskingOptional());
+        assertTrue(test.maskingChoiceKept());
+        assertEquals(Settings.DATA_TEST, test.merge(MAPPER.readTree("{\"effort\":\"low\"}")).dataType);
+
+        Settings mixed = production.merge(MAPPER.readTree("{\"dataType\":\"mixed\"}"));
+        assertTrue(mixed.maskingOptional());
+        assertFalse(mixed.maskingChoiceKept());
+
+        Settings stored = new Settings("", "", "claude-opus-5", "high", 25, "", null, "data", 0, null, null, "mixed");
+        assertEquals(Settings.DATA_MIXED, Settings.fromProperties(stored.toProperties(null), null).dataType);
+        com.fasterxml.jackson.databind.node.ObjectNode out = MAPPER.createObjectNode();
+        test.writeTo(out);
+        assertEquals("test", out.path("dataType").asText());
+        assertTrue(out.path("maskingOptional").asBoolean());
+    }
+
+    @Test
     public void mergeKeepsReviewUnlessGiven() throws Exception {
         Settings all = review("all");
         assertEquals("all", all.merge(MAPPER.readTree("{\"effort\":\"low\"}")).reviewBeforeSending);

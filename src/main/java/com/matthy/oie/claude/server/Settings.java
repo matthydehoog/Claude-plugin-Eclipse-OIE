@@ -38,6 +38,13 @@ public class Settings {
     private static final String KEY_KEEP_DAYS = "keepConversationsDays";
     private static final String KEY_PROVIDER = "provider";
     private static final String KEY_BASE_URL = "baseUrl";
+    private static final String KEY_DATA_TYPE = "dataType";
+    /** Data on this server: only test data, so users may turn masking off and their choice is kept. */
+    static final String DATA_TEST = "test";
+    /** Data on this server: test and real patient data; users may turn masking off, but every new conversation starts masked. */
+    static final String DATA_MIXED = "mixed";
+    /** Data on this server: real patient data only, so masking is always on (the default). */
+    static final String DATA_PRODUCTION = "production";
     /** The model is Claude, through the Anthropic SDK (the default). */
     static final String PROVIDER_ANTHROPIC = "anthropic";
     /** The model is served by an OpenAI-compatible Chat Completions API (OpenAI, Ollama, vLLM). */
@@ -62,16 +69,25 @@ public class Settings {
     final String provider;
     /** API base URL of the OpenAI-compatible provider, e.g. https://api.openai.com/v1; not used for Anthropic. */
     final String baseUrl;
+    /** {@link #DATA_TEST}, {@link #DATA_MIXED} or {@link #DATA_PRODUCTION}: what kind of data this OIE server holds. */
+    final String dataType;
 
     Settings(String apiKey, String adminApiKey, String model, String effort, int maxToolCalls, String maskPatterns, String responseLanguage, String reviewBeforeSending) {
         this(apiKey, adminApiKey, model, effort, maxToolCalls, maskPatterns, responseLanguage, reviewBeforeSending, 0);
     }
 
     Settings(String apiKey, String adminApiKey, String model, String effort, int maxToolCalls, String maskPatterns, String responseLanguage, String reviewBeforeSending, int keepConversationsDays) {
-        this(apiKey, adminApiKey, model, effort, maxToolCalls, maskPatterns, responseLanguage, reviewBeforeSending, keepConversationsDays, PROVIDER_ANTHROPIC, "");
+        this(apiKey, adminApiKey, model, effort, maxToolCalls, maskPatterns, responseLanguage, reviewBeforeSending, keepConversationsDays, PROVIDER_ANTHROPIC, "", DATA_PRODUCTION);
     }
 
     Settings(String apiKey, String adminApiKey, String model, String effort, int maxToolCalls, String maskPatterns, String responseLanguage, String reviewBeforeSending, int keepConversationsDays, String provider, String baseUrl) {
+        this(apiKey, adminApiKey, model, effort, maxToolCalls, maskPatterns, responseLanguage, reviewBeforeSending, keepConversationsDays, provider, baseUrl, DATA_PRODUCTION);
+    }
+
+    Settings(String apiKey, String adminApiKey, String model, String effort, int maxToolCalls, String maskPatterns, String responseLanguage, String reviewBeforeSending, int keepConversationsDays, String provider, String baseUrl, String dataType) {
+        String data = blank(dataType) ? DATA_PRODUCTION : dataType.trim().toLowerCase();
+        // Anything unknown counts as production data, so masking can never be turned off by mistake.
+        this.dataType = data.equals(DATA_TEST) || data.equals(DATA_MIXED) ? data : DATA_PRODUCTION;
         this.provider = PROVIDER_OPENAI.equalsIgnoreCase(provider == null ? "" : provider.trim()) ? PROVIDER_OPENAI : PROVIDER_ANTHROPIC;
         this.baseUrl = baseUrl == null ? "" : baseUrl.trim().replaceAll("/+$", "");
         this.apiKey = apiKey == null ? "" : apiKey.trim();
@@ -95,6 +111,19 @@ public class Settings {
         return openAiCompatible() ? !baseUrl.isEmpty() : !apiKey.isEmpty();
     }
 
+    /** Whether users may turn masking off for their questions: with test data only or mixed data, never with production data. */
+    boolean maskingOptional() {
+        return !DATA_PRODUCTION.equals(dataType);
+    }
+
+    /**
+     * Whether the user's choice to turn masking off is kept for new conversations (test data only). With
+     * mixed data masking is switched on again at every new conversation.
+     */
+    boolean maskingChoiceKept() {
+        return DATA_TEST.equals(dataType);
+    }
+
     boolean automaticLanguage() {
         return AUTOMATIC_LANGUAGE.equalsIgnoreCase(responseLanguage);
     }
@@ -112,11 +141,12 @@ public class Settings {
         p.setProperty(KEY_KEEP_DAYS, "0");
         p.setProperty(KEY_PROVIDER, PROVIDER_ANTHROPIC);
         p.setProperty(KEY_BASE_URL, "");
+        p.setProperty(KEY_DATA_TYPE, DATA_PRODUCTION);
         return p;
     }
 
     static Settings fromProperties(Properties p, Encryptor encryptor) {
-        return new Settings(decrypt(p.getProperty(KEY_API_KEY, ""), encryptor), decrypt(p.getProperty(KEY_ADMIN_API_KEY, ""), encryptor), p.getProperty(KEY_MODEL), p.getProperty(KEY_EFFORT), parseInt(p.getProperty(KEY_MAX_TOOL_CALLS)), p.getProperty(KEY_MASK_PATTERNS), p.getProperty(KEY_RESPONSE_LANGUAGE), p.getProperty(KEY_REVIEW), parseInt(p.getProperty(KEY_KEEP_DAYS)), p.getProperty(KEY_PROVIDER), p.getProperty(KEY_BASE_URL));
+        return new Settings(decrypt(p.getProperty(KEY_API_KEY, ""), encryptor), decrypt(p.getProperty(KEY_ADMIN_API_KEY, ""), encryptor), p.getProperty(KEY_MODEL), p.getProperty(KEY_EFFORT), parseInt(p.getProperty(KEY_MAX_TOOL_CALLS)), p.getProperty(KEY_MASK_PATTERNS), p.getProperty(KEY_RESPONSE_LANGUAGE), p.getProperty(KEY_REVIEW), parseInt(p.getProperty(KEY_KEEP_DAYS)), p.getProperty(KEY_PROVIDER), p.getProperty(KEY_BASE_URL), p.getProperty(KEY_DATA_TYPE));
     }
 
     Properties toProperties(Encryptor encryptor) {
@@ -132,6 +162,7 @@ public class Settings {
         p.setProperty(KEY_KEEP_DAYS, String.valueOf(keepConversationsDays));
         p.setProperty(KEY_PROVIDER, provider);
         p.setProperty(KEY_BASE_URL, baseUrl);
+        p.setProperty(KEY_DATA_TYPE, dataType);
         return p;
     }
 
@@ -143,7 +174,7 @@ public class Settings {
         String newKey = update.path(KEY_API_KEY).asText("");
         String newAdminKey = update.path(KEY_ADMIN_API_KEY).asText("");
         String admin = update.path("clearAdminApiKey").asBoolean(false) ? "" : newAdminKey.isBlank() ? adminApiKey : newAdminKey;
-        return new Settings(newKey.isBlank() ? apiKey : newKey, admin, update.path(KEY_MODEL).asText(model), update.path(KEY_EFFORT).asText(effort), update.path(KEY_MAX_TOOL_CALLS).asInt(maxToolCalls), update.path(KEY_MASK_PATTERNS).asText(maskPatterns), update.path(KEY_RESPONSE_LANGUAGE).asText(responseLanguage), update.path(KEY_REVIEW).asText(reviewBeforeSending), update.path(KEY_KEEP_DAYS).asInt(keepConversationsDays), update.path(KEY_PROVIDER).asText(provider), update.path(KEY_BASE_URL).asText(baseUrl));
+        return new Settings(newKey.isBlank() ? apiKey : newKey, admin, update.path(KEY_MODEL).asText(model), update.path(KEY_EFFORT).asText(effort), update.path(KEY_MAX_TOOL_CALLS).asInt(maxToolCalls), update.path(KEY_MASK_PATTERNS).asText(maskPatterns), update.path(KEY_RESPONSE_LANGUAGE).asText(responseLanguage), update.path(KEY_REVIEW).asText(reviewBeforeSending), update.path(KEY_KEEP_DAYS).asInt(keepConversationsDays), update.path(KEY_PROVIDER).asText(provider), update.path(KEY_BASE_URL).asText(baseUrl), update.path(KEY_DATA_TYPE).asText(dataType));
     }
 
     void writeTo(ObjectNode node) {
@@ -160,6 +191,9 @@ public class Settings {
         node.put(KEY_KEEP_DAYS, keepConversationsDays);
         node.put(KEY_PROVIDER, provider);
         node.put(KEY_BASE_URL, baseUrl);
+        node.put(KEY_DATA_TYPE, dataType);
+        node.put("maskingOptional", maskingOptional());
+        node.put("maskingChoiceKept", maskingChoiceKept());
     }
 
     private static String hint(String key) {

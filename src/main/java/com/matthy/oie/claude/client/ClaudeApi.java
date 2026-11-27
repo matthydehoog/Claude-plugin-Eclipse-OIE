@@ -25,7 +25,15 @@ final class ClaudeApi {
     }
 
     static JsonNode chat(String conversationId, String message, String context) throws Exception {
+        return chat(conversationId, message, context, true);
+    }
+
+    /** mask false asks the server to send this question unmasked; it only does so on test-data or mixed-data servers. */
+    static JsonNode chat(String conversationId, String message, String context, boolean mask) throws Exception {
         ObjectNode body = MAPPER.createObjectNode();
+        if (!mask) {
+            body.put("mask", false);
+        }
         if (conversationId != null) {
             body.put("conversationId", conversationId);
         }

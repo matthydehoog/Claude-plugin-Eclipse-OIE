@@ -71,6 +71,11 @@ public class ChatJob {
     final Conversation conversation;
     /** IP address of the user's client, for authorization checks and audit events. */
     final String address;
+    /**
+     * Whether everything for this question is masked. Only false when the server is set to "Test data only"
+     * and the user turned masking off for the question.
+     */
+    final boolean masked;
 
     public Conversation conversation() {
         return conversation;
@@ -85,8 +90,13 @@ public class ChatJob {
     private Future<?> future;
 
     ChatJob(Conversation conversation, String address) {
+        this(conversation, address, true);
+    }
+
+    ChatJob(Conversation conversation, String address, boolean masked) {
         this.conversation = conversation;
         this.address = address;
+        this.masked = masked;
     }
 
     synchronized void setFuture(Future<?> future) {
